@@ -1,12 +1,11 @@
 # cost_tracker.py
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
-from pathlib import Path
-from datetime import datetime
 import json
-
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # USD per token, based on your pricing snippet
 # (prices are per 1M tokens, so we divide by 1_000_000)

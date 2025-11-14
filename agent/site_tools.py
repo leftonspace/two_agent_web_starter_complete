@@ -1,10 +1,9 @@
 # site_tools.py
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Dict, Any, List
 from html.parser import HTMLParser
-
+from pathlib import Path
+from typing import Any, Dict, List
 
 ALLOWED_EXT = {".html", ".css", ".js", ".tsx", ".ts", ".jsx", ".json"}
 

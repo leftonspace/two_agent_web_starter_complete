@@ -1,7 +1,7 @@
 # prompts.py
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 BASE_DIR = Path(__file__).resolve().parent
 PROMPTS_DIR = BASE_DIR / "prompts"

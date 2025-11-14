@@ -12,7 +12,7 @@ AGENT_DIR = ROOT / "agent"
 if str(AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(AGENT_DIR))
 
-import site_tools  # type: ignore  # we only care that it imports
+import site_tools  # type: ignore  # noqa: E402  # we only care that it imports
 
 
 def test_site_tools_imports():

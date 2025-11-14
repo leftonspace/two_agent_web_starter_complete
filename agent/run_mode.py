@@ -7,9 +7,9 @@ from pathlib import Path
 # We import defaults just for display purposes.
 try:
     from llm import (
+        DEFAULT_EMPLOYEE_MODEL,
         DEFAULT_MANAGER_MODEL,
         DEFAULT_SUPERVISOR_MODEL,
-        DEFAULT_EMPLOYEE_MODEL,
     )
 except ImportError:
     # Fallback labels if constants are not accessible for any reason.

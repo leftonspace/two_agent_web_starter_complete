@@ -1,11 +1,11 @@
 # llm.py
-import os
 import json
-import requests
+import os
 from typing import Optional
 
-import cost_tracker
+import requests
 
+import cost_tracker
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_BASE = os.getenv("OPENAI_BASE", "https://api.openai.com/v1")

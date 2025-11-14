@@ -1,0 +1,17 @@
+{
+  "mode": "3loop",
+  
+  "project_subdir": "multi_section_landing_full_test",
+  "task": " ... your big task ... ",
+  "use_visual_review": true,
+  "max_rounds": 3,
+  "prompts_file": "prompts_default.json",
+
+  "max_cost_usd": 1.0,
+  "cost_warning_usd": 0.5,
+
+  "interactive_cost_mode": "once",
+
+  "use_git": true
+}
+

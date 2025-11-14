@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Projects — Modern Portfolio</title>
+  <meta name="description" content="A selection of projects demonstrating UI engineering, design systems, and accessibility.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="site-header" id="top">
+    <div class="container nav-bar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark" aria-hidden="true">◆</span>
+        <span class="brand-text">Modern Portfolio</span>
+        <span class="sr-only"> — Home</span>
+      </a>
+      <button class="nav-toggle" aria-controls="primary-menu" aria-expanded="false" aria-haspopup="true" aria-label="Open navigation menu">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
+        </svg>
+      </button>
+      <nav id="primary-nav" class="nav" aria-label="Primary">
+        <ul id="primary-menu" class="nav-list">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="projects.html" aria-current="page">Projects</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="container page-header">
+      <h1>Projects</h1>
+      <p class="muted">A few small samples. Clean structure, modern CSS, and accessible interactions.</p>
+    </section>
+
+    <section class="container projects-grid">
+      <article id="design-system" class="card project-card">
+        <div class="card-body">
+          <h3 class="card-title">Design System Starter</h3>
+          <p class="card-text">A token-driven CSS library with accessible components, responsive grid, and dark mode via CSS variables.</p>
+          <a class="card-link" href="#design-system" aria-label="Design System Starter — in-page details">Learn more</a>
+        </div>
+      </article>
+
+      <article id="accessible-forms" class="card project-card">
+        <div class="card-body">
+          <h3 class="card-title">Accessible Forms</h3>
+          <p class="card-text">Semantic form patterns with inline validation, ARIA live regions, and keyboard-friendly focus management.</p>
+          <a class="card-link" href="#accessible-forms" aria-label="Accessible Forms — in-page details">Learn more</a>
+        </div>
+      </article>
+
+      <article id="responsive-layouts" class="card project-card">
+        <div class="card-body">
+          <h3 class="card-title">Responsive Layouts</h3>
+          <p class="card-text">Adaptive layouts using CSS grid and flexbox, supporting small to large screens without horizontal scroll.</p>
+          <a class="card-link" href="#responsive-layouts" aria-label="Responsive Layouts — in-page details">Learn more</a>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© <span id="year"></span> Modern Portfolio. All rights reserved.</p>
+      <a href="#top" class="back-to-top">Back to top</a>
+    </div>
+  </footer>
+</body>
+</html>

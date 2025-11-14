@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Test file path: .../agent/tests/integration/test_snapshots_and_files.py
 # parents[0] = .../agent/tests/integration

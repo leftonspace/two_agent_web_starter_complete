@@ -2,14 +2,17 @@ from pathlib import Path
 import importlib.util
 import json
 
-
-# Project root = two_agent_web_starter
-ROOT = Path(__file__).resolve().parents[2]
+# Test file path: .../agent/tests/e2e/test_smoke_hello_kevin.py
+# parents[0] = .../agent/tests/e2e
+# parents[1] = .../agent/tests
+# parents[2] = .../agent
+# parents[3] = .../two_agent_web_starter (project root)
+ROOT = Path(__file__).resolve().parents[3]
 AGENT_DIR = ROOT / "agent"
 
 
 def _load_orchestrator_module():
-    """Load agent/orchestrator.py without relying on sys.path."""
+    """Load agent/orchestrator.py directly from the agent folder."""
     orch_path = AGENT_DIR / "orchestrator.py"
     assert orch_path.exists(), f"orchestrator.py not found at {orch_path}"
 

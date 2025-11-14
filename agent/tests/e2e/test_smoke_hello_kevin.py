@@ -29,10 +29,12 @@ def test_project_config_loads_and_has_basic_keys():
     assert cfg_path.exists(), f"project_config.json not found at {cfg_path}"
 
     data = json.loads(cfg_path.read_text(encoding="utf-8"))
-    # Just sanity-check that core keys exist – keep this light.
-    assert "project_folder" in data
-    assert "task" in data
-    assert "mode" in data
+
+    # Keep this robust and aligned with your current schema:
+    # We just sanity-check that these fundamental knobs exist.
+    required_keys = ("task", "mode", "max_rounds", "max_cost_usd")
+    for key in required_keys:
+        assert key in data, f"Expected key '{key}' missing in project_config.json"
 
 
 def test_orchestrator_module_imports_and_has_main():

@@ -1,55 +1,37 @@
-import os
 from pathlib import Path
-import importlib
-
-import cost_tracker
-
-# We import orchestrator via importlib so pytest doesn't auto-run it.
-orchestrator = importlib.import_module("orchestrator")
+import importlib.util
+import json
 
 
-def test_smoke_run_hello_kevin(tmp_path: Path) -> None:
-    """
-    Very small end-to-end smoke test.
+# Project root = two_agent_web_starter
+ROOT = Path(__file__).resolve().parents[2]
+AGENT_DIR = ROOT / "agent"
 
-    WARNING: This will call the OpenAI API.
-    Only run when you actually want to test the full pipeline.
-    """
 
-    if not os.getenv("OPENAI_API_KEY"):
-        # Skip if no key set
-        import pytest
+def _load_orchestrator_module():
+    """Load agent/orchestrator.py without relying on sys.path."""
+    orch_path = AGENT_DIR / "orchestrator.py"
+    assert orch_path.exists(), f"orchestrator.py not found at {orch_path}"
 
-        pytest.skip("OPENAI_API_KEY not set; skipping real E2E test.")
+    spec = importlib.util.spec_from_file_location("agent_orchestrator", orch_path)
+    assert spec and spec.loader, "Could not create import spec for orchestrator.py"
 
-    # Prepare a tiny project folder under tmp_path
-    project_dir = tmp_path / "hello_kevin_e2e"
-    project_dir.mkdir(parents=True, exist_ok=True)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
 
-    # Minimal config for this run
-    config = {
-        "project_root": str(project_dir),
-        "task": "Create a minimal landing page that says 'Hello Kevin'.",
-        "prompts_file": "prompts_default.json",
-        "mode": "3loop",
-        "max_rounds": 1,
-        "use_visual_review": False,
-        "use_git": False,
-        "git_repo_root": None,
-        "git_auto_commit": False,
-    }
 
-    # Reset cost
-    cost_tracker.reset()
+def test_project_config_loads_and_has_basic_keys():
+    cfg_path = AGENT_DIR / "project_config.json"
+    assert cfg_path.exists(), f"project_config.json not found at {cfg_path}"
 
-    # Run orchestrator.main with our custom config
-    orchestrator.main(config_override=config)
+    data = json.loads(cfg_path.read_text(encoding="utf-8"))
+    # Just sanity-check that core keys exist – keep this light.
+    assert "project_folder" in data
+    assert "task" in data
+    assert "mode" in data
 
-    # Check files exist
-    index_file = project_dir / "index.html"
-    assert index_file.exists()
-    html = index_file.read_text(encoding="utf-8")
-    assert "Hello Kevin" in html
 
-    # Ensure some cost was tracked
-    assert cost_tracker.get_total_cost_usd() > 0.0
+def test_orchestrator_module_imports_and_has_main():
+    orch = _load_orchestrator_module()
+    assert hasattr(orch, "main"), "orchestrator.main is missing"

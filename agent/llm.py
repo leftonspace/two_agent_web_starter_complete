@@ -64,7 +64,7 @@ def _post(payload: dict) -> dict:
     raise RuntimeError(f"Error talking to OpenAI API after 3 attempts: {last_error}")
 
 
-def chat_json(role: str, system: str, user_content: str, model: Optional[str] = None) -> dict:
+def chat_json(role: str, system: str, user_content: str, model: Optional[str] = None, expect_json: bool = True) -> dict:
     """
     Call the OpenAI Chat Completion API and parse a STRICT JSON reply.
 

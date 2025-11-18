@@ -42,6 +42,7 @@
                 <th>Project</th>
                 <th>Mode</th>
                 <th>Status</th>
+                <th>QA</th>
                 <th>Created</th>
                 <th>Duration</th>
                 <th>Actions</th>
@@ -70,6 +71,19 @@
                         <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ job.status }}</span>
                     {% else %}
                         <span class="badge badge-info">{{ job.status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if job.qa_status == 'passed' %}
+                        <span class="badge badge-success" title="{{ job.qa_summary }}">passed</span>
+                    {% elif job.qa_status == 'warning' %}
+                        <span class="badge badge-warning" title="{{ job.qa_summary }}">warning</span>
+                    {% elif job.qa_status == 'failed' %}
+                        <span class="badge badge-error" title="{{ job.qa_summary }}">failed</span>
+                    {% elif job.qa_status == 'error' %}
+                        <span class="badge" style="background: #fc8181; color: white;" title="{{ job.qa_summary }}">error</span>
+                    {% else %}
+                        <span style="color: #a0aec0; font-size: 0.85rem;">-</span>
                     {% endif %}
                 </td>
                 <td>{{ job.created_at[:19].replace('T', ' ') }}</td>

@@ -24,6 +24,8 @@ from status_codes import (
     USER_ABORT,
     UNKNOWN,
 )
+# STAGE 10: Import QA module
+import qa
 
 
 def run_project(config: Dict[str, Any]) -> RunSummary:
@@ -186,6 +188,21 @@ def run_project(config: Dict[str, Any]) -> RunSummary:
             safety_status=safety_status,
             cost_summary=cost_summary,
         )
+
+        # STAGE 10: Run QA checks if enabled and run completed successfully
+        qa_config_dict = config.get("qa", {})
+        if qa_config_dict.get("enabled", False) and final_status == COMPLETED:
+            try:
+                qa_report = run_qa_only(project_dir, qa_config_dict)
+                run_summary.qa_status = qa_report.status
+                run_summary.qa_summary = qa_report.summary
+                run_summary.qa_report = qa_report.to_dict()
+            except Exception as e:
+                # Don't fail the run if QA fails
+                run_summary.qa_status = "error"
+                run_summary.qa_summary = f"QA execution failed: {str(e)}"
+                run_summary.qa_report = None
+
         save_run_summary(run_summary)
 
     return run_summary
@@ -327,3 +344,44 @@ def get_run_details(run_id: str) -> Optional[Dict[str, Any]]:
             return json.load(f)
     except Exception:
         return None
+
+
+def run_qa_only(project_path: Path, qa_config_dict: Optional[Dict[str, Any]] = None) -> qa.QAReport:
+    """
+    Run QA checks on an existing project without re-running the orchestrator.
+
+    This allows on-demand quality checking of any project in the sites/ directory.
+
+    Args:
+        project_path: Path to the project directory
+        qa_config_dict: Optional QA configuration dict. If None, uses defaults from project_config.json
+
+    Returns:
+        QAReport with quality check results
+
+    Raises:
+        FileNotFoundError: If project directory doesn't exist
+        Exception: If QA execution fails
+    """
+    if not project_path.exists() or not project_path.is_dir():
+        raise FileNotFoundError(f"Project directory not found: {project_path}")
+
+    # Load QA config
+    if qa_config_dict is None:
+        # Try to load from project_config.json
+        agent_dir = Path(__file__).resolve().parent
+        config_file = agent_dir / "project_config.json"
+        if config_file.exists():
+            with open(config_file, "r", encoding="utf-8") as f:
+                full_config = json.load(f)
+                qa_config_dict = full_config.get("qa", {})
+        else:
+            qa_config_dict = {}
+
+    # Create QA config object
+    qa_config = qa.QAConfig.from_dict(qa_config_dict)
+
+    # Run QA checks
+    qa_report = qa.run_qa_for_project(project_path, qa_config)
+
+    return qa_report

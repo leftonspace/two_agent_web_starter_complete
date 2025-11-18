@@ -62,6 +62,10 @@ class RunSummary:
     iterations: List[IterationLog] = field(default_factory=list) # Per-iteration logs
     config: Dict[str, Any] = field(default_factory=dict)         # Additional config
     estimated_cost_usd: Optional[float] = None           # STAGE 3: Pre-run cost estimate
+    # STAGE 10: Quality assurance
+    qa_status: Optional[str] = None                      # "passed"/"warning"/"failed"/"error"
+    qa_summary: Optional[str] = None                     # Human-readable QA summary
+    qa_report: Optional[Dict[str, Any]] = None           # Complete QA report
 
 
 @dataclass

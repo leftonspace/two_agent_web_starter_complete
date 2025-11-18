@@ -54,6 +54,10 @@ class Job:
     result_summary: Optional[Dict[str, Any]] = None  # RunSummary as dict
     error: Optional[str] = None  # Error message if failed
     cancelled: bool = False  # Cancellation flag
+    # STAGE 10: Quality assurance
+    qa_status: Optional[str] = None  # "passed"/"warning"/"failed"/"error"
+    qa_summary: Optional[str] = None  # Human-readable QA summary
+    qa_report: Optional[Dict[str, Any]] = None  # Complete QA report
 
 
 class JobManager:

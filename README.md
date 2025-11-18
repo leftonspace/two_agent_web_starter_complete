@@ -20,13 +20,15 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **VSCode integration**: Debug configs and build tasks
 - **Documentation**: Auto-generated API reference
 
-### Web Dashboard (Stage 7-9) 🆕
+### Web Dashboard (Stage 7-10) 🆕
 - **Visual interface**: Clean web UI for project management
 - **Background jobs**: Non-blocking execution with live progress ✨
 - **Job management**: List, view, cancel, and rerun jobs ✨
 - **Live log streaming**: Watch logs update in real-time ✨
 - **Project explorer**: Browse files, view snapshots, compare versions ✨
 - **Diff viewer**: Interactive comparison between iterations ✨
+- **Quality assurance**: Automated quality checks with configurable gates ✨
+- **QA dashboard**: View quality status, issues, and metrics ✨
 - **Run history**: Browse past runs with detailed logs
 - **Cost tracking**: View token usage and cost breakdowns
 - **RESTful API**: Programmatic access to all features

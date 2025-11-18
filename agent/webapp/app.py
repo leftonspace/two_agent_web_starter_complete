@@ -28,8 +28,9 @@ if str(agent_dir) not in sys.path:
     sys.path.insert(0, str(agent_dir))
 
 from jobs import get_job_manager
-from runner import get_run_details, list_projects, list_run_history, run_project
+from runner import get_run_details, list_projects, list_run_history, run_project, run_qa_only
 import file_explorer
+import qa
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -446,6 +447,94 @@ async def api_cancel_job(job_id: str):
             )
 
     return {"success": True, "message": f"Job {job_id} cancellation requested"}
+
+
+@app.post("/api/jobs/{job_id}/qa")
+async def api_run_job_qa(job_id: str):
+    """
+    Run QA checks on an existing job's project.
+
+    STAGE 10: Run quality checks on demand for any completed job.
+
+    Args:
+        job_id: Job identifier
+
+    Returns:
+        JSON with QA report
+
+    Raises:
+        404: If job or project not found
+        400: If project files don't exist
+    """
+    job_manager = get_job_manager()
+    job = job_manager.get_job(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+    # Get project path from job config
+    project_subdir = job.config.get("project_subdir")
+    if not project_subdir:
+        raise HTTPException(status_code=400, detail="Job config missing project_subdir")
+
+    project_path = agent_dir.parent / "sites" / project_subdir
+
+    if not project_path.exists():
+        raise HTTPException(status_code=404, detail=f"Project directory not found: {project_path}")
+
+    # Get QA config from job config or use defaults
+    qa_config_dict = job.config.get("qa", {})
+
+    try:
+        # Run QA checks
+        qa_report = run_qa_only(project_path, qa_config_dict)
+
+        # Update job with QA results
+        from safe_io import safe_timestamp
+        with job_manager.lock:
+            job.qa_status = qa_report.status
+            job.qa_summary = qa_report.summary
+            job.qa_report = qa_report.to_dict()
+            job.updated_at = safe_timestamp()
+            job_manager._save_jobs()
+
+        return qa_report.to_dict()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"QA execution failed: {str(e)}")
+
+
+@app.get("/api/jobs/{job_id}/qa")
+async def api_get_job_qa(job_id: str):
+    """
+    Get QA report for a job.
+
+    STAGE 10: Retrieve existing QA results.
+
+    Args:
+        job_id: Job identifier
+
+    Returns:
+        JSON with QA report or null if not run
+
+    Raises:
+        404: If job not found
+    """
+    job_manager = get_job_manager()
+    job = job_manager.get_job(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+    if job.qa_report:
+        return job.qa_report
+    else:
+        return {
+            "status": None,
+            "summary": "QA not run for this job",
+            "checks": None,
+            "issues": [],
+        }
 
 
 # ============================================================================

@@ -161,6 +161,51 @@
 {% endif %}
 
 <div class="card">
+    <h2>✓ Quality Assurance</h2>
+    {% if job.qa_status %}
+    <div style="margin-bottom: 20px;">
+        <strong>Status:</strong>
+        {% if job.qa_status == 'passed' %}
+            <span class="badge badge-success" style="font-size: 1rem; padding: 6px 12px;">✓ Passed</span>
+        {% elif job.qa_status == 'warning' %}
+            <span class="badge badge-warning" style="font-size: 1rem; padding: 6px 12px;">⚠ Warning</span>
+        {% elif job.qa_status == 'failed' %}
+            <span class="badge badge-error" style="font-size: 1rem; padding: 6px 12px;">✗ Failed</span>
+        {% else %}
+            <span class="badge" style="background: #fc8181; color: white; font-size: 1rem; padding: 6px 12px;">Error</span>
+        {% endif %}
+        <button onclick="rerunQA()" style="margin-left: 15px; padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">
+            Re-run QA
+        </button>
+    </div>
+    <p style="margin-bottom: 15px; color: #4a5568;">{{ job.qa_summary }}</p>
+
+    {% if job.qa_report and job.qa_report.issues %}
+    <h3 style="font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px;">Issues Found:</h3>
+    <ul style="list-style: none; padding: 0;">
+        {% for issue in job.qa_report.issues[:10] %}
+        <li style="padding: 8px; margin-bottom: 8px; background: {% if issue.severity == 'error' %}#fed7d7{% elif issue.severity == 'warning' %}#feebc8{% else %}#e6f2ff{% endif %}; border-left: 4px solid {% if issue.severity == 'error' %}#e53e3e{% elif issue.severity == 'warning' %}#dd6b20{% else %}#3182ce{% endif %}; border-radius: 4px;">
+            <strong>{{ issue.category|title }}</strong> ({{ issue.severity }}): {{ issue.message }}
+        </li>
+        {% endfor %}
+        {% if job.qa_report.issues|length > 10 %}
+        <li style="padding: 8px; color: #718096; font-style: italic;">
+            ... and {{ job.qa_report.issues|length - 10 }} more issues
+        </li>
+        {% endif %}
+    </ul>
+    {% endif %}
+    {% else %}
+    <div class="alert alert-info">
+        <p>QA checks have not been run for this job.</p>
+        <button onclick="rerunQA()" style="margin-top: 10px; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Run QA Checks
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
     <h2>📋 Live Logs</h2>
     {% if job.status in ['running', 'queued'] %}
     <div class="alert alert-info" style="margin-bottom: 15px;">
@@ -245,6 +290,28 @@ async function cancelJob() {
         }
     } catch (error) {
         alert(`Error cancelling job: ${error.message}`);
+    }
+}
+
+async function rerunQA() {
+    if (!confirm('Run QA checks on this job\'s project?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/jobs/${JOB_ID}/qa`, {
+            method: 'POST',
+        });
+
+        if (response.ok) {
+            alert('QA checks completed');
+            location.reload();
+        } else {
+            const data = await response.json();
+            alert(`Failed to run QA: ${data.detail || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert(`Error running QA: ${error.message}`);
     }
 }
 

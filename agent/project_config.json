@@ -14,5 +14,22 @@
 
   "cost_warning_usd": 0.8,
   "max_cost_usd": 1.5,
-  "interactive_cost_mode": "once"
+  "interactive_cost_mode": "once",
+
+  "qa": {
+    "enabled": true,
+    "require_title": true,
+    "require_meta_description": true,
+    "require_lang_attribute": true,
+    "require_h1": true,
+    "max_empty_links": 10,
+    "max_images_missing_alt": 0,
+    "max_duplicate_ids": 0,
+    "max_console_logs": 5,
+    "allow_large_files": true,
+    "max_large_files": 5,
+    "large_file_threshold": 5000,
+    "require_smoke_tests_pass": false,
+    "smoke_test_command": null
+  }
 }

@@ -9,6 +9,9 @@ import requests
 
 import cost_tracker
 
+# OpenAI Chat Completions endpoint
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+
 # Default model labels – can be overridden via env vars.
 DEFAULT_MANAGER_MODEL = os.getenv("DEFAULT_MANAGER_MODEL", "gpt-5-mini-2025-08-07")
 DEFAULT_SUPERVISOR_MODEL = os.getenv("DEFAULT_SUPERVISOR_MODEL", "gpt-5-nano")
@@ -70,15 +73,14 @@ def _post(payload: dict) -> dict:
         "acceptance_criteria": [],
         "phases": [],
         # IMPORTANT: must be a dict, not a list, so the orchestrator's
-        # `files_dict = emp.get("files", {})` + `isinstance(files_dict, dict)`
-        # check does not explode.
+        # `files_dict = emp.get("files", {})` + `isinstance(files_dict, dict)` checks
+        # do not explode.
         "files": {},
         "notes": "Step skipped due to upstream API error. "
         "Safe stub returned by llm._post.",
         "analysis": {"status": "timeout"},
         "status": "timeout",
     }
-
 
 
 def chat_json(
@@ -123,12 +125,23 @@ def chat_json(
     try:
         usage = data.get("usage")
         if usage:
-            total_cost = _estimate_cost(usage, model_name)
+            prompt_tokens = int(usage.get("prompt_tokens", 0))
+            completion_tokens = int(usage.get("completion_tokens", 0))
+
+            # Register this call in the in-memory cost state.
+            cost_tracker.register_call(
+                role=role,
+                model=chosen_model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+            )
+
+            # Optional: persist a simple history record to disk.
             cost_tracker.append_history(
-                total_usd=total_cost,
-                prompt_tokens=usage["prompt_tokens"],
-                completion_tokens=usage["completion_tokens"],
-                model=model_name,
+                total_usd=cost_tracker.get_total_cost_usd(),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                model=chosen_model,
             )
 
     except Exception as e:  # noqa: BLE001

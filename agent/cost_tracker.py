@@ -5,7 +5,10 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+
+# Where to store the default runtime history when log_file is None
+HISTORY_FILE = Path("cost_history.json")
 
 # USD per token, based on your pricing snippet
 # (prices are per 1M tokens, so we divide by 1_000_000)
@@ -143,7 +146,7 @@ def register_call(role: str, model: str, prompt_tokens: int, completion_tokens: 
     """Register a single API call for cost accounting."""
     try:
         _GLOBAL_STATE.add_call(role, model, prompt_tokens, completion_tokens)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         # We don't want cost-tracking errors to kill the main flow
         print(f"[CostTracker] Failed to register call: {e}")
 
@@ -159,6 +162,22 @@ def get_total_cost_usd() -> float:
         return _GLOBAL_STATE.summary()["total_usd"]
     except Exception:
         return 0.0
+
+
+def load_history() -> list[dict[str, Any]]:
+    """Load the shared history from HISTORY_FILE. Best-effort and safe on errors."""
+    if not HISTORY_FILE.exists():
+        return []
+    try:
+        text = HISTORY_FILE.read_text(encoding="utf-8")
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return []
+
+
+def save_history(history: list[dict[str, Any]]) -> None:
+    """Persist the shared history to HISTORY_FILE."""
+    HISTORY_FILE.write_text(json.dumps(history, indent=2), encoding="utf-8")
 
 
 def append_history(

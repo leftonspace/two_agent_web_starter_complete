@@ -31,7 +31,6 @@ except ImportError:
 import cost_tracker
 from cost_estimator import estimate_run_cost, format_cost_estimate
 from run_logger import (
-    RunSummary,
     finalize_run,
     log_iteration,
     save_run_summary,
@@ -40,20 +39,12 @@ from run_logger import (
 
 # STAGE 5: Import status codes
 from status_codes import (
-    SUCCESS,
     COMPLETED,
-    MAX_ROUNDS,
-    TIMEOUT,
-    COST_EXCEEDED,
-    SAFETY_FAILED,
-    USER_ABORT,
-    SESSION_COMPLETED,
-    SESSION_GAVE_UP,
-    UNKNOWN,
     EXCEPTION,
+    ITER_EXCEPTION,
+    ITER_INTERRUPTED,
+    USER_ABORT,
 )
-
-
 
 
 def _load_config() -> dict:
@@ -147,7 +138,7 @@ def _run_auto_pilot_mode(cfg: dict, auto_pilot_cfg: dict) -> None:
         "interactive_cost_mode": cfg.get("interactive_cost_mode", "off"),
     }
 
-    print(f"[AutoPilot] Starting auto-pilot mode")
+    print("[AutoPilot] Starting auto-pilot mode")
     print(f"[AutoPilot] Project: {project_dir}")
     print(f"[AutoPilot] Max sub-runs: {max_sub_runs}")
     print(f"[AutoPilot] Max rounds per run: {max_rounds_per_run}")
@@ -251,7 +242,7 @@ def main() -> None:
 
     # Interactive approval if configured
     if interactive_cost_mode in ("once", "always"):
-        prompt_msg = f"\n[Cost Control] Proceed with this run? "
+        prompt_msg = "\n[Cost Control] Proceed with this run? "
         prompt_msg += f"Estimated cost: ${cost_estimate['estimated_total_usd']:.4f} USD"
         if max_cost_usd > 0:
             prompt_msg += f" (max allowed: ${max_cost_usd:.4f} USD)"
@@ -272,17 +263,17 @@ def main() -> None:
                 cost_summary=cost_tracker.get_summary(),
             )
             save_run_summary(run_summary)
-            print(f"[RUN] Run summary saved (aborted before execution)")
+            print("[RUN] Run summary saved (aborted before execution)")
             return
 
         print("[COST] User approved. Continuing...")
 
     # Warn if estimate exceeds cap (in "off" mode)
     elif max_cost_usd > 0 and cost_estimate["estimated_total_usd"] > max_cost_usd:
-        print(f"\n⚠️  [Cost Control] WARNING: Estimated cost exceeds max_cost_usd!")
+        print("\n⚠️  [Cost Control] WARNING: Estimated cost exceeds max_cost_usd!")
         print(f"    Estimate: ${cost_estimate['estimated_total_usd']:.4f}")
         print(f"    Max cap:  ${max_cost_usd:.4f}")
-        print(f"    Proceeding anyway (interactive_cost_mode is 'off')...")
+        print("    Proceeding anyway (interactive_cost_mode is 'off')...")
 
     # Reset cost tracking for this run
     cost_tracker.reset()

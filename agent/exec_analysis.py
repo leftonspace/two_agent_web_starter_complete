@@ -14,7 +14,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 
 def analyze_project(project_dir: str) -> List[Dict[str, Any]]:

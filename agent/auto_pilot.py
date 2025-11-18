@@ -10,13 +10,10 @@ STAGE 5: Enhanced with status codes and improved error handling.
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict
 
 import cost_tracker
-from cost_estimator import estimate_run_cost, format_cost_estimate
 from run_logger import (
     RunSummary,
     SessionSummary,
@@ -41,7 +38,6 @@ from status_codes import (
     SESSION_STOPPED_BY_EVAL,
     SESSION_SUCCESS,
     SESSION_UNKNOWN_RECOMMENDATION,
-    SESSION_USER_ABORT,
     UNKNOWN,
     USER_ABORT,
 )
@@ -158,7 +154,7 @@ def run_auto_pilot(
 
         elif recommendation == EVAL_RETRY:
             # Retry with augmented task context
-            print(f"\\n[AUTO] Retrying with feedback from evaluation...")
+            print("\\n[AUTO] Retrying with feedback from evaluation...")
             task_context = _augment_task_with_feedback(task, eval_result, run_summary_dict)
 
             # Check if we've reached max runs
@@ -186,7 +182,7 @@ def run_auto_pilot(
     save_session_summary(session)
 
     print(f"\\n{'=' * 70}")
-    print(f"  AUTO-PILOT SESSION COMPLETE")
+    print("  AUTO-PILOT SESSION COMPLETE")
     print(f"{'=' * 70}")
     print(f"Session ID: {session.session_id}")
     print(f"Total runs: {len(session.runs)}")

@@ -10,13 +10,19 @@ from exec_safety import run_safety_checks
 from git_utils import commit_all, ensure_repo
 from llm import chat_json
 from prompts import load_prompts
+
+# STAGE 2: Import new run logging API
+from run_logger import RunSummary
 from run_logger import (
     finish_run_legacy as finish_run,
+)
+from run_logger import log_iteration as log_iteration_new
+from run_logger import (
     log_iteration_legacy as log_iteration_dict,
+)
+from run_logger import (
     start_run_legacy as start_run,
 )
-# STAGE 2: Import new run logging API
-from run_logger import RunSummary, log_iteration as log_iteration_new
 from site_tools import (
     analyze_site,
     load_existing_files,

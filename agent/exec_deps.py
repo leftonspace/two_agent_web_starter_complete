@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 import requests
-
 
 OSV_API_URL = "https://api.osv.dev/v1/querybatch"
 REQUEST_TIMEOUT = 30  # seconds

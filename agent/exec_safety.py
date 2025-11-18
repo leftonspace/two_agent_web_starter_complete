@@ -48,7 +48,7 @@ def run_safety_checks(project_dir: str, task_description: str) -> Dict[str, Any]
 
     Safety check fails if:
     - Any static_issues with severity="error"
-    - OR any dependency_issues with severity="critical"
+    - OR any dependency_issues with severity="error" (CRITICAL/HIGH from OSV)
     - OR docker tests failed
 
     Error Handling:
@@ -170,9 +170,9 @@ def _determine_status(
        - These are blocking issues that prevent code from running
 
     2. Dependencies:
-       - Any vulnerability with severity="critical"
+       - Any vulnerability with severity="error" (mapped from OSV CRITICAL/HIGH)
        - These are known security issues with high exploitability
-       - Medium/low severity vulnerabilities are reported but don't fail the run
+       - "warning" (OSV MEDIUM) and "info" (OSV LOW) are reported but don't block
 
     3. Docker/Runtime Tests:
        - Test execution returns status="failed"
@@ -196,9 +196,10 @@ def _determine_status(
         if issue.get("severity") == "error":
             return SAFETY_FAILED_STATUS
 
-    # Check for critical dependency issues
+    # Check for error-level dependency issues
+    # STAGE 1 AUDIT FIX: Now uses consistent severity mapping (error/warning/info)
     for issue in dependency_issues:
-        if issue.get("severity") == "critical":
+        if issue.get("severity") == "error":
             return SAFETY_FAILED_STATUS
 
     # Check docker tests (STAGE 5: use constant)
@@ -212,6 +213,8 @@ def _log_safety_run(result: Dict[str, Any], project_dir: str) -> None:
     """
     Log safety check results to run_logs_exec/.
 
+    STAGE 1 AUDIT FIX: Now uses safe_json_write for atomic writes.
+
     Creates a directory structure:
         run_logs_exec/<run_id>/
             - result.json (full results)
@@ -221,20 +224,18 @@ def _log_safety_run(result: Dict[str, Any], project_dir: str) -> None:
     agent_dir = Path(__file__).resolve().parent
     project_root = agent_dir.parent
 
-    # Create logs directory
+    # Create logs directory using safe_mkdir
     logs_dir = project_root / "run_logs_exec" / result["run_id"]
-    logs_dir.mkdir(parents=True, exist_ok=True)
+    if not safe_mkdir(logs_dir):
+        print(f"[Safety] Warning: Could not create logs directory {logs_dir}")
+        return
 
-    # Write JSON results
+    # Write JSON results using safe_json_write (atomic write)
     result_file = logs_dir / "result.json"
-    try:
-        result_file.write_text(
-            json.dumps(result, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
+    if safe_json_write(result_file, result):
         print(f"[Safety] Logged results to {result_file}")
-    except Exception as e:
-        print(f"[Safety] Failed to write result.json: {e}")
+    else:
+        print(f"[Safety] Failed to write result.json (safe_json_write failed)")
 
     # Write human-readable summary
     summary_file = logs_dir / "summary.txt"

@@ -73,16 +73,21 @@ def _build_safety_feedback(safety_result: Dict[str, Any]) -> List[str]:
     """
     Build human-readable feedback from safety check results.
 
+    STAGE 1 AUDIT FIX: Prefixes all safety feedback with "SAFETY:" to make
+    it easy for the manager model to parse and distinguish from other feedback.
+
     Args:
         safety_result: Result from run_safety_checks()
 
     Returns:
-        List of feedback strings for the manager
+        List of feedback strings for the manager, each prefixed with "SAFETY:"
     """
     feedback = []
 
-    # Add header
-    feedback.append("SAFETY CHECKS FAILED - The following issues must be fixed:")
+    # Add header (prefixed for easy parsing)
+    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
+    feedback.append("SAFETY: SAFETY CHECKS FAILED - The following issues must be fixed:")
+    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
 
     # Static analysis issues
     static_issues = safety_result.get("static_issues", [])
@@ -92,52 +97,58 @@ def _build_safety_feedback(safety_result: Dict[str, Any]) -> List[str]:
         warnings = [i for i in static_issues if i.get("severity") == "warning"]
 
         if errors:
-            feedback.append(f"Static Analysis ERRORS ({len(errors)} found):")
+            feedback.append(f"SAFETY: Static Analysis ERRORS ({len(errors)} found):")
             for issue in errors[:5]:  # Show first 5
                 feedback.append(
-                    f"  - {issue['file']}:{issue['line']} - {issue['message']}"
+                    f"SAFETY:   - {issue['file']}:{issue['line']} - {issue['message']}"
                 )
             if len(errors) > 5:
-                feedback.append(f"  ... and {len(errors) - 5} more errors")
+                feedback.append(f"SAFETY:   ... and {len(errors) - 5} more errors")
 
         if warnings:
-            feedback.append(f"Static Analysis WARNINGS ({len(warnings)} found - should be fixed):")
+            feedback.append(f"SAFETY: Static Analysis WARNINGS ({len(warnings)} found - should be fixed):")
             for issue in warnings[:3]:  # Show first 3
                 feedback.append(
-                    f"  - {issue['file']}:{issue['line']} - {issue['message']}"
+                    f"SAFETY:   - {issue['file']}:{issue['line']} - {issue['message']}"
                 )
             if len(warnings) > 3:
-                feedback.append(f"  ... and {len(warnings) - 3} more warnings")
+                feedback.append(f"SAFETY:   ... and {len(warnings) - 3} more warnings")
 
     # Dependency issues
+    # STAGE 1 AUDIT FIX: Now uses consistent severity mapping (error/warning/info)
     dep_issues = safety_result.get("dependency_issues", [])
     if dep_issues:
-        # Group by severity
-        critical = [i for i in dep_issues if i.get("severity") == "critical"]
-        medium = [i for i in dep_issues if i.get("severity") == "medium"]
+        # Group by severity (now using error/warning/info)
+        errors = [i for i in dep_issues if i.get("severity") == "error"]
+        warnings = [i for i in dep_issues if i.get("severity") == "warning"]
 
-        if critical:
-            feedback.append(f"CRITICAL Dependency Vulnerabilities ({len(critical)} found):")
-            for issue in critical[:3]:  # Show first 3
+        if errors:
+            feedback.append(f"SAFETY: Dependency ERRORS ({len(errors)} found - CRITICAL/HIGH vulnerabilities):")
+            for issue in errors[:3]:  # Show first 3
                 feedback.append(
-                    f"  - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
+                    f"SAFETY:   - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
                 )
-            if len(critical) > 3:
-                feedback.append(f"  ... and {len(critical) - 3} more critical issues")
+            if len(errors) > 3:
+                feedback.append(f"SAFETY:   ... and {len(errors) - 3} more error-level issues")
 
-        if medium:
-            feedback.append(f"Medium Dependency Vulnerabilities ({len(medium)} found - should review):")
-            for issue in medium[:2]:  # Show first 2
+        if warnings:
+            feedback.append(f"SAFETY: Dependency WARNINGS ({len(warnings)} found - MEDIUM vulnerabilities, should review):")
+            for issue in warnings[:2]:  # Show first 2
                 feedback.append(
-                    f"  - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
+                    f"SAFETY:   - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
                 )
-            if len(medium) > 2:
-                feedback.append(f"  ... and {len(medium) - 2} more medium issues")
+            if len(warnings) > 2:
+                feedback.append(f"SAFETY:   ... and {len(warnings) - 2} more warning-level issues")
 
     # Docker tests
     docker = safety_result.get("docker_tests", {})
     if docker.get("status") == "failed":
-        feedback.append(f"Docker/Runtime Tests FAILED: {docker.get('details', 'No details')}")
+        feedback.append(f"SAFETY: Docker/Runtime Tests FAILED: {docker.get('details', 'No details')}")
+
+    # Footer for clarity
+    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
+    feedback.append("SAFETY: All ERROR-level issues must be fixed before approval.")
+    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
 
     return feedback
 
@@ -243,6 +254,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     # STAGE 1: Safety configuration
     safety_config = cfg.get("safety", {})
     run_safety_before_final: bool = bool(safety_config.get("run_safety_before_final", True))
+    allow_extra_iteration_on_failure: bool = bool(safety_config.get("allow_extra_iteration_on_failure", True))
 
     print("=== PROJECT CONFIG (3-loop) ===")
     print(f"Project folder: {out_dir}")
@@ -255,6 +267,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     print(f"interactive_cost_mode: {interactive_cost_mode}")
     print(f"use_git: {use_git}")
     print(f"run_safety_before_final: {run_safety_before_final}")
+    print(f"allow_extra_iteration_on_failure: {allow_extra_iteration_on_failure}")
 
     # snapshots
     snapshots_root = out_dir / ".history"
@@ -513,12 +526,18 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                     # Check if this is the final planned iteration
                     is_final_iteration = (iteration == max_rounds)
 
-                    if is_final_iteration and not extra_iteration_granted:
+                    # STAGE 1 AUDIT FIX: Configurable extra iteration policy
+                    if is_final_iteration and not extra_iteration_granted and allow_extra_iteration_on_failure:
                         # Grant one extra iteration for fixes
                         print("\n[Safety] ⚠️  Safety failed on final planned iteration")
                         print("[Safety] Granting ONE extra iteration to fix safety issues")
+                        print("[Safety] (disable with safety.allow_extra_iteration_on_failure=false)")
                         max_rounds += 1
                         extra_iteration_granted = True
+                        safety_failed_on_final = True
+                    elif is_final_iteration and not allow_extra_iteration_on_failure:
+                        print("\n[Safety] ⚠️  Safety failed on final iteration")
+                        print("[Safety] Extra iteration disabled by config (safety.allow_extra_iteration_on_failure=false)")
                         safety_failed_on_final = True
 
                     # Override status to needs_changes

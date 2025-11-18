@@ -58,6 +58,7 @@
 
   "safety": {
     "run_safety_before_final": true,
-    "description": "If true, run static analysis, dependency scanning, and tests before final approval"
+    "allow_extra_iteration_on_failure": true,
+    "description": "Safety check configuration. run_safety_before_final: run checks before approval. allow_extra_iteration_on_failure: if safety fails on final iteration, grant one extra iteration for fixes"
   }
 }

@@ -3,6 +3,16 @@
 Dependency vulnerability scanning module for the multi-agent orchestrator.
 
 Scans Python dependencies for known vulnerabilities using the OSV API.
+
+STAGE 1 AUDIT FIX: Severity Mapping
+------------------------------------
+OSV API returns severities like "CRITICAL", "HIGH", "MEDIUM", "LOW".
+We map these to the same error/warning/info scheme used by static analysis:
+- CRITICAL/HIGH → "error" (blocks safety)
+- MEDIUM       → "warning" (reported but doesn't block)
+- LOW          → "info" (informational)
+
+This ensures consistent severity handling across all safety checks.
 """
 
 from __future__ import annotations
@@ -17,6 +27,15 @@ import requests
 OSV_API_URL = "https://api.osv.dev/v1/querybatch"
 REQUEST_TIMEOUT = 30  # seconds
 
+# Severity mapping from OSV levels to static analysis levels
+# This ensures consistent severity handling across all safety checks
+SEVERITY_MAP = {
+    "CRITICAL": "error",  # Blocks safety - high exploitability
+    "HIGH": "error",      # Blocks safety - significant risk
+    "MEDIUM": "warning",  # Reported but doesn't block
+    "LOW": "info",        # Informational only
+}
+
 
 def scan_dependencies(project_dir: str) -> List[Dict[str, Any]]:
     """
@@ -30,16 +49,19 @@ def scan_dependencies(project_dir: str) -> List[Dict[str, Any]]:
         {
             "package": "package-name",
             "version": "version-string or 'unknown'",
-            "severity": "critical" | "medium" | "low",
+            "severity": "error" | "warning" | "info",  # Aligned with static analysis
             "summary": "description of the vulnerability",
             "scan_completed": True  # Always present; False if scan failed
         }
 
     Note:
-        If the OSV API fails or times out, returns an empty list with no issues.
-        This is graceful degradation - we don't fail the safety run just because
-        the vulnerability database is unreachable. However, users should be aware
-        that no scan occurred.
+        If the OSV API fails or times out, returns a marker issue with
+        scan_completed=False to distinguish "no vulnerabilities" from "scan failed".
+
+        Severities are mapped from OSV levels to match static analysis:
+        - CRITICAL/HIGH → "error" (blocks safety)
+        - MEDIUM        → "warning" (reported but doesn't block)
+        - LOW           → "info" (informational)
     """
     issues: List[Dict[str, Any]] = []
     project_path = Path(project_dir)
@@ -72,7 +94,7 @@ def scan_dependencies(project_dir: str) -> List[Dict[str, Any]]:
         issues.append({
             "package": "_scan_status",
             "version": "n/a",
-            "severity": "low",
+            "severity": "info",  # Informational - doesn't block safety
             "summary": f"Dependency scan did not complete: {str(e)}",
             "scan_completed": False
         })
@@ -205,17 +227,20 @@ def _query_osv_api(packages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 
 def _extract_severity(vuln: Dict[str, Any]) -> str:
     """
-    Extract severity from OSV vulnerability data.
+    Extract severity from OSV vulnerability data and map to our severity scheme.
+
+    STAGE 1 AUDIT FIX: Maps OSV severities to error/warning/info to align
+    with static analysis severity levels for consistent safety handling.
 
     Returns:
-        "critical", "medium", or "low"
+        "error", "warning", or "info" (aligned with static analysis)
     """
     # Check if severity field exists
     severity_entries = vuln.get("severity", [])
 
     if not severity_entries:
-        # Default to medium if no severity info
-        return "medium"
+        # Default to warning if no severity info (safer than assuming low)
+        return "warning"
 
     # OSV can have multiple severity entries (CVSS, etc.)
     for entry in severity_entries:
@@ -226,26 +251,25 @@ def _extract_severity(vuln: Dict[str, Any]) -> str:
             try:
                 # Look for common patterns or compute from vector
                 # For simplicity, check if "CRITICAL" or "HIGH" in score
-                if "CRITICAL" in score_str.upper():
-                    return "critical"
-                elif "HIGH" in score_str.upper():
-                    return "critical"
-                elif "MEDIUM" in score_str.upper():
-                    return "medium"
-                elif "LOW" in score_str.upper():
-                    return "low"
+                score_upper = score_str.upper()
+                if "CRITICAL" in score_upper:
+                    return SEVERITY_MAP.get("CRITICAL", "error")
+                elif "HIGH" in score_upper:
+                    return SEVERITY_MAP.get("HIGH", "error")
+                elif "MEDIUM" in score_upper:
+                    return SEVERITY_MAP.get("MEDIUM", "warning")
+                elif "LOW" in score_upper:
+                    return SEVERITY_MAP.get("LOW", "info")
             except Exception:
                 pass
 
     # If we have database_specific severity
     db_specific = vuln.get("database_specific", {})
     sev = db_specific.get("severity", "").upper()
-    if sev in ("CRITICAL", "HIGH"):
-        return "critical"
-    elif sev == "MEDIUM":
-        return "medium"
-    elif sev == "LOW":
-        return "low"
 
-    # Default to medium
-    return "medium"
+    # Use severity map for consistent mapping
+    if sev in SEVERITY_MAP:
+        return SEVERITY_MAP[sev]
+
+    # Default to warning (safer than info, less aggressive than error)
+    return "warning"

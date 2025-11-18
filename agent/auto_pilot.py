@@ -131,45 +131,43 @@ def run_auto_pilot(
         recommendation = eval_result["recommendation"]
 
         if recommendation == EVAL_STOP:
-            print(f"\\n[AUTO] Stopping session after run {run_index} (recommendation: stop)")
+            print(f"\n[AUTO] Stopping session after run {run_index} (recommendation: stop)")
             final_decision = SESSION_STOPPED_BY_EVAL
             break
 
         elif recommendation == EVAL_CONTINUE:
             # Check if this was the last allowed run
             if run_index >= max_sub_runs:
-                print(f"\\n[AUTO] Reached max_sub_runs ({max_sub_runs})")
+                print(f"\n[AUTO] Reached max_sub_runs ({max_sub_runs})")
                 final_decision = SESSION_MAX_RUNS_REACHED
                 break
 
             # Success! Task appears complete
             if eval_result["overall_score"] >= 0.8:
-                print(f"\\n[AUTO] High score achieved ({eval_result['overall_score']:.3f}), session complete!")
+                print(f"\n[AUTO] High score achieved ({eval_result['overall_score']:.3f}), session complete!")
                 final_decision = SESSION_SUCCESS
                 break
 
             # Continue to next run with same task
-            print(f"\\n[AUTO] Continuing to sub-run {run_index + 1}...")
+            print(f"\n[AUTO] Continuing to sub-run {run_index + 1}...")
             task_context = task  # Keep original task
 
         elif recommendation == EVAL_RETRY:
             # Retry with augmented task context
-            print("\\n[AUTO] Retrying with feedback from evaluation...")
+            print("\n[AUTO] Retrying with feedback from evaluation...")
             task_context = _augment_task_with_feedback(task, eval_result, run_summary_dict)
 
             # Check if we've reached max runs
             if run_index >= max_sub_runs:
-                print(f"\\n[AUTO] Reached max_sub_runs ({max_sub_runs})")
+                print(f"\n[AUTO] Reached max_sub_runs ({max_sub_runs})")
                 final_decision = SESSION_MAX_RUNS_REACHED
                 break
 
         else:
             # Unknown recommendation
-            print(f"\\n[AUTO] Unknown recommendation '{recommendation}', stopping")
+            print(f"\n[AUTO] Unknown recommendation '{recommendation}', stopping")
             final_decision = SESSION_UNKNOWN_RECOMMENDATION
             break
-
-        last_recommendation = recommendation
 
     else:
         # Loop completed without break
@@ -180,6 +178,7 @@ def run_auto_pilot(
 
     # Save session summary
     save_session_summary(session)
+
 
     print(f"\\n{'=' * 70}")
     print("  AUTO-PILOT SESSION COMPLETE")

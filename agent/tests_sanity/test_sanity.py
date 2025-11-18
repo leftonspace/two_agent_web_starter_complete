@@ -1,4 +1,5 @@
 # test_sanity.py
+# ruff: noqa: F401
 """
 Sanity tests for the multi-agent system.
 

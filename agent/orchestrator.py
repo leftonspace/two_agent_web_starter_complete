@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import cost_tracker
+from exec_safety import run_safety_checks
 from git_utils import commit_all, ensure_repo
 from llm import chat_json
 from prompts import load_prompts
@@ -60,6 +61,79 @@ def _run_simple_tests(out_dir: Path, task: str) -> Dict[str, Any]:
         "contains_task_keyword": contains_task_keyword,
         "all_passed": all_passed,
     }
+
+
+def _build_safety_feedback(safety_result: Dict[str, Any]) -> List[str]:
+    """
+    Build human-readable feedback from safety check results.
+
+    Args:
+        safety_result: Result from run_safety_checks()
+
+    Returns:
+        List of feedback strings for the manager
+    """
+    feedback = []
+
+    # Add header
+    feedback.append("SAFETY CHECKS FAILED - The following issues must be fixed:")
+
+    # Static analysis issues
+    static_issues = safety_result.get("static_issues", [])
+    if static_issues:
+        # Group by severity
+        errors = [i for i in static_issues if i.get("severity") == "error"]
+        warnings = [i for i in static_issues if i.get("severity") == "warning"]
+
+        if errors:
+            feedback.append(f"Static Analysis ERRORS ({len(errors)} found):")
+            for issue in errors[:5]:  # Show first 5
+                feedback.append(
+                    f"  - {issue['file']}:{issue['line']} - {issue['message']}"
+                )
+            if len(errors) > 5:
+                feedback.append(f"  ... and {len(errors) - 5} more errors")
+
+        if warnings:
+            feedback.append(f"Static Analysis WARNINGS ({len(warnings)} found - should be fixed):")
+            for issue in warnings[:3]:  # Show first 3
+                feedback.append(
+                    f"  - {issue['file']}:{issue['line']} - {issue['message']}"
+                )
+            if len(warnings) > 3:
+                feedback.append(f"  ... and {len(warnings) - 3} more warnings")
+
+    # Dependency issues
+    dep_issues = safety_result.get("dependency_issues", [])
+    if dep_issues:
+        # Group by severity
+        critical = [i for i in dep_issues if i.get("severity") == "critical"]
+        medium = [i for i in dep_issues if i.get("severity") == "medium"]
+
+        if critical:
+            feedback.append(f"CRITICAL Dependency Vulnerabilities ({len(critical)} found):")
+            for issue in critical[:3]:  # Show first 3
+                feedback.append(
+                    f"  - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
+                )
+            if len(critical) > 3:
+                feedback.append(f"  ... and {len(critical) - 3} more critical issues")
+
+        if medium:
+            feedback.append(f"Medium Dependency Vulnerabilities ({len(medium)} found - should review):")
+            for issue in medium[:2]:  # Show first 2
+                feedback.append(
+                    f"  - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
+                )
+            if len(medium) > 2:
+                feedback.append(f"  ... and {len(medium) - 2} more medium issues")
+
+    # Docker tests
+    docker = safety_result.get("docker_tests", {})
+    if docker.get("status") == "failed":
+        feedback.append(f"Docker/Runtime Tests FAILED: {docker.get('details', 'No details')}")
+
+    return feedback
 
 
 def _choose_employee_model(
@@ -354,6 +428,40 @@ def main() -> None:
         last_status = status
         last_tests = test_results
         last_feedback = feedback
+
+        # ─────────────────────────────────────────────────────────────
+        # SAFETY CHECKS (STAGE 1 Integration)
+        # ─────────────────────────────────────────────────────────────
+        # Run safety checks if we're "almost done" or on the last iteration
+        run_safety = False
+        if status == "approved":
+            run_safety = True
+        elif iteration == max_rounds:
+            # Last iteration - run safety checks regardless
+            run_safety = True
+
+        if run_safety:
+            print("\n[Safety] Running safety checks before finalizing...")
+            safety_result = run_safety_checks(str(out_dir), task)
+
+            if safety_result["status"] == "failed":
+                print("\n[Safety] ❌ Safety checks FAILED")
+                print(f"[Safety] Static issues: {len(safety_result.get('static_issues', []))}")
+                print(f"[Safety] Dependency issues: {len(safety_result.get('dependency_issues', []))}")
+
+                # Override status to needs_changes
+                status = "needs_changes"
+                last_status = status
+
+                # Build safety feedback for the manager
+                safety_feedback = _build_safety_feedback(safety_result)
+                feedback = safety_feedback if feedback is None else list(feedback) + safety_feedback
+                last_feedback = feedback
+
+                print("[Safety] Overriding status to 'needs_changes'")
+                print("[Safety] Safety issues will be fed back to manager on next iteration")
+            else:
+                print("\n[Safety] ✓ Safety checks PASSED")
 
         # Git commit
         if git_ready:

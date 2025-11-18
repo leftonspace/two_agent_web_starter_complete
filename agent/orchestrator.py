@@ -347,6 +347,10 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     # STAGE 3: Cost tracking flags
     cost_warning_shown = False  # Prevent spamming warning
 
+    # STAGE 1: Safety failure tracking for final iteration policy
+    safety_failed_on_final = False  # Track if safety fails on last planned iteration
+    extra_iteration_granted = False  # Prevent infinite loops
+
     # 3) Iterations: Supervisor → Employee (per phase) → Manager review
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
@@ -469,43 +473,86 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         # - We're on the last iteration (final chance to catch issues)
         # - AND the run_safety_before_final config flag is enabled
         #
+        # Final Iteration Failure Policy (STAGE 1 Audit Fix):
+        # If safety fails on the final planned iteration AND no extra iteration
+        # has been granted yet, we automatically add one more iteration dedicated
+        # to fixing safety issues. This prevents runs from ending with unresolved
+        # safety problems.
+        #
         # If safety fails:
         # - Status is overridden to "needs_changes"
         # - Feedback is injected for the manager to create fix tasks
-        # - The loop continues (if rounds remain)
+        # - The loop continues (if rounds remain OR if we grant extra iteration)
         run_safety = False
         iteration_safety_status = None
 
         if run_safety_before_final:
             if status == "approved":
                 run_safety = True
+                print("[Safety] Running safety checks because manager approved")
             elif iteration == max_rounds:
                 # Last iteration - run safety checks regardless
                 run_safety = True
+                print(f"[Safety] Running safety checks on final iteration ({iteration}/{max_rounds})")
 
         if run_safety:
-            print("\n[Safety] Running safety checks before finalizing...")
-            safety_result = run_safety_checks(str(out_dir), task)
-            iteration_safety_status = safety_result["status"]
+            print("\n[Safety] Running comprehensive safety checks...")
 
-            if safety_result["status"] == "failed":
-                print("\n[Safety] ❌ Safety checks FAILED")
-                print(f"[Safety] Static issues: {len(safety_result.get('static_issues', []))}")
-                print(f"[Safety] Dependency issues: {len(safety_result.get('dependency_issues', []))}")
+            # Defensive handling: catch any unexpected errors from run_safety_checks
+            try:
+                safety_result = run_safety_checks(str(out_dir), task)
 
-                # Override status to needs_changes
+                # Use summary_status if available, fall back to status
+                iteration_safety_status = safety_result.get("summary_status") or safety_result.get("status", "failed")
+
+                if iteration_safety_status == "failed":
+                    print("\n[Safety] ❌ Safety checks FAILED")
+                    print(f"[Safety] Static issues: {len(safety_result.get('static_issues', []))}")
+                    print(f"[Safety] Dependency issues: {len(safety_result.get('dependency_issues', []))}")
+
+                    # Check if this is the final planned iteration
+                    is_final_iteration = (iteration == max_rounds)
+
+                    if is_final_iteration and not extra_iteration_granted:
+                        # Grant one extra iteration for fixes
+                        print("\n[Safety] ⚠️  Safety failed on final planned iteration")
+                        print("[Safety] Granting ONE extra iteration to fix safety issues")
+                        max_rounds += 1
+                        extra_iteration_granted = True
+                        safety_failed_on_final = True
+
+                    # Override status to needs_changes
+                    status = "needs_changes"
+                    last_status = status
+
+                    # Build safety feedback for the manager
+                    safety_feedback = _build_safety_feedback(safety_result)
+                    feedback = safety_feedback if feedback is None else list(feedback) + safety_feedback
+                    last_feedback = feedback
+
+                    print("[Safety] Overriding status to 'needs_changes'")
+                    print("[Safety] Safety issues will be fed back to manager on next iteration")
+                else:
+                    print("\n[Safety] ✓ Safety checks PASSED")
+
+            except KeyError as e:
+                # Handle malformed safety result
+                print(f"\n[Safety] ⚠️  Malformed safety result: missing key {e}")
+                print("[Safety] Treating as safety failure for safety")
+                iteration_safety_status = "failed"
                 status = "needs_changes"
                 last_status = status
-
-                # Build safety feedback for the manager
-                safety_feedback = _build_safety_feedback(safety_result)
-                feedback = safety_feedback if feedback is None else list(feedback) + safety_feedback
+                feedback = ["Safety check returned malformed result - treating as failure"]
                 last_feedback = feedback
-
-                print("[Safety] Overriding status to 'needs_changes'")
-                print("[Safety] Safety issues will be fed back to manager on next iteration")
-            else:
-                print("\n[Safety] ✓ Safety checks PASSED")
+            except Exception as e:
+                # Catch-all for any other unexpected errors
+                print(f"\n[Safety] ⚠️  Unexpected error during safety checks: {e}")
+                print("[Safety] Treating as safety failure for safety")
+                iteration_safety_status = "failed"
+                status = "needs_changes"
+                last_status = status
+                feedback = [f"Safety check crashed: {str(e)}"]
+                last_feedback = feedback
 
         # Git commit
         if git_ready:
@@ -585,7 +632,18 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         else:
             print("\n[Manager] Requested changes – will continue if rounds remain.")
 
+    # ─────────────────────────────────────────────────────────────
+    # STAGE 1: Final safety failure handling
+    # ─────────────────────────────────────────────────────────────
+    # If safety failed on the extra iteration we granted, we've exhausted
+    # all options. Mark the run as failed with unresolved safety issues.
     final_status = last_status or "completed_no_status"
+
+    if safety_failed_on_final and extra_iteration_granted and last_status == "needs_changes":
+        print("\n⚠️  [Safety] Safety checks failed even after extra iteration")
+        print("[Safety] Run ended with UNRESOLVED SAFETY ISSUES")
+        final_status = "failed_safety_unresolved"
+
     final_cost_summary = cost_tracker.get_summary()
 
     print("\n====== DONE (3-loop) ======")

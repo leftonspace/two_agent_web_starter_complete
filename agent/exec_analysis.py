@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 
+# Severity levels for static analysis issues
+# These map to the safety check failure criteria in exec_safety.py
+SEVERITY_ERROR = "error"      # Blocking issues (syntax errors, undefined names)
+SEVERITY_WARNING = "warning"  # Code quality issues (bare except, long functions)
+SEVERITY_INFO = "info"        # Informational (TODOs, FIXMEs)
+
+
 def analyze_project(project_dir: str) -> List[Dict[str, Any]]:
     """
     Perform static analysis on all Python files in the project directory.
@@ -56,7 +63,7 @@ def analyze_project(project_dir: str) -> List[Dict[str, Any]]:
                 "file": rel_path,
                 "line": 0,
                 "message": f"Failed to read file: {e}",
-                "severity": "warning"
+                "severity": SEVERITY_WARNING
             })
             continue
 
@@ -91,14 +98,14 @@ def _check_syntax(file_path: str, content: str) -> List[Dict[str, Any]]:
             "file": file_path,
             "line": e.lineno or 0,
             "message": f"Syntax error: {e.msg}",
-            "severity": "error"
+            "severity": SEVERITY_ERROR
         })
     except Exception as e:
         issues.append({
             "file": file_path,
             "line": 0,
             "message": f"Failed to parse file: {str(e)}",
-            "severity": "error"
+            "severity": SEVERITY_ERROR
         })
     return issues
 
@@ -117,7 +124,7 @@ def _check_bare_excepts(file_path: str, content: str) -> List[Dict[str, Any]]:
                 "file": file_path,
                 "line": line_num,
                 "message": "Bare except clause found (consider specifying exception type)",
-                "severity": "warning"
+                "severity": SEVERITY_WARNING
             })
 
     return issues
@@ -143,7 +150,7 @@ def _check_long_functions(file_path: str, content: str) -> List[Dict[str, Any]]:
                         "file": file_path,
                         "line": node.lineno,
                         "message": f"Function '{node.name}' is very long ({func_length} lines, consider refactoring)",
-                        "severity": "warning"
+                        "severity": SEVERITY_WARNING
                     })
 
     return issues
@@ -164,7 +171,7 @@ def _check_todos(file_path: str, content: str) -> List[Dict[str, Any]]:
                     "file": file_path,
                     "line": line_num,
                     "message": f"Found {comment_match.group(1).upper()} comment: {comment_match.group(0)}",
-                    "severity": "info"
+                    "severity": SEVERITY_INFO
                 })
 
     return issues

@@ -31,8 +31,15 @@ def scan_dependencies(project_dir: str) -> List[Dict[str, Any]]:
             "package": "package-name",
             "version": "version-string or 'unknown'",
             "severity": "critical" | "medium" | "low",
-            "summary": "description of the vulnerability"
+            "summary": "description of the vulnerability",
+            "scan_completed": True  # Always present; False if scan failed
         }
+
+    Note:
+        If the OSV API fails or times out, returns an empty list with no issues.
+        This is graceful degradation - we don't fail the safety run just because
+        the vulnerability database is unreachable. However, users should be aware
+        that no scan occurred.
     """
     issues: List[Dict[str, Any]] = []
     project_path = Path(project_dir)
@@ -59,8 +66,16 @@ def scan_dependencies(project_dir: str) -> List[Dict[str, Any]]:
         vulnerabilities = _query_osv_api(packages)
         issues.extend(vulnerabilities)
     except Exception as e:
-        print(f"[DepScan] OSV API query failed (gracefully continuing): {e}")
-        # Return empty list on API failure (graceful degradation)
+        print(f"[DepScan] ⚠️  OSV API query failed (gracefully continuing): {e}")
+        # Add a marker issue to indicate scan did not complete
+        # This helps distinguish "no vulnerabilities" from "scan failed"
+        issues.append({
+            "package": "_scan_status",
+            "version": "n/a",
+            "severity": "low",
+            "summary": f"Dependency scan did not complete: {str(e)}",
+            "scan_completed": False
+        })
         return issues
 
     return issues
@@ -115,6 +130,10 @@ def _query_osv_api(packages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 
     Returns:
         List of vulnerability issues
+
+    Raises:
+        Exception: If API request fails (timeout, network error, etc.)
+                   Caller should handle this gracefully
     """
     issues = []
 
@@ -146,13 +165,13 @@ def _query_osv_api(packages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         data = response.json()
     except requests.exceptions.Timeout:
         print("[DepScan] OSV API request timed out")
-        return issues
+        raise  # Re-raise so caller can add scan_completed marker
     except requests.exceptions.RequestException as e:
         print(f"[DepScan] OSV API request failed: {e}")
-        return issues
+        raise  # Re-raise so caller can add scan_completed marker
     except Exception as e:
         print(f"[DepScan] Unexpected error querying OSV API: {e}")
-        return issues
+        raise  # Re-raise so caller can add scan_completed marker
 
     # Parse results
     results = data.get("results", [])
@@ -177,7 +196,8 @@ def _query_osv_api(packages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
                 "package": package_info["name"],
                 "version": package_info["version"],
                 "severity": severity,
-                "summary": f"[{vuln_id}] {summary}"
+                "summary": f"[{vuln_id}] {summary}",
+                "scan_completed": True
             })
 
     return issues

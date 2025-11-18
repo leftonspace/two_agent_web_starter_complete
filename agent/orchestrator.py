@@ -22,6 +22,10 @@ from site_tools import (
     load_existing_files,
     summarize_files_for_manager,
 )
+# STAGE 2.1: Import tool registry for metadata
+from exec_tools import get_tool_metadata
+# STAGE 2.2: Import core logging for main run events
+import core_logging
 
 
 def _load_config() -> Dict[str, Any]:
@@ -238,6 +242,9 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         run_summary: Optional RunSummary for STAGE 2 logging.
                      If provided, iterations will be logged automatically.
     """
+    # STAGE 2.2: Create run ID for core logging
+    core_run_id = core_logging.new_run_id()
+
     cfg = _load_config()
     out_dir = _ensure_out_dir(cfg)
 
@@ -289,12 +296,54 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
 
     supervisor_sys = _build_supervisor_sys(manager_plan_sys)
 
+    # STAGE 2.1: Get tool metadata for injection into prompts
+    tool_metadata = get_tool_metadata()
+    tool_metadata_json = json.dumps(tool_metadata, indent=2, ensure_ascii=False)
+
+    # STAGE 2.1: Inject tool metadata into agent prompts
+    tools_section = (
+        "\n\n=== AVAILABLE TOOLS ===\n"
+        "You have access to the following tools (you may request the orchestrator to call them on your behalf):\n\n"
+        f"{tool_metadata_json}\n"
+        "======================\n"
+    )
+
+    # Append to prompts (this gives agents awareness of tools)
+    manager_plan_sys = manager_plan_sys + tools_section
+    manager_review_sys = manager_review_sys + tools_section
+    employee_sys_base = employee_sys_base + tools_section
+
     # Run log
     mode = "3loop"
     run_record = start_run(cfg, mode, out_dir)
 
+    # STAGE 2.2: Log run start
+    core_logging.log_start(
+        core_run_id,
+        project_folder=str(out_dir),
+        task_description=task,
+        config={
+            "max_rounds": max_rounds,
+            "use_visual_review": use_visual_review,
+            "mode": mode,
+            "run_safety_before_final": run_safety_before_final,
+            "allow_extra_iteration_on_failure": allow_extra_iteration_on_failure,
+        }
+    )
+
     # 1) Manager planning
     print("\n====== MANAGER PLANNING ======")
+    print(f"[CoreLog] Run ID: {core_run_id}")
+
+    # STAGE 2.2: Log LLM call
+    core_logging.log_llm_call(
+        core_run_id,
+        role="manager",
+        model="gpt-5",  # Default model for planning
+        prompt_length=len(manager_plan_sys) + len(task),
+        phase="planning"
+    )
+
     plan = chat_json("manager", manager_plan_sys, task)
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
@@ -326,6 +375,16 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         "plan": plan.get("plan", []),
         "acceptance_criteria": plan.get("acceptance_criteria", []),
     }
+
+    # STAGE 2.2: Log LLM call
+    core_logging.log_llm_call(
+        core_run_id,
+        role="supervisor",
+        model="gpt-5",  # Default model
+        prompt_length=len(supervisor_sys) + len(json.dumps(sup_payload)),
+        phase="supervisor_phasing"
+    )
+
     phases = chat_json(
         "supervisor",
         supervisor_sys,
@@ -368,6 +427,14 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
 
+        # STAGE 2.2: Log iteration begin
+        core_logging.log_iteration_begin(
+            core_run_id,
+            iteration=iteration,
+            mode=mode,
+            max_rounds=max_rounds
+        )
+
         employee_model = _choose_employee_model(iteration, last_status, last_tests)
         print(f"[ModelSelect] Employee will use model: {employee_model}")
 
@@ -400,6 +467,17 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 f"{phase.get('name', 'Unnamed phase')}"
             )
 
+            # STAGE 2.2: Log LLM call
+            core_logging.log_llm_call(
+                core_run_id,
+                role="employee",
+                model=employee_model,
+                prompt_length=len(employee_sys_phase) + len(json.dumps(phase_payload)),
+                iteration=iteration,
+                phase_index=phase_index,
+                phase_name=phase.get('name', 'Unnamed phase')
+            )
+
             emp = chat_json(
                 "employee",
                 employee_sys_phase,
@@ -414,11 +492,23 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 )
 
             print("\n[Orchestrator] Writing files to disk...")
+            written_files = []
             for rel_path, content in files_dict.items():
                 dest = out_dir / rel_path
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text(content, encoding="utf-8")
                 print(f"  wrote {dest}")
+                written_files.append(rel_path)
+
+            # STAGE 2.2: Log file writes
+            if written_files:
+                core_logging.log_file_write(
+                    core_run_id,
+                    files=written_files,
+                    summary=f"Employee phase {phase_index} wrote {len(written_files)} files",
+                    iteration=iteration,
+                    phase_index=phase_index
+                )
 
             # refresh for next phase
             existing_files = load_existing_files(out_dir)
@@ -462,6 +552,17 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             "screenshot_path": screenshot_path,
             "iteration": iteration,
         }
+
+        # STAGE 2.2: Log LLM call
+        core_logging.log_llm_call(
+            core_run_id,
+            role="manager",
+            model="gpt-5",  # Default model for review
+            prompt_length=len(manager_review_sys) + len(json.dumps(mgr_payload)),
+            iteration=iteration,
+            phase="review"
+        )
+
         review = chat_json(
             "manager",
             manager_review_sys,
@@ -517,6 +618,23 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
 
                 # Use summary_status if available, fall back to status
                 iteration_safety_status = safety_result.get("summary_status") or safety_result.get("status", "failed")
+
+                # STAGE 2.2: Log safety check
+                static_issues = safety_result.get("static_issues", [])
+                dep_issues = safety_result.get("dependency_issues", [])
+                error_count = sum(1 for i in static_issues if i.get("severity") == "error")
+                error_count += sum(1 for i in dep_issues if i.get("severity") == "error")
+                warning_count = sum(1 for i in static_issues if i.get("severity") == "warning")
+                warning_count += sum(1 for i in dep_issues if i.get("severity") == "warning")
+
+                core_logging.log_safety_check(
+                    core_run_id,
+                    summary_status=iteration_safety_status,
+                    error_count=error_count,
+                    warning_count=warning_count,
+                    safety_run_id=safety_result.get("run_id", ""),
+                    iteration=iteration
+                )
 
                 if iteration_safety_status == "failed":
                     print("\n[Safety] ❌ Safety checks FAILED")
@@ -622,6 +740,15 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 safety_status=iteration_safety_status,
             )
 
+        # STAGE 2.2: Log iteration end
+        core_logging.log_iteration_end(
+            core_run_id,
+            iteration=iteration,
+            status=status,
+            tests_all_passed=test_results.get("all_passed", False),
+            safety_status=iteration_safety_status
+        )
+
         # ─────────────────────────────────────────────────────────────
         # STAGE 3: Cost Control Enforcement
         # ─────────────────────────────────────────────────────────────
@@ -686,6 +813,17 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
 
     # RUN LOG: finalize
     finish_run(run_record, final_status, final_cost_summary, out_dir)
+
+    # STAGE 2.2: Log final status
+    core_logging.log_final_status(
+        core_run_id,
+        status=final_status,
+        reason=f"Run completed with status: {final_status}",
+        iterations=max_rounds,
+        total_cost_usd=final_cost_summary.get("total_usd", 0.0)
+    )
+
+    print(f"\n[CoreLog] Main run logs written to: run_logs_main/{core_run_id}.jsonl")
 
 
 if __name__ == "__main__":

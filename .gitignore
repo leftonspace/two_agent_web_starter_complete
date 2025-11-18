@@ -31,6 +31,8 @@ Thumbs.db
 run_logs/
 run_logs_exec/
 cost_history.json
+jobs_state.json
+jobs_data/
 
 # Generated fixtures (runtime test content)
 sites/fixtures/

@@ -4,6 +4,8 @@ Auto-pilot orchestration for the multi-agent system.
 
 Runs multiple sub-runs back-to-back with self-evaluation between each run.
 Makes decisions to continue, retry with adjustments, or stop based on evaluation scores.
+
+STAGE 5: Enhanced with status codes and improved error handling.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import cost_tracker
 from cost_estimator import estimate_run_cost, format_cost_estimate
@@ -27,6 +29,22 @@ from run_logger import (
     start_session,
 )
 from self_eval import evaluate_run
+
+# STAGE 5: Import status codes
+from status_codes import (
+    COMPLETED,
+    EVAL_CONTINUE,
+    EVAL_RETRY,
+    EVAL_STOP,
+    EXCEPTION,
+    SESSION_MAX_RUNS_REACHED,
+    SESSION_STOPPED_BY_EVAL,
+    SESSION_SUCCESS,
+    SESSION_UNKNOWN_RECOMMENDATION,
+    SESSION_USER_ABORT,
+    UNKNOWN,
+    USER_ABORT,
+)
 
 
 def run_auto_pilot(
@@ -113,53 +131,53 @@ def run_auto_pilot(
         print(f"  Reasoning: {eval_result['reasoning']}")
         print(f"  Recommendation: {eval_result['recommendation']}")
 
-        # Make decision based on recommendation
+        # Make decision based on recommendation (STAGE 5: use constants)
         recommendation = eval_result["recommendation"]
 
-        if recommendation == "stop":
-            print(f"\\n[AutoPilot] Stopping session after run {run_index} (recommendation: stop)")
-            final_decision = "stopped_by_evaluation"
+        if recommendation == EVAL_STOP:
+            print(f"\\n[AUTO] Stopping session after run {run_index} (recommendation: stop)")
+            final_decision = SESSION_STOPPED_BY_EVAL
             break
 
-        elif recommendation == "continue":
+        elif recommendation == EVAL_CONTINUE:
             # Check if this was the last allowed run
             if run_index >= max_sub_runs:
-                print(f"\\n[AutoPilot] Reached max_sub_runs ({max_sub_runs})")
-                final_decision = "max_runs_reached"
+                print(f"\\n[AUTO] Reached max_sub_runs ({max_sub_runs})")
+                final_decision = SESSION_MAX_RUNS_REACHED
                 break
 
             # Success! Task appears complete
             if eval_result["overall_score"] >= 0.8:
-                print(f"\\n[AutoPilot] High score achieved ({eval_result['overall_score']:.3f}), session complete!")
-                final_decision = "success"
+                print(f"\\n[AUTO] High score achieved ({eval_result['overall_score']:.3f}), session complete!")
+                final_decision = SESSION_SUCCESS
                 break
 
             # Continue to next run with same task
-            print(f"\\n[AutoPilot] Continuing to sub-run {run_index + 1}...")
+            print(f"\\n[AUTO] Continuing to sub-run {run_index + 1}...")
             task_context = task  # Keep original task
 
-        elif recommendation == "retry":
+        elif recommendation == EVAL_RETRY:
             # Retry with augmented task context
-            print(f"\\n[AutoPilot] Retrying with feedback from evaluation...")
+            print(f"\\n[AUTO] Retrying with feedback from evaluation...")
             task_context = _augment_task_with_feedback(task, eval_result, run_summary_dict)
 
             # Check if we've reached max runs
             if run_index >= max_sub_runs:
-                print(f"\\n[AutoPilot] Reached max_sub_runs ({max_sub_runs})")
-                final_decision = "max_runs_reached"
+                print(f"\\n[AUTO] Reached max_sub_runs ({max_sub_runs})")
+                final_decision = SESSION_MAX_RUNS_REACHED
                 break
 
         else:
             # Unknown recommendation
-            print(f"\\n[AutoPilot] Unknown recommendation '{recommendation}', stopping")
-            final_decision = "unknown_recommendation"
+            print(f"\\n[AUTO] Unknown recommendation '{recommendation}', stopping")
+            final_decision = SESSION_UNKNOWN_RECOMMENDATION
             break
 
         last_recommendation = recommendation
 
     else:
         # Loop completed without break
-        final_decision = "max_runs_reached"
+        final_decision = SESSION_MAX_RUNS_REACHED
 
     # Finalize session
     session = finalize_session(session, final_decision)
@@ -213,33 +231,33 @@ def _run_single_iteration(
         config=config,
     )
 
-    print(f"[AutoPilot] Starting run {run_index}: {run_summary.run_id}")
+    print(f"[AUTO] Starting run {run_index}: {run_summary.run_id}")
 
     # Reset cost tracking for this run
     cost_tracker.reset()
 
-    # Run the orchestrator
-    final_status = "unknown"
+    # Run the orchestrator (STAGE 5: use status constants)
+    final_status = UNKNOWN
     safety_status = None
 
     try:
         if mode == "2loop":
             from orchestrator_2loop import main as main_2loop
             main_2loop()
-            final_status = "completed"
+            final_status = COMPLETED
         else:
             # Default to 3-loop
             from orchestrator import main as main_3loop
             main_3loop(run_summary=run_summary)
-            final_status = "completed"
+            final_status = COMPLETED
 
     except KeyboardInterrupt:
-        print(f"\\n[AutoPilot] Run {run_index} interrupted by user")
-        final_status = "aborted_by_user"
+        print(f"\\n[AUTO] Run {run_index} interrupted by user")
+        final_status = USER_ABORT
 
     except Exception as e:
-        print(f"\\n[AutoPilot] Run {run_index} failed with exception: {e}")
-        final_status = "exception"
+        print(f"\\n[AUTO] Run {run_index} failed with exception: {e}")
+        final_status = EXCEPTION
 
     finally:
         # Finalize run

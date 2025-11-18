@@ -1,4 +1,14 @@
 # run_mode.py
+"""
+Main entry point for the multi-agent orchestrator.
+
+Loads configuration, performs cost estimation, and runs either:
+- Auto-pilot mode (multiple sub-runs with self-evaluation)
+- Single-run mode (2loop or 3loop)
+
+STAGE 5: Enhanced with status codes and improved error handling.
+"""
+
 from __future__ import annotations
 
 import json
@@ -26,6 +36,15 @@ from run_logger import (
     log_iteration,
     save_run_summary,
     start_run,
+)
+
+# STAGE 5: Import status codes
+from status_codes import (
+    COMPLETED,
+    EXCEPTION,
+    ITER_EXCEPTION,
+    ITER_INTERRUPTED,
+    USER_ABORT,
 )
 
 
@@ -236,19 +255,19 @@ def main() -> None:
             user_input = "n"
 
         if user_input not in ("y", "yes"):
-            print("\n[Cost Control] Run aborted by user.")
-            # Finalize and save run summary
+            print("\n[COST] Run aborted by user.")
+            # Finalize and save run summary (STAGE 5: use status constant)
             run_summary = finalize_run(
                 run_summary,
-                final_status="aborted_by_user",
+                final_status=USER_ABORT,
                 safety_status=None,
                 cost_summary=cost_tracker.get_summary(),
             )
             save_run_summary(run_summary)
-            print(f"[RunLog] Run summary saved (aborted before execution)")
+            print(f"[RUN] Run summary saved (aborted before execution)")
             return
 
-        print("[Cost Control] User approved. Continuing...")
+        print("[COST] User approved. Continuing...")
 
     # Warn if estimate exceeds cap (in "off" mode)
     elif max_cost_usd > 0 and cost_estimate["estimated_total_usd"] > max_cost_usd:
@@ -263,7 +282,8 @@ def main() -> None:
     # ──────────────────────────────────────────────────────────────────────
     # Run the orchestrator
     # ──────────────────────────────────────────────────────────────────────
-    final_status = "unknown"
+    # STAGE 5: Use status constants
+    final_status = UNKNOWN
     safety_status = None
 
     try:
@@ -271,33 +291,33 @@ def main() -> None:
             from orchestrator_2loop import main as main_2loop
             # 2loop doesn't support run_summary yet
             main_2loop()
-            final_status = "completed"
+            final_status = COMPLETED
         else:
             # Default to 3-loop if anything else
             from orchestrator import main as main_3loop
             # Pass run_summary to enable STAGE 2 logging
             main_3loop(run_summary=run_summary)
-            final_status = "completed"
+            final_status = COMPLETED
 
     except KeyboardInterrupt:
-        print("\n[RunMode] Run interrupted by user")
-        final_status = "aborted_by_user"
+        print("\n[RUN] Run interrupted by user")
+        final_status = USER_ABORT
         log_iteration(
             run_summary,
             index=run_summary.rounds_completed + 1,
             role="system",
-            status="interrupted",
+            status=ITER_INTERRUPTED,
             notes="Run interrupted by user (Ctrl+C)",
         )
 
     except Exception as e:
-        print(f"\n[RunMode] Run failed with exception: {e}")
-        final_status = "exception"
+        print(f"\n[RUN] Run failed with exception: {e}")
+        final_status = EXCEPTION
         log_iteration(
             run_summary,
             index=run_summary.rounds_completed + 1,
             role="system",
-            status="exception",
+            status=ITER_EXCEPTION,
             notes=f"Exception: {type(e).__name__}: {str(e)}",
         )
         # Re-raise to preserve traceback if needed

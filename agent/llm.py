@@ -85,9 +85,10 @@ def _post(payload: dict) -> dict:
 
 def chat_json(
     role: str,
-    system_prompt: str,
-    user_content: str,
+    system_prompt: Optional[str] = None,
+    user_content: str = "",
     *,
+    system: Optional[str] = None,
     model: Optional[str] = None,
     temperature: float = 0.2,
     expect_json: bool = True,
@@ -97,6 +98,10 @@ def chat_json(
     - Selects a model (manager / supervisor / employee) if not provided.
     - Calls `_post` and records usage via `cost_tracker`.
     - Returns parsed JSON (default) or raw text if `expect_json=False`.
+
+    `system_prompt` is the original parameter name.
+    `system` is an alias used by some callers (e.g. code_review_bot).
+    If both are provided, `system` wins.
     """
     if model is None:
         if role == "manager":
@@ -108,8 +113,11 @@ def chat_json(
     else:
         chosen_model = model
 
+    # Choose which system message to use
+    effective_system = system if system is not None else (system_prompt or "")
+
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": effective_system},
         {"role": "user", "content": user_content},
     ]
 

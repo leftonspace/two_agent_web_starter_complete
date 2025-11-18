@@ -30,6 +30,7 @@ Thumbs.db
 # Runtime logs
 run_logs/
 run_logs_exec/
+run_logs_main/
 cost_history.json
 jobs_state.json
 jobs_data/

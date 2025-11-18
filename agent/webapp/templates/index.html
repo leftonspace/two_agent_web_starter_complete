@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Home - AI Dev Team Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid">
+    <div class="stat-card">
+        <div class="label">Available Projects</div>
+        <div class="value">{{ projects|length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Recent Runs</div>
+        <div class="value">{{ history|length }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🚀 Start New Run</h2>
+
+    <form method="POST" action="/run">
+        <div class="form-group">
+            <label for="project_subdir">Project *</label>
+            <select id="project_subdir" name="project_subdir" required>
+                <option value="">-- Select a project --</option>
+                {% for project in projects %}
+                <option value="{{ project.name }}">{{ project.name }} ({{ project.file_count }} files)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="mode">Mode *</label>
+            <select id="mode" name="mode" required>
+                <option value="3loop">3-loop (Manager ↔ Supervisor ↔ Employee)</option>
+                <option value="2loop">2-loop (Manager ↔ Employee)</option>
+            </select>
+            <small style="color: #718096; display: block; margin-top: 5px;">
+                3-loop adds a supervisor for better task phasing
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="task">Task Description *</label>
+            <textarea id="task" name="task" required placeholder="Describe what you want the AI team to build..."></textarea>
+            <small style="color: #718096; display: block; margin-top: 5px;">
+                Be specific about requirements, features, and desired outcome
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="max_rounds">Maximum Rounds *</label>
+            <input type="number" id="max_rounds" name="max_rounds" value="3" min="1" max="10" required>
+            <small style="color: #718096; display: block; margin-top: 5px;">
+                Number of iteration cycles (typically 1-5)
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="max_cost_usd">Cost Limit (USD)</label>
+            <input type="number" id="max_cost_usd" name="max_cost_usd" value="1.5" min="0" step="0.01">
+            <small style="color: #718096; display: block; margin-top: 5px;">
+                Hard stop if cost exceeds this amount (0 = no limit)
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="cost_warning_usd">Cost Warning (USD)</label>
+            <input type="number" id="cost_warning_usd" name="cost_warning_usd" value="0.8" min="0" step="0.01">
+            <small style="color: #718096; display: block; margin-top: 5px;">
+                Show warning when cost exceeds this amount (0 = no warning)
+            </small>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="use_visual_review" name="use_visual_review" value="true">
+                <label for="use_visual_review" style="margin-bottom: 0;">Enable Visual Review (DOM analysis)</label>
+            </div>
+            <small style="color: #718096; display: block; margin-top: 5px; margin-left: 28px;">
+                Analyze HTML structure and take screenshots for manager review
+            </small>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="use_git" name="use_git" value="true" checked>
+                <label for="use_git" style="margin-bottom: 0;">Enable Git Integration</label>
+            </div>
+            <small style="color: #718096; display: block; margin-top: 5px; margin-left: 28px;">
+                Commit changes after each iteration (recommended)
+            </small>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>Note:</strong> The run will execute in the foreground and may take several minutes depending on the task complexity.
+        </div>
+
+        <button type="submit">▶️ Start Run</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>📋 Recent Runs</h2>
+
+    {% if history %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Run ID</th>
+                <th>Project</th>
+                <th>Mode</th>
+                <th>Status</th>
+                <th>Rounds</th>
+                <th>Cost</th>
+                <th>Started</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in history %}
+            <tr>
+                <td>
+                    <a href="/run/{{ run.run_id }}">{{ run.run_id }}</a>
+                </td>
+                <td>{{ run.project_dir.split('/')[-1] }}</td>
+                <td>{{ run.mode }}</td>
+                <td>
+                    {% if run.final_status in ['success', 'completed', 'approved'] %}
+                        <span class="badge badge-success">{{ run.final_status }}</span>
+                    {% elif run.final_status in ['needs_changes', 'in_progress'] %}
+                        <span class="badge badge-warning">{{ run.final_status }}</span>
+                    {% elif run.final_status in ['exception', 'safety_failed', 'timeout'] %}
+                        <span class="badge badge-error">{{ run.final_status }}</span>
+                    {% else %}
+                        <span class="badge badge-info">{{ run.final_status }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ run.rounds_completed }} / {{ run.max_rounds }}</td>
+                <td>${{ "%.4f"|format(run.cost_summary.total_usd if run.cost_summary else 0.0) }}</td>
+                <td>{{ run.started_at[:19].replace('T', ' ') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <p>No runs yet. Start your first run above!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

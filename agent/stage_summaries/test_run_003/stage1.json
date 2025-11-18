@@ -1,0 +1,38 @@
+{
+  "run_id": "test_run_003",
+  "stage_id": "stage1",
+  "stage_name": "Test Stage",
+  "started_at": 1763501115.5279586,
+  "completed_at": null,
+  "status": "in_progress",
+  "files_changed": [
+    {
+      "file_path": "index.html",
+      "change_type": "created",
+      "lines_added": 50,
+      "lines_removed": 0,
+      "size_bytes": 1024
+    }
+  ],
+  "fix_cycles": [],
+  "issues": [
+    {
+      "id": "issue_001",
+      "severity": "error",
+      "category": "functionality",
+      "description": "Test issue",
+      "file_path": null,
+      "line_number": null,
+      "detected_in_stage": "stage1",
+      "introduced_in_stage": null,
+      "resolved_in_stage": null,
+      "resolution_note": null,
+      "created_at": 1763501115.5286613
+    }
+  ],
+  "regression_detected": false,
+  "regression_target_stage": null,
+  "cost_usd": 0.0,
+  "iterations_count": 0,
+  "final_notes": ""
+}

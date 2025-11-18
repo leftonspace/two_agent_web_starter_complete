@@ -1,0 +1,50 @@
+{
+  "run_id": "test_run_001",
+  "roadmap_history": [
+    {
+      "version": 1,
+      "stages": [
+        {
+          "id": "da98625d-3adb-4ace-8c27-c0ef8ca09404",
+          "name": "Phase 1",
+          "description": "Complete: layout",
+          "categories": [
+            "layout"
+          ],
+          "plan_steps": [
+            0,
+            1
+          ],
+          "status": "completed",
+          "created_at": 1763501115.5070474,
+          "completed_at": 1763501115.507931,
+          "audit_count": 0,
+          "regression_source": null
+        },
+        {
+          "id": "1f72e6d4-bd4b-4688-916d-06080a3d9bf2",
+          "name": "Phase 2",
+          "description": "Complete: visual",
+          "categories": [
+            "visual"
+          ],
+          "plan_steps": [
+            2
+          ],
+          "status": "pending",
+          "created_at": 1763501115.5070684,
+          "completed_at": null,
+          "audit_count": 0,
+          "regression_source": null
+        }
+      ],
+      "created_at": 1763501115.5070708,
+      "created_by": "supervisor",
+      "mutation_type": "initial",
+      "mutation_reason": "Initial roadmap created from supervisor phases"
+    }
+  ],
+  "active_stage_id": null,
+  "created_at": 1763501115.5070722,
+  "updated_at": 1763501115.507932
+}

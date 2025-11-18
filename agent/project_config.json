@@ -54,5 +54,10 @@
     "apply_safely": true,
     "min_runs_for_recommendations": 5,
     "confidence_threshold": "medium"
+  },
+
+  "safety": {
+    "run_safety_before_final": true,
+    "description": "If true, run static analysis, dependency scanning, and tests before final approval"
   }
 }

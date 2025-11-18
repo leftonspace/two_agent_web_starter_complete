@@ -240,6 +240,10 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
     use_git: bool = bool(cfg.get("use_git", False))
 
+    # STAGE 1: Safety configuration
+    safety_config = cfg.get("safety", {})
+    run_safety_before_final: bool = bool(safety_config.get("run_safety_before_final", True))
+
     print("=== PROJECT CONFIG (3-loop) ===")
     print(f"Project folder: {out_dir}")
     print(f"Task: {task}")
@@ -250,6 +254,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     print(f"cost_warning_usd: {cost_warning_usd}")
     print(f"interactive_cost_mode: {interactive_cost_mode}")
     print(f"use_git: {use_git}")
+    print(f"run_safety_before_final: {run_safety_before_final}")
 
     # snapshots
     snapshots_root = out_dir / ".history"
@@ -458,14 +463,25 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         # ─────────────────────────────────────────────────────────────
         # SAFETY CHECKS (STAGE 1 Integration)
         # ─────────────────────────────────────────────────────────────
-        # Run safety checks if we're "almost done" or on the last iteration
+        # STAGE 1.1: Configurable safety checks
+        # Safety runs when:
+        # - Manager approves the work (status == "approved"), OR
+        # - We're on the last iteration (final chance to catch issues)
+        # - AND the run_safety_before_final config flag is enabled
+        #
+        # If safety fails:
+        # - Status is overridden to "needs_changes"
+        # - Feedback is injected for the manager to create fix tasks
+        # - The loop continues (if rounds remain)
         run_safety = False
         iteration_safety_status = None
-        if status == "approved":
-            run_safety = True
-        elif iteration == max_rounds:
-            # Last iteration - run safety checks regardless
-            run_safety = True
+
+        if run_safety_before_final:
+            if status == "approved":
+                run_safety = True
+            elif iteration == max_rounds:
+                # Last iteration - run safety checks regardless
+                run_safety = True
 
         if run_safety:
             print("\n[Safety] Running safety checks before finalizing...")

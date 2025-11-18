@@ -16,6 +16,17 @@ from run_logger import (
     start_run_legacy as start_run,
 )
 # STAGE 2: Import new run logging API
+# NOTE: We maintain TWO parallel logging systems:
+# 1. Legacy logging (run_logger.py) - writes to agent/run_logs/<project>_<mode>.jsonl
+#    - Used for backward compatibility with existing tooling
+#    - Appends high-level run summaries
+# 2. Core logging (core_logging.py) - writes to agent/run_logs_main/<run_id>.jsonl
+#    - New structured event logging system (STAGE 2)
+#    - Provides granular event tracking (LLM calls, file writes, etc.)
+#
+# DEPRECATION PLAN: The legacy logging API should eventually be phased out in favor
+# of core_logging once all consumers are migrated. For now, both are maintained to
+# avoid breaking existing scripts/dashboards that depend on the legacy format.
 from run_logger import RunSummary, log_iteration as log_iteration_new
 from site_tools import (
     analyze_site,

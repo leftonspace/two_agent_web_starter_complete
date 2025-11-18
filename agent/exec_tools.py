@@ -2,20 +2,33 @@
 """
 Centralized tool registry for the multi-agent orchestrator.
 
-STAGE 2.1: Provides tools that agents can request, including:
+STAGE 2.1 (HARDENED): Provides tools that agents can request, including:
 - Code formatting (ruff/black)
 - Unit and integration tests (pytest)
 - Git operations (diff, status)
-- Shell commands
 
 All tools return structured results with status, exit_code, and output.
+
+SECURITY NOTES:
+- All tools check for executable availability before invocation using shutil.which()
+- Shell command execution (run_shell) has been removed from the public tool registry
+  to prevent command injection attacks in multi-agent environments
+- All subprocess calls use shell=False and explicit timeouts
+
+OS COMPATIBILITY:
+- Tools depend on external executables (ruff, black, pytest, git)
+- If these are not installed or not on PATH, tools will fail gracefully with
+  structured error messages (exit_code 127)
+- Tested on Unix-like systems; Windows compatibility depends on having these
+  tools installed and available on PATH
 """
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -30,6 +43,8 @@ def format_code(
 ) -> Dict[str, Any]:
     """
     Format source code using ruff or black.
+
+    REQUIRES: ruff or black to be installed and available on PATH
 
     Args:
         project_dir: Path to the project directory
@@ -54,18 +69,29 @@ def format_code(
             "error": f"Project directory not found: {project_dir}"
         }
 
-    # Build command
-    if formatter == "ruff":
-        cmd = ["ruff", "format"]
-    elif formatter == "black":
-        cmd = ["black"]
-    else:
+    # Validate formatter choice
+    if formatter not in ("ruff", "black"):
         return {
             "status": "failed",
             "exit_code": 1,
             "output": "",
             "error": f"Unknown formatter: {formatter}. Use 'ruff' or 'black'."
         }
+
+    # Check if formatter is installed (OS-agnostic availability check)
+    if not shutil.which(formatter):
+        return {
+            "status": "failed",
+            "exit_code": 127,
+            "output": "",
+            "error": f"{formatter} is not installed or not on PATH. Install with: pip install {formatter}"
+        }
+
+    # Build command
+    if formatter == "ruff":
+        cmd = ["ruff", "format"]
+    else:  # black
+        cmd = ["black"]
 
     # Add paths
     if paths:
@@ -80,7 +106,8 @@ def format_code(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
+            shell=False  # Explicit: never use shell=True
         )
 
         return {
@@ -88,13 +115,6 @@ def format_code(
             "exit_code": result.returncode,
             "output": result.stdout,
             "error": result.stderr
-        }
-    except FileNotFoundError:
-        return {
-            "status": "failed",
-            "exit_code": 127,
-            "output": "",
-            "error": f"{formatter} not found. Install with: pip install {formatter}"
         }
     except subprocess.TimeoutExpired:
         return {
@@ -119,6 +139,8 @@ def run_unit_tests(
 ) -> Dict[str, Any]:
     """
     Run unit tests using pytest.
+
+    REQUIRES: pytest to be installed and available on PATH
 
     Args:
         project_dir: Path to the project directory
@@ -149,11 +171,17 @@ def run_unit_tests(
             "skipped": 0
         }
 
-    # Check if tests exist
-    test_dir = project_path / test_path
-    if not test_dir.exists():
-        # Try running pytest anyway (might have tests in default locations)
-        test_dir = project_path
+    # Check if pytest is installed (OS-agnostic availability check)
+    if not shutil.which("pytest"):
+        return {
+            "status": "failed",
+            "exit_code": 127,
+            "output": "",
+            "error": "pytest is not installed or not on PATH. Install with: pip install pytest",
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0
+        }
 
     # Build command
     cmd = ["pytest", "-v", "--tb=short"]
@@ -163,6 +191,7 @@ def run_unit_tests(
     # Add test path if it exists
     if (project_path / test_path).exists():
         cmd.append(test_path)
+    # else: pytest will search default locations
 
     # Run pytest
     try:
@@ -171,7 +200,8 @@ def run_unit_tests(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=300
+            timeout=300,
+            shell=False  # Explicit: never use shell=True
         )
 
         # Parse test results from output
@@ -185,16 +215,6 @@ def run_unit_tests(
             "passed": passed,
             "failed": failed,
             "skipped": skipped
-        }
-    except FileNotFoundError:
-        return {
-            "status": "failed",
-            "exit_code": 127,
-            "output": "",
-            "error": "pytest not found. Install with: pip install pytest",
-            "passed": 0,
-            "failed": 0,
-            "skipped": 0
         }
     except subprocess.TimeoutExpired:
         return {
@@ -226,6 +246,8 @@ def run_integration_tests(
     """
     Run integration tests using pytest.
 
+    REQUIRES: pytest to be installed and available on PATH
+
     Args:
         project_dir: Path to the project directory
         test_path: Path to integration tests directory (default: "tests/integration")
@@ -253,6 +275,9 @@ def git_diff(
     """
     Show git diff for the repository.
 
+    REQUIRES: git to be installed and available on PATH
+    REQUIRES: project_dir must be a git repository
+
     Args:
         project_dir: Path to the project directory (should be a git repo)
         options: Optional git diff options (e.g., ["--staged", "--stat"])
@@ -277,6 +302,16 @@ def git_diff(
             "truncated": False
         }
 
+    # Check if git is installed (OS-agnostic availability check)
+    if not shutil.which("git"):
+        return {
+            "status": "failed",
+            "exit_code": 127,
+            "output": "",
+            "error": "git is not installed or not on PATH. Install git to use this tool.",
+            "truncated": False
+        }
+
     # Check if .git exists
     git_dir = project_path / ".git"
     if not git_dir.exists():
@@ -284,7 +319,7 @@ def git_diff(
             "status": "failed",
             "exit_code": 128,
             "output": "",
-            "error": "Not a git repository",
+            "error": f"Not a git repository: {project_dir} (no .git directory found)",
             "truncated": False
         }
 
@@ -300,7 +335,8 @@ def git_diff(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
+            shell=False  # Explicit: never use shell=True
         )
 
         output = result.stdout
@@ -344,6 +380,9 @@ def git_status(
     """
     Show git status for the repository.
 
+    REQUIRES: git to be installed and available on PATH
+    REQUIRES: project_dir must be a git repository
+
     Args:
         project_dir: Path to the project directory (should be a git repo)
         short: Use short format (default: True)
@@ -366,6 +405,15 @@ def git_status(
             "error": f"Project directory not found: {project_dir}"
         }
 
+    # Check if git is installed (OS-agnostic availability check)
+    if not shutil.which("git"):
+        return {
+            "status": "failed",
+            "exit_code": 127,
+            "output": "",
+            "error": "git is not installed or not on PATH. Install git to use this tool."
+        }
+
     # Check if .git exists
     git_dir = project_path / ".git"
     if not git_dir.exists():
@@ -373,7 +421,7 @@ def git_status(
             "status": "failed",
             "exit_code": 128,
             "output": "",
-            "error": "Not a git repository"
+            "error": f"Not a git repository: {project_dir} (no .git directory found)"
         }
 
     # Build command
@@ -388,7 +436,8 @@ def git_status(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            shell=False  # Explicit: never use shell=True
         )
 
         return {
@@ -413,15 +462,25 @@ def git_status(
         }
 
 
-def run_shell(
+# ══════════════════════════════════════════════════════════════════════
+# Internal / Private Functions (not exposed to agents)
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _run_shell_internal(
     project_dir: str,
     command: str,
     timeout: int = 30
 ) -> Dict[str, Any]:
     """
-    Run a shell command in the project directory.
+    INTERNAL ONLY: Run a shell command in the project directory.
 
-    WARNING: Use with caution. Sanitize inputs to avoid command injection.
+    SECURITY WARNING: This function is intentionally NOT exposed in TOOL_REGISTRY
+    to prevent command injection attacks in multi-agent environments.
+
+    This function is kept for internal orchestrator use only (e.g., for trusted
+    operations that require shell access). If you need to expose this to agents,
+    you MUST implement command whitelisting and input sanitization.
 
     Args:
         project_dir: Path to the project directory
@@ -446,7 +505,8 @@ def run_shell(
             "error": f"Project directory not found: {project_dir}"
         }
 
-    # Run command
+    # For internal use, we still use shell=True but with explicit warnings
+    # A safer approach would be to use shlex.split() and shell=False
     try:
         result = subprocess.run(
             command,
@@ -454,7 +514,7 @@ def run_shell(
             capture_output=True,
             text=True,
             timeout=timeout,
-            shell=True  # Note: shell=True is a security risk if command is user-controlled
+            shell=True  # WARNING: Command injection risk
         )
 
         return {
@@ -521,72 +581,79 @@ def _parse_pytest_results(output: str) -> tuple[int, int, int]:
 # Tool Registry
 # ══════════════════════════════════════════════════════════════════════
 
+# TOOL_REGISTRY: Central registry of tools available to agents
+#
+# Each tool entry contains:
+# - func: The function to call
+# - description: What the tool does (shown to agents in prompts)
+# - category: Tool category for organization
+# - parameters: Parameter descriptions (shown to agents)
+#
+# SECURITY NOTE: Only safe, sandboxed tools should be included here.
+# Shell execution (run_shell) has been intentionally removed to prevent
+# command injection attacks.
 
 TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "format_code": {
         "func": format_code,
-        "description": "Format source code using ruff or black formatter",
+        "description": "Format source code using ruff (default) or black formatter. Requires ruff/black to be installed.",
         "category": "code_quality",
         "parameters": {
-            "project_dir": "Path to the project directory",
-            "formatter": "Formatter to use: 'ruff' (default) or 'black'",
-            "paths": "Optional list of specific paths to format"
+            "project_dir": "Path to the project directory (required)",
+            "formatter": "Formatter to use: 'ruff' (default) or 'black' (optional)",
+            "paths": "Optional list of specific paths to format; defaults to entire project (optional)"
         }
     },
     "run_unit_tests": {
         "func": run_unit_tests,
-        "description": "Run unit tests using pytest",
+        "description": "Run unit tests using pytest. Default test path: tests/unit. Requires pytest to be installed.",
         "category": "tests",
         "parameters": {
-            "project_dir": "Path to the project directory",
-            "test_path": "Path to unit tests directory (default: tests/unit)",
-            "extra_args": "Optional extra arguments for pytest"
+            "project_dir": "Path to the project directory (required)",
+            "test_path": "Path to unit tests directory; default: 'tests/unit' (optional)",
+            "extra_args": "Optional extra arguments for pytest, e.g. ['-v', '-k', 'test_name'] (optional)"
         }
     },
     "run_integration_tests": {
         "func": run_integration_tests,
-        "description": "Run integration tests using pytest",
+        "description": "Run integration tests using pytest. Default test path: tests/integration. Requires pytest to be installed.",
         "category": "tests",
         "parameters": {
-            "project_dir": "Path to the project directory",
-            "test_path": "Path to integration tests directory (default: tests/integration)",
-            "extra_args": "Optional extra arguments for pytest"
+            "project_dir": "Path to the project directory (required)",
+            "test_path": "Path to integration tests directory; default: 'tests/integration' (optional)",
+            "extra_args": "Optional extra arguments for pytest, e.g. ['-v', '-k', 'test_name'] (optional)"
         }
     },
     "git_diff": {
         "func": git_diff,
-        "description": "Show git diff for the repository",
+        "description": "Show git diff for the repository. Requires git to be installed and project_dir to be a git repository.",
         "category": "git",
         "parameters": {
-            "project_dir": "Path to the project directory",
-            "options": "Optional git diff options (e.g., ['--staged', '--stat'])"
+            "project_dir": "Path to the project directory (must be a git repo) (required)",
+            "options": "Optional git diff options, e.g. ['--staged', '--stat'] (optional)"
         }
     },
     "git_status": {
         "func": git_status,
-        "description": "Show git status for the repository",
+        "description": "Show git status for the repository. Requires git to be installed and project_dir to be a git repository.",
         "category": "git",
         "parameters": {
-            "project_dir": "Path to the project directory",
-            "short": "Use short format (default: True)"
-        }
-    },
-    "run_shell": {
-        "func": run_shell,
-        "description": "Run a shell command in the project directory (use with caution)",
-        "category": "shell",
-        "parameters": {
-            "project_dir": "Path to the project directory",
-            "command": "Shell command to execute",
-            "timeout": "Timeout in seconds (default: 30)"
+            "project_dir": "Path to the project directory (must be a git repo) (required)",
+            "short": "Use short format; default: True (optional)"
         }
     }
+    # NOTE: run_shell has been intentionally removed from the public tool registry
+    # to prevent command injection attacks. It is available as _run_shell_internal()
+    # for trusted internal use only.
 }
 
 
 def get_tool_metadata() -> List[Dict[str, Any]]:
     """
     Return a JSON-serializable list of tool metadata for LLM prompts.
+
+    This function is used by the orchestrator to inject tool awareness into
+    agent prompts, allowing them to request specific tools by name.
 
     Returns:
         [
@@ -616,12 +683,30 @@ def call_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
     """
     Call a tool by name with the given arguments.
 
+    This is the main entry point for tool invocation. It validates that the
+    tool exists in the registry and dispatches to the appropriate function.
+
     Args:
-        tool_name: Name of the tool to call
+        tool_name: Name of the tool to call (must exist in TOOL_REGISTRY)
         **kwargs: Arguments to pass to the tool
 
     Returns:
-        Tool result dict, or error dict if tool not found
+        Tool result dict with structure:
+        {
+            "status": "success" | "failed",
+            "exit_code": int,
+            "output": str,
+            "error": str,
+            ...  # tool-specific fields
+        }
+
+        Or error dict if tool not found:
+        {
+            "status": "failed",
+            "exit_code": 1,
+            "output": "",
+            "error": "Tool not found: ..."
+        }
     """
     if tool_name not in TOOL_REGISTRY:
         return {

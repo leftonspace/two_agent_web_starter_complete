@@ -2,7 +2,7 @@
 """
 Core logging system for main orchestrator runs.
 
-STAGE 2.2: Provides centralized, structured logging for the main orchestrator,
+STAGE 2.2 (HARDENED): Provides centralized, structured logging for the main orchestrator,
 separate from safety execution logs.
 
 Logs are written as JSONL (one JSON object per line) to:
@@ -13,8 +13,21 @@ Each log entry is a LogEvent with:
 - timestamp: Unix timestamp (seconds since epoch)
 - event_type: Type of event (start, iteration_begin, llm_call, etc.)
 - payload: Dict with event-specific data
+- schema_version: Log schema version for future compatibility
 
 This is best-effort logging - failures do not crash the orchestrator.
+
+LOG ROTATION / SIZE MANAGEMENT:
+Currently, there is NO automatic log rotation or size limit enforcement.
+Logs will accumulate indefinitely in run_logs_main/.
+
+TODO (Future Stage): Implement log rotation strategy:
+- Option 1: Delete logs older than N days
+- Option 2: Compress old logs (gzip)
+- Option 3: Limit total number of runs (keep last N runs)
+- Option 4: Implement size-based rotation (truncate when directory exceeds X MB)
+
+For now, users should manually clean up run_logs_main/ if disk space is a concern.
 """
 
 from __future__ import annotations
@@ -35,6 +48,10 @@ from typing import Any, Dict
 # Logs directory (relative to agent/)
 LOGS_DIR = Path(__file__).resolve().parent / "run_logs_main"
 
+# Log schema version for future evolution
+# Increment this if the LogEvent structure or payload format changes significantly
+LOG_SCHEMA_VERSION = "1.0"
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Data Models
@@ -51,14 +68,19 @@ class LogEvent:
         timestamp: Unix timestamp (seconds since epoch, with milliseconds)
         event_type: Type of event (see EVENT_TYPES below)
         payload: Event-specific data as a dict
+        schema_version: Log schema version for future compatibility (optional, default: current version)
     """
     run_id: str
     timestamp: float
     event_type: str
     payload: Dict[str, Any]
+    schema_version: str = LOG_SCHEMA_VERSION
 
 
 # Event types (for documentation and validation)
+# NOTE: "error", "warning", and "info" are reserved for future use but not
+# currently emitted by the orchestrator. They may be used in later stages
+# for more granular event tracking.
 EVENT_TYPES = {
     "start": "Run started",
     "iteration_begin": "Iteration started",
@@ -67,9 +89,9 @@ EVENT_TYPES = {
     "file_write": "File written to disk",
     "safety_check": "Safety checks executed",
     "final_status": "Run completed with final status",
-    "error": "Error occurred",
-    "warning": "Warning logged",
-    "info": "Informational message"
+    "error": "Error occurred (reserved for future use)",
+    "warning": "Warning logged (reserved for future use)",
+    "info": "Informational message (reserved for future use)"
 }
 
 
@@ -97,6 +119,7 @@ def log_event(run_id: str, event_type: str, payload: Dict[str, Any]) -> None:
     - Creates the log file if it doesn't exist
     - Appends a JSON line
     - Does NOT crash the program if logging fails (prints warning to stderr)
+    - Includes schema_version for future compatibility
 
     Args:
         run_id: Unique identifier for this run
@@ -110,12 +133,13 @@ def log_event(run_id: str, event_type: str, payload: Dict[str, Any]) -> None:
             "config": {...}
         })
     """
-    # Create log event
+    # Create log event with schema version
     event = LogEvent(
         run_id=run_id,
         timestamp=time.time(),
         event_type=event_type,
-        payload=payload
+        payload=payload,
+        schema_version=LOG_SCHEMA_VERSION
     )
 
     # Ensure logs directory exists
@@ -142,6 +166,10 @@ def load_run_events(run_id: str) -> list[LogEvent]:
     """
     Load all log events for a given run ID.
 
+    Handles schema version compatibility: events without schema_version field
+    are treated as valid (for backward compatibility with logs created before
+    schema versioning was introduced).
+
     Args:
         run_id: Run identifier
 
@@ -165,6 +193,9 @@ def load_run_events(run_id: str) -> list[LogEvent]:
 
                 try:
                     data = json.loads(line)
+                    # Handle backward compatibility: add schema_version if missing
+                    if "schema_version" not in data:
+                        data["schema_version"] = "1.0"  # Assume version 1.0 for old logs
                     event = LogEvent(**data)
                     events.append(event)
                 except (json.JSONDecodeError, TypeError) as e:

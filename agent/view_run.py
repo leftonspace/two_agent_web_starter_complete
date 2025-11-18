@@ -3,7 +3,7 @@
 """
 CLI dashboard to inspect orchestrator main run logs.
 
-STAGE 2.3: Provides a simple text-based viewer for run_logs_main/<run_id>.jsonl.
+STAGE 2.3 (HARDENED): Provides a simple text-based viewer for run_logs_main/<run_id>.jsonl.
 
 Usage:
     python view_run.py <run_id>                # Show full summary and timeline
@@ -34,6 +34,10 @@ def compute_summary(events: List[core_logging.LogEvent]) -> Dict[str, Any]:
     """
     Compute a summary from a list of log events.
 
+    NOTE: This function augments the base summary from core_logging.get_run_summary()
+    with CLI-specific details (error_events). For consistency, most logic delegates
+    to core_logging.get_run_summary().
+
     Returns:
         Dict with:
         - run_id: str
@@ -44,52 +48,21 @@ def compute_summary(events: List[core_logging.LogEvent]) -> Dict[str, Any]:
         - models_used: set of str
         - safety_status: str or None
         - final_status: str or None
-        - error_events: list of LogEvent
+        - error_events: list of LogEvent (CLI-specific)
         - total_events: int
     """
     if not events:
         return {}
 
     run_id = events[0].run_id
-    start_time = None
-    end_time = None
-    iterations = set()
-    models = set()
-    safety_status = None
-    final_status = None
+
+    # Delegate base summary computation to core_logging
+    base_summary = core_logging.get_run_summary(run_id)
+
+    # Augment with CLI-specific error event tracking
     error_events = []
-
     for event in events:
-        # Start time
-        if event.event_type == "start":
-            start_time = event.timestamp
-
-        # End time
-        if event.event_type == "final_status":
-            end_time = event.timestamp
-            final_status = event.payload.get("status")
-
-        # Iterations
-        if event.event_type in ("iteration_begin", "iteration_end"):
-            iteration = event.payload.get("iteration")
-            if iteration is not None:
-                iterations.add(iteration)
-
-        # Models
-        if event.event_type == "llm_call":
-            model = event.payload.get("model")
-            if model:
-                models.add(model)
-
-        # Safety
-        if event.event_type == "safety_check":
-            status = event.payload.get("summary_status")
-            if status == "failed":
-                safety_status = "failed"
-            elif safety_status is None:  # Don't overwrite "failed"
-                safety_status = status
-
-        # Errors
+        # Track explicit errors
         if event.event_type == "error":
             error_events.append(event)
         # Also track safety failures as errors
@@ -101,23 +74,11 @@ def compute_summary(events: List[core_logging.LogEvent]) -> Dict[str, Any]:
             if event not in error_events:
                 error_events.append(event)
 
-    # Compute duration
-    duration = None
-    if start_time and end_time:
-        duration = end_time - start_time
+    # Merge base summary with error tracking
+    summary = base_summary.copy()
+    summary["error_events"] = error_events
 
-    return {
-        "run_id": run_id,
-        "start_time": start_time,
-        "end_time": end_time,
-        "duration_seconds": duration,
-        "num_iterations": len(iterations),
-        "models_used": sorted(models),
-        "safety_status": safety_status,
-        "final_status": final_status,
-        "error_events": error_events,
-        "total_events": len(events)
-    }
+    return summary
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -126,7 +87,12 @@ def compute_summary(events: List[core_logging.LogEvent]) -> Dict[str, Any]:
 
 
 def format_timestamp(ts: float) -> str:
-    """Convert unix timestamp to human-readable format."""
+    """
+    Convert unix timestamp to human-readable format.
+
+    NOTE: Uses local system time (datetime.fromtimestamp() uses local timezone).
+    For UTC, use datetime.utcfromtimestamp() instead.
+    """
     dt = datetime.fromtimestamp(ts)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -186,6 +152,9 @@ def print_summary(summary: Dict[str, Any]) -> None:
     final_emoji = "✓" if final in ("success", "approved") else "✗"
     print(f"Final status: {final_emoji} {final}")
 
+    # Timezone note
+    print()
+    print("NOTE: Timestamps are displayed in local system time.")
     print()
 
 
@@ -193,20 +162,25 @@ def print_timeline(events: List[core_logging.LogEvent], only_errors: bool = Fals
     """
     Print a timeline of events.
 
+    Events are sorted by timestamp before display to guarantee chronological order.
+
     Args:
-        events: List of LogEvent objects
+        events: List of LogEvent objects (will be sorted by timestamp)
         only_errors: If True, only show error/warning events
     """
     if not events:
         print("No events to display.")
         return
 
-    start_time = events[0].timestamp if events else 0
+    # Sort events by timestamp to guarantee chronological order
+    sorted_events = sorted(events, key=lambda e: e.timestamp)
+
+    start_time = sorted_events[0].timestamp if sorted_events else 0
 
     print("Timeline:")
     print("-" * 70)
 
-    for event in events:
+    for event in sorted_events:
         # Skip non-error events if only_errors is True
         if only_errors:
             is_error_event = (
@@ -335,13 +309,13 @@ def main():
             print(f"Error: Log file exists but is empty or malformed: {log_file}", file=sys.stderr)
             sys.exit(1)
 
-    # Compute summary
+    # Compute summary (delegates to core_logging for consistency)
     summary = compute_summary(events)
 
     # Print summary
     print_summary(summary)
 
-    # Print timeline
+    # Print timeline (events are sorted inside print_timeline for chronological order)
     if args.only_errors:
         error_events = [
             e for e in events

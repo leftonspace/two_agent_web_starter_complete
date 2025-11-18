@@ -1,10 +1,55 @@
 # run_logger.py
+"""
+Run logging and evaluation layer for the multi-agent orchestrator.
+
+Provides two APIs:
+1. Legacy dict-based API (for backward compatibility)
+2. STAGE 2 dataclass-based API (for structured logging)
+"""
+
 from __future__ import annotations
 
 import json
+import uuid
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+
+# ══════════════════════════════════════════════════════════════════════
+# STAGE 2: Dataclass-based Structured Logging
+# ══════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class IterationLog:
+    """Log entry for a single iteration of the orchestrator loop."""
+    index: int                              # Iteration number (1-based)
+    role: str                               # "manager", "supervisor", "employee"
+    status: str                             # "ok", "timeout", "safety_failed", etc.
+    notes: str                              # Free-text summary
+    safety_status: Optional[str] = None     # "passed"/"failed"/None
+    timestamp: Optional[str] = None         # ISO timestamp
+
+
+@dataclass
+class RunSummary:
+    """Complete summary of an orchestrator run."""
+    run_id: str                                          # Unique identifier
+    started_at: str                                      # ISO timestamp (UTC)
+    finished_at: Optional[str] = None                    # ISO timestamp (UTC)
+    mode: str = "3loop"                                  # "2loop" or "3loop"
+    project_dir: str = ""                                # Path to project
+    task: str = ""                                       # Original task description
+    max_rounds: int = 1                                  # Maximum iterations allowed
+    rounds_completed: int = 0                            # Actual iterations run
+    final_status: str = "unknown"                        # "success", "max_rounds_reached", etc.
+    safety_status: Optional[str] = None                  # "passed"/"failed"/None
+    models_used: Dict[str, str] = field(default_factory=dict)    # {"manager": "...", ...}
+    cost_summary: Dict[str, Any] = field(default_factory=dict)   # From cost_tracker
+    iterations: List[IterationLog] = field(default_factory=list) # Per-iteration logs
+    config: Dict[str, Any] = field(default_factory=dict)         # Additional config
 
 
 def _now_iso() -> str:
@@ -12,10 +57,149 @@ def _now_iso() -> str:
     return datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
 
 
-def start_run(config: Dict[str, Any], mode: str, out_dir: Path) -> Dict[str, Any]:
+def start_run(
+    mode: str,
+    project_dir: str,
+    task: str,
+    max_rounds: int,
+    models_used: Dict[str, str],
+    config: Optional[Dict[str, Any]] = None,
+) -> RunSummary:
     """
+    Create a new RunSummary for tracking an orchestrator run.
+
+    Args:
+        mode: "2loop" or "3loop"
+        project_dir: Path to the project directory
+        task: Task description
+        max_rounds: Maximum number of iterations
+        models_used: Dict of role -> model name
+        config: Optional additional configuration
+
+    Returns:
+        RunSummary instance with run_id and started_at populated
+    """
+    run_id = uuid.uuid4().hex[:12]  # 12-char unique ID
+    started_at = _now_iso()
+
+    return RunSummary(
+        run_id=run_id,
+        started_at=started_at,
+        mode=mode,
+        project_dir=str(project_dir),
+        task=task,
+        max_rounds=max_rounds,
+        models_used=models_used,
+        config=config or {},
+    )
+
+
+def log_iteration(
+    run: RunSummary,
+    index: int,
+    role: str,
+    status: str,
+    notes: str,
+    safety_status: Optional[str] = None,
+) -> None:
+    """
+    Append an iteration log entry to the RunSummary.
+
+    Args:
+        run: RunSummary instance
+        index: Iteration number (1-based)
+        role: "manager", "supervisor", "employee"
+        status: "ok", "timeout", "safety_failed", etc.
+        notes: Free-text description
+        safety_status: Optional "passed"/"failed"
+    """
+    iteration = IterationLog(
+        index=index,
+        role=role,
+        status=status,
+        notes=notes,
+        safety_status=safety_status,
+        timestamp=_now_iso(),
+    )
+    run.iterations.append(iteration)
+    run.rounds_completed = len(run.iterations)
+
+
+def finalize_run(
+    run: RunSummary,
+    final_status: str,
+    safety_status: Optional[str] = None,
+    cost_summary: Optional[Dict[str, Any]] = None,
+) -> RunSummary:
+    """
+    Finalize a RunSummary with final status and cost information.
+
+    Args:
+        run: RunSummary instance
+        final_status: "success", "max_rounds_reached", "timeout", "aborted", etc.
+        safety_status: Optional final safety status
+        cost_summary: Optional cost summary from cost_tracker
+
+    Returns:
+        Updated RunSummary instance
+    """
+    run.finished_at = _now_iso()
+    run.final_status = final_status
+    if safety_status is not None:
+        run.safety_status = safety_status
+    if cost_summary is not None:
+        run.cost_summary = cost_summary
+    return run
+
+
+def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:
+    """
+    Save RunSummary to disk as JSON.
+
+    Creates: <base_dir>/<run_id>/run_summary.json
+
+    Args:
+        run: RunSummary instance
+        base_dir: Base directory for logs (default: "run_logs")
+
+    Returns:
+        Path to the saved JSON file
+    """
+    # Get project root (parent of agent/)
+    agent_dir = Path(__file__).resolve().parent
+    project_root = agent_dir.parent
+
+    # Create run-specific directory
+    run_dir = project_root / base_dir / run.run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write JSON
+    json_file = run_dir / "run_summary.json"
+    try:
+        # Convert dataclass to dict
+        run_dict = asdict(run)
+
+        # Write with nice formatting
+        json_file.write_text(
+            json.dumps(run_dict, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+        print(f"[RunLog] Saved run summary to {json_file}")
+        return str(json_file)
+    except Exception as e:
+        print(f"[RunLog] Failed to save run summary: {e}")
+        return ""
+
+
+# ══════════════════════════════════════════════════════════════════════
+# LEGACY API (Backward Compatibility)
+# ══════════════════════════════════════════════════════════════════════
+
+
+def start_run_legacy(config: Dict[str, Any], mode: str, out_dir: Path) -> Dict[str, Any]:
+    """
+    Legacy dict-based API for backward compatibility.
     Create an in-memory record for this run.
-    This does NOT write anything to disk yet.
     """
     project_subdir = str(config.get("project_subdir", out_dir.name))
     task = str(config.get("task", ""))
@@ -43,28 +227,26 @@ def start_run(config: Dict[str, Any], mode: str, out_dir: Path) -> Dict[str, Any
     return run_record
 
 
-def log_iteration(run_record: Dict[str, Any], iteration_data: Dict[str, Any]) -> None:
+def log_iteration_legacy(run_record: Dict[str, Any], iteration_data: Dict[str, Any]) -> None:
     """
-    Append one iteration summary (status, tests, cost, etc.)
-    to the in-memory run_record.
+    Legacy dict-based API for backward compatibility.
+    Append one iteration summary to the in-memory run_record.
     """
     iters: List[Dict[str, Any]] = run_record.setdefault("iterations", [])
     iters.append(dict(iteration_data))
     run_record["iterations_run"] = len(iters)
 
 
-def finish_run(
+def finish_run_legacy(
     run_record: Dict[str, Any],
     final_status: str,
     cost_summary: Dict[str, Any],
     out_dir: Path,
 ) -> None:
     """
+    Legacy dict-based API for backward compatibility.
     Finalize run_record and append it as one JSON line to:
-
       agent/run_logs/<project_subdir>_<mode>.jsonl
-
-    Never crashes the main program — errors are only printed.
     """
     run_record["finished_at_utc"] = _now_iso()
     run_record["final_status"] = final_status
@@ -86,3 +268,13 @@ def finish_run(
         print(f"[RunLog] Appended entry to {log_file}")
     except Exception as e:
         print(f"[RunLog] Failed to write run log: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Compatibility Aliases (orchestrator.py uses these names)
+# ══════════════════════════════════════════════════════════════════════
+
+# Map new names to legacy functions for existing code
+start_run_dict = start_run_legacy
+log_iteration_dict = log_iteration_legacy
+finish_run_dict = finish_run_legacy

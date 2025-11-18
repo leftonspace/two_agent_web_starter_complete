@@ -127,8 +127,11 @@ def chat_json(
     payload: Dict[str, Any] = {
         "model": chosen_model,
         "messages": messages,
-        "temperature": temperature,
+        # NOTE: Some preview models only accept default temperature.
+        # We keep the parameter in the function signature but don't
+        # send it to the API to avoid unsupported_value errors.
     }
+
 
     data = _post(payload)
 

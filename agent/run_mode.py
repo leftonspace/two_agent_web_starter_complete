@@ -1,4 +1,14 @@
 # run_mode.py
+"""
+Main entry point for the multi-agent orchestrator.
+
+Loads configuration, performs cost estimation, and runs either:
+- Auto-pilot mode (multiple sub-runs with self-evaluation)
+- Single-run mode (2loop or 3loop)
+
+STAGE 5: Enhanced with status codes and improved error handling.
+"""
+
 from __future__ import annotations
 
 import json
@@ -28,6 +38,23 @@ from run_logger import (
     start_run,
 )
 
+# STAGE 5: Import status codes
+from status_codes import (
+    SUCCESS,
+    COMPLETED,
+    MAX_ROUNDS,
+    TIMEOUT,
+    COST_EXCEEDED,
+    SAFETY_FAILED,
+    USER_ABORT,
+    SESSION_COMPLETED,
+    SESSION_GAVE_UP,
+    UNKNOWN,
+    EXCEPTION,
+)
+
+
+
 
 def _load_config() -> dict:
     cfg_path = Path(__file__).resolve().parent / "project_config.json"
@@ -50,10 +77,19 @@ def _print_summary(cfg: dict) -> None:
     cost_warning_usd = float(cfg.get("cost_warning_usd", 0.0) or 0.0)
     interactive_cost_mode = cfg.get("interactive_cost_mode", "off")
 
+    # Check for auto-pilot mode
+    auto_pilot_cfg = cfg.get("auto_pilot")
+    auto_pilot_enabled = auto_pilot_cfg and auto_pilot_cfg.get("enabled", False)
+
     print("======================================")
     print("  Two-Agent / Multi-Agent Runner")
     print("======================================")
     print(f"Mode:             {mode}  (2loop = Manager↔Employee, 3loop = Manager↔Supervisor↔Employee)")
+
+    if auto_pilot_enabled:
+        max_sub_runs = auto_pilot_cfg.get("max_sub_runs", 3)
+        print(f"Auto-Pilot:       ENABLED (max {max_sub_runs} sub-runs)")
+
     print(f"Project subdir:   {project}")
     print(f"Task (short):     {short_task}")
     print(f"Max rounds:       {max_rounds}")
@@ -71,9 +107,87 @@ def _print_summary(cfg: dict) -> None:
     print("======================================\n")
 
 
+def _run_auto_pilot_mode(cfg: dict, auto_pilot_cfg: dict) -> None:
+    """
+    Run in auto-pilot mode with multiple sub-runs and self-evaluation.
+
+    Args:
+        cfg: Main project configuration
+        auto_pilot_cfg: Auto-pilot specific configuration
+    """
+    from auto_pilot import run_auto_pilot
+
+    # Extract configuration
+    mode = cfg.get("mode", "3loop").lower().strip()
+    project_subdir = cfg.get("project_subdir", "unknown_project")
+    task = cfg.get("task", "")
+
+    # Determine project directory
+    agent_dir = Path(__file__).resolve().parent
+    project_root = agent_dir.parent
+    project_dir = project_root / "sites" / project_subdir
+
+    # Auto-pilot settings
+    max_sub_runs = int(auto_pilot_cfg.get("max_sub_runs", 3))
+    max_rounds_per_run = int(cfg.get("max_rounds", 1))
+
+    # Model configuration
+    models_used = {
+        "manager": DEFAULT_MANAGER_MODEL,
+        "supervisor": DEFAULT_SUPERVISOR_MODEL,
+        "employee": DEFAULT_EMPLOYEE_MODEL,
+    }
+
+    # Build config for sub-runs
+    run_config = {
+        "use_visual_review": cfg.get("use_visual_review", False),
+        "use_git": cfg.get("use_git", False),
+        "max_cost_usd": cfg.get("max_cost_usd", 0.0),
+        "cost_warning_usd": cfg.get("cost_warning_usd", 0.0),
+        "interactive_cost_mode": cfg.get("interactive_cost_mode", "off"),
+    }
+
+    print(f"[AutoPilot] Starting auto-pilot mode")
+    print(f"[AutoPilot] Project: {project_dir}")
+    print(f"[AutoPilot] Max sub-runs: {max_sub_runs}")
+    print(f"[AutoPilot] Max rounds per run: {max_rounds_per_run}")
+    print()
+
+    try:
+        session = run_auto_pilot(
+            mode=mode,
+            project_dir=str(project_dir),
+            task=task,
+            max_sub_runs=max_sub_runs,
+            max_rounds_per_run=max_rounds_per_run,
+            models_used=models_used,
+            config=run_config,
+        )
+
+        print(f"\n[AutoPilot] Session completed: {session.session_id}")
+        print(f"[AutoPilot] Total runs: {len(session.runs)}")
+        print(f"[AutoPilot] Total cost: ${session.total_cost_usd:.4f}")
+        print(f"[AutoPilot] Final decision: {session.final_decision}")
+
+    except KeyboardInterrupt:
+        print("\n[AutoPilot] Session interrupted by user")
+
+    except Exception as e:
+        print(f"\n[AutoPilot] Session failed with exception: {e}")
+        raise
+
+
 def main() -> None:
     cfg = _load_config()
     _print_summary(cfg)
+
+    # ──────────────────────────────────────────────────────────────────────
+    # STAGE 4: Check for Auto-Pilot Mode
+    # ──────────────────────────────────────────────────────────────────────
+    auto_pilot_cfg = cfg.get("auto_pilot")
+    if auto_pilot_cfg and auto_pilot_cfg.get("enabled", False):
+        _run_auto_pilot_mode(cfg, auto_pilot_cfg)
+        return
 
     # ──────────────────────────────────────────────────────────────────────
     # STAGE 2: Initialize Run Logging
@@ -149,19 +263,19 @@ def main() -> None:
             user_input = "n"
 
         if user_input not in ("y", "yes"):
-            print("\n[Cost Control] Run aborted by user.")
-            # Finalize and save run summary
+            print("\n[COST] Run aborted by user.")
+            # Finalize and save run summary (STAGE 5: use status constant)
             run_summary = finalize_run(
                 run_summary,
-                final_status="aborted_by_user",
+                final_status=USER_ABORT,
                 safety_status=None,
                 cost_summary=cost_tracker.get_summary(),
             )
             save_run_summary(run_summary)
-            print(f"[RunLog] Run summary saved (aborted before execution)")
+            print(f"[RUN] Run summary saved (aborted before execution)")
             return
 
-        print("[Cost Control] User approved. Continuing...")
+        print("[COST] User approved. Continuing...")
 
     # Warn if estimate exceeds cap (in "off" mode)
     elif max_cost_usd > 0 and cost_estimate["estimated_total_usd"] > max_cost_usd:
@@ -176,6 +290,7 @@ def main() -> None:
     # ──────────────────────────────────────────────────────────────────────
     # Run the orchestrator
     # ──────────────────────────────────────────────────────────────────────
+    # STAGE 5: Use status constants
     final_status = "unknown"
     safety_status = None
 
@@ -184,33 +299,33 @@ def main() -> None:
             from orchestrator_2loop import main as main_2loop
             # 2loop doesn't support run_summary yet
             main_2loop()
-            final_status = "completed"
+            final_status = COMPLETED
         else:
             # Default to 3-loop if anything else
             from orchestrator import main as main_3loop
             # Pass run_summary to enable STAGE 2 logging
             main_3loop(run_summary=run_summary)
-            final_status = "completed"
+            final_status = COMPLETED
 
     except KeyboardInterrupt:
-        print("\n[RunMode] Run interrupted by user")
-        final_status = "aborted_by_user"
+        print("\n[RUN] Run interrupted by user")
+        final_status = USER_ABORT
         log_iteration(
             run_summary,
             index=run_summary.rounds_completed + 1,
             role="system",
-            status="interrupted",
+            status=ITER_INTERRUPTED,
             notes="Run interrupted by user (Ctrl+C)",
         )
 
     except Exception as e:
-        print(f"\n[RunMode] Run failed with exception: {e}")
-        final_status = "exception"
+        print(f"\n[RUN] Run failed with exception: {e}")
+        final_status = EXCEPTION
         log_iteration(
             run_summary,
             index=run_summary.rounds_completed + 1,
             role="system",
-            status="exception",
+            status=ITER_EXCEPTION,
             notes=f"Exception: {type(e).__name__}: {str(e)}",
         )
         # Re-raise to preserve traceback if needed

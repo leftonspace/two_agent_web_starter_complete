@@ -10,7 +10,13 @@ from exec_safety import run_safety_checks
 from git_utils import commit_all, ensure_repo
 from llm import chat_json
 from prompts import load_prompts
-from run_logger import finish_run, log_iteration, start_run
+from run_logger import (
+    finish_run_legacy as finish_run,
+    log_iteration_legacy as log_iteration_dict,
+    start_run_legacy as start_run,
+)
+# STAGE 2: Import new run logging API
+from run_logger import RunSummary, log_iteration as log_iteration_new
 from site_tools import (
     analyze_site,
     load_existing_files,
@@ -213,7 +219,14 @@ def _build_supervisor_sys(manager_plan_sys: str) -> str:
     )
 
 
-def main() -> None:
+def main(run_summary: Optional[RunSummary] = None) -> None:
+    """
+    Main 3-loop orchestrator function.
+
+    Args:
+        run_summary: Optional RunSummary for STAGE 2 logging.
+                     If provided, iterations will be logged automatically.
+    """
     cfg = _load_config()
     out_dir = _ensure_out_dir(cfg)
 
@@ -267,6 +280,16 @@ def main() -> None:
     plan = chat_json("manager", manager_plan_sys, task)
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
+
+    # STAGE 2: Log manager planning phase
+    if run_summary is not None:
+        log_iteration_new(
+            run_summary,
+            index=0,  # Planning phase (pre-iteration)
+            role="manager",
+            status="ok",
+            notes="Manager created initial plan and acceptance criteria",
+        )
 
     total_cost = cost_tracker.get_total_cost_usd()
     print(f"\n[Cost] After planning: ~${total_cost:.4f} USD")
@@ -434,6 +457,7 @@ def main() -> None:
         # ─────────────────────────────────────────────────────────────
         # Run safety checks if we're "almost done" or on the last iteration
         run_safety = False
+        iteration_safety_status = None
         if status == "approved":
             run_safety = True
         elif iteration == max_rounds:
@@ -443,6 +467,7 @@ def main() -> None:
         if run_safety:
             print("\n[Safety] Running safety checks before finalizing...")
             safety_result = run_safety_checks(str(out_dir), task)
+            iteration_safety_status = safety_result["status"]
 
             if safety_result["status"] == "failed":
                 print("\n[Safety] ❌ Safety checks FAILED")
@@ -471,8 +496,8 @@ def main() -> None:
             )
             commit_all(out_dir, commit_message)
 
-        # RUN LOG: record this iteration
-        log_iteration(
+        # RUN LOG: record this iteration (legacy dict-based)
+        log_iteration_dict(
             run_record,
             {
                 "iteration": iteration,
@@ -483,6 +508,34 @@ def main() -> None:
                 "feedback_size": len(feedback) if isinstance(feedback, list) else None,
             },
         )
+
+        # STAGE 2: Log iteration with new structured API
+        if run_summary is not None:
+            # Determine iteration status
+            iter_status = "ok"
+            if iteration_safety_status == "failed":
+                iter_status = "safety_failed"
+            elif status == "needs_changes":
+                iter_status = "needs_changes"
+            elif status == "approved":
+                iter_status = "approved"
+
+            # Build notes
+            notes_parts = [f"Iteration {iteration} completed"]
+            notes_parts.append(f"Manager status: {status}")
+            if test_results.get("all_passed"):
+                notes_parts.append("All tests passed")
+            else:
+                notes_parts.append("Some tests failed")
+
+            log_iteration_new(
+                run_summary,
+                index=iteration,
+                role="manager",  # Last role in iteration is manager review
+                status=iter_status,
+                notes="; ".join(notes_parts),
+                safety_status=iteration_safety_status,
+            )
 
         # Cost checks
         total_cost = cost_tracker.get_total_cost_usd()

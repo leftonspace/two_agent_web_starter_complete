@@ -50,6 +50,7 @@ class RunSummary:
     cost_summary: Dict[str, Any] = field(default_factory=dict)   # From cost_tracker
     iterations: List[IterationLog] = field(default_factory=list) # Per-iteration logs
     config: Dict[str, Any] = field(default_factory=dict)         # Additional config
+    estimated_cost_usd: Optional[float] = None           # STAGE 3: Pre-run cost estimate
 
 
 def _now_iso() -> str:

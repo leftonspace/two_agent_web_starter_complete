@@ -19,6 +19,7 @@ except ImportError:
 
 # STAGE 2: Import run logging and cost tracking
 import cost_tracker
+from cost_estimator import estimate_run_cost, format_cost_estimate
 from run_logger import (
     RunSummary,
     finalize_run,
@@ -111,6 +112,63 @@ def main() -> None:
 
     print(f"\n[RunLog] Started run: {run_summary.run_id}")
     print(f"[RunLog] Mode: {mode}, Max rounds: {max_rounds}")
+
+    # ──────────────────────────────────────────────────────────────────────
+    # STAGE 3: Cost Estimation & Interactive Approval
+    # ──────────────────────────────────────────────────────────────────────
+    max_cost_usd = float(cfg.get("max_cost_usd", 0.0) or 0.0)
+    cost_warning_usd = float(cfg.get("cost_warning_usd", 0.0) or 0.0)
+    interactive_cost_mode = cfg.get("interactive_cost_mode", "off")
+
+    # Compute cost estimate
+    cost_estimate = estimate_run_cost(
+        mode=mode,
+        max_rounds=max_rounds,
+        models_used=models_used,
+    )
+
+    # Store estimate in run_summary
+    run_summary.estimated_cost_usd = cost_estimate["estimated_total_usd"]
+
+    # Display cost estimate
+    print()
+    print(format_cost_estimate(cost_estimate, max_cost_usd, cost_warning_usd))
+    print()
+
+    # Interactive approval if configured
+    if interactive_cost_mode in ("once", "always"):
+        prompt_msg = f"\n[Cost Control] Proceed with this run? "
+        prompt_msg += f"Estimated cost: ${cost_estimate['estimated_total_usd']:.4f} USD"
+        if max_cost_usd > 0:
+            prompt_msg += f" (max allowed: ${max_cost_usd:.4f} USD)"
+        prompt_msg += " [y/N]: "
+
+        try:
+            user_input = input(prompt_msg).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            user_input = "n"
+
+        if user_input not in ("y", "yes"):
+            print("\n[Cost Control] Run aborted by user.")
+            # Finalize and save run summary
+            run_summary = finalize_run(
+                run_summary,
+                final_status="aborted_by_user",
+                safety_status=None,
+                cost_summary=cost_tracker.get_summary(),
+            )
+            save_run_summary(run_summary)
+            print(f"[RunLog] Run summary saved (aborted before execution)")
+            return
+
+        print("[Cost Control] User approved. Continuing...")
+
+    # Warn if estimate exceeds cap (in "off" mode)
+    elif max_cost_usd > 0 and cost_estimate["estimated_total_usd"] > max_cost_usd:
+        print(f"\n⚠️  [Cost Control] WARNING: Estimated cost exceeds max_cost_usd!")
+        print(f"    Estimate: ${cost_estimate['estimated_total_usd']:.4f}")
+        print(f"    Max cap:  ${max_cost_usd:.4f}")
+        print(f"    Proceeding anyway (interactive_cost_mode is 'off')...")
 
     # Reset cost tracking for this run
     cost_tracker.reset()

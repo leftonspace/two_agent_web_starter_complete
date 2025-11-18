@@ -339,6 +339,9 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     last_tests: Optional[Dict[str, Any]] = None
     last_feedback: Optional[Any] = None
 
+    # STAGE 3: Cost tracking flags
+    cost_warning_shown = False  # Prevent spamming warning
+
     # 3) Iterations: Supervisor → Employee (per phase) → Manager review
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
@@ -537,21 +540,27 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 safety_status=iteration_safety_status,
             )
 
-        # Cost checks
+        # ─────────────────────────────────────────────────────────────
+        # STAGE 3: Cost Control Enforcement
+        # ─────────────────────────────────────────────────────────────
         total_cost = cost_tracker.get_total_cost_usd()
         print(f"\n[Cost] After iteration {iteration}: ~${total_cost:.4f} USD")
 
-        if cost_warning_usd and total_cost > cost_warning_usd:
+        # Show warning once when crossing cost_warning_usd
+        if cost_warning_usd and total_cost > cost_warning_usd and not cost_warning_shown:
             print(
-                f"[Cost] Warning: total cost ~${total_cost:.4f} exceeds warning "
+                f"\n⚠️  [Cost] WARNING: total cost ~${total_cost:.4f} exceeds warning "
                 f"threshold ${cost_warning_usd:.4f}"
             )
+            cost_warning_shown = True
 
+        # Hard stop if max_cost_usd exceeded
         if max_cost_usd and total_cost > max_cost_usd:
             print(
-                f"[Cost] Cap exceeded (~${total_cost:.4f} > ${max_cost_usd:.4f}). "
+                f"\n❌ [Cost] HARD CAP EXCEEDED (~${total_cost:.4f} > ${max_cost_usd:.4f}). "
                 "Stopping further iterations."
             )
+            last_status = "cost_cap_exceeded"
             break
 
         if status == "approved":

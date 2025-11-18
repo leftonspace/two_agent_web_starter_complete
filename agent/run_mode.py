@@ -292,17 +292,19 @@ def main() -> None:
             # 2loop doesn't support run_summary yet
             main_2loop()
             final_status = COMPLETED
-        elif mode == "phase3":
-            # PHASE 3: Adaptive multi-agent orchestrator
-            from orchestrator_phase3 import main_phase3
+        elif mode == "3loop_legacy":
+            # LEGACY: Original 3-loop orchestrator (pre-Phase 3)
+            from orchestrator_3loop_legacy import main as main_legacy
             # Pass run_summary to enable STAGE 2 logging
-            main_phase3(run_summary=run_summary)
+            main_legacy(run_summary=run_summary)
             final_status = COMPLETED
         else:
-            # Default to 3-loop if anything else
-            from orchestrator import main as main_3loop
+            # Default: PHASE 3 Adaptive multi-agent orchestrator
+            # Supports dynamic roadmap, auto-advance, regression detection,
+            # horizontal messaging, and stage-level memory
+            from orchestrator import main as main_phase3
             # Pass run_summary to enable STAGE 2 logging
-            main_3loop(run_summary=run_summary)
+            main_phase3(run_summary=run_summary)
             final_status = COMPLETED
 
     except KeyboardInterrupt:

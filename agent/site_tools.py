@@ -12,9 +12,13 @@ def load_existing_files(root: Path) -> Dict[str, str]:
     """
     Load existing project files into a dict: { 'relative/path': 'content' }.
     Only picks web-related files (html, css, js, etc.).
+    Skips .git and .history folders to avoid submodule confusion.
     """
     files: Dict[str, str] = {}
     for path in root.rglob("*"):
+        # Skip files inside .git or .history folders (avoid nested repo issues)
+        if any(part.startswith(".") for part in path.parts):
+            continue
         if path.is_file() and path.suffix in ALLOWED_EXT:
             rel = path.relative_to(root).as_posix()
             try:

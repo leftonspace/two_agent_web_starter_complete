@@ -1,0 +1,130 @@
+#!/bin/bash
+# .githooks/pre-commit
+#
+# Pre-commit hook for multi-agent orchestrator
+#
+# Performs lightweight checks before allowing commit:
+# - Import validation
+# - Sanity tests (if available)
+# - Linting (if ruff installed)
+# - Type checking (if mypy installed)
+#
+# Install with: git config core.hooksPath .githooks
+#
+# All checks are graceful - missing tools won't fail the commit,
+# they'll just show warnings.
+
+set -e
+
+echo "🪝 Running pre-commit checks..."
+echo ""
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Track if any checks failed
+FAILED=0
+
+# ============================================================================
+# 1. Import Check
+# ============================================================================
+echo "📦 Checking imports..."
+
+if python3 -c "
+import sys
+sys.path.insert(0, 'agent')
+try:
+    import orchestrator
+    import run_mode
+    import llm
+    import status_codes
+    import safe_io
+    print('   ✓ Core imports successful')
+except ImportError as e:
+    print(f'   ✗ Import failed: {e}')
+    sys.exit(1)
+" 2>&1; then
+    echo -e "${GREEN}   ✓ Imports OK${NC}"
+else
+    echo -e "${RED}   ✗ Import check failed${NC}"
+    FAILED=1
+fi
+
+echo ""
+
+# ============================================================================
+# 2. Sanity Tests (if available)
+# ============================================================================
+echo "🧪 Running sanity tests..."
+
+if [ -f "agent/tests_sanity/test_sanity.py" ]; then
+    if python3 agent/tests_sanity/test_sanity.py > /dev/null 2>&1; then
+        echo -e "${GREEN}   ✓ Sanity tests passed${NC}"
+    else
+        echo -e "${RED}   ✗ Sanity tests failed${NC}"
+        echo -e "${YELLOW}   Run: python3 agent/tests_sanity/test_sanity.py${NC}"
+        FAILED=1
+    fi
+else
+    echo -e "${YELLOW}   ⚠ Sanity tests not found (skipping)${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# 3. Ruff Linting (if installed)
+# ============================================================================
+echo "🔍 Running ruff linter..."
+
+if command -v ruff &> /dev/null; then
+    if ruff check agent/ --quiet; then
+        echo -e "${GREEN}   ✓ Ruff check passed${NC}"
+    else
+        echo -e "${RED}   ✗ Ruff found issues${NC}"
+        echo -e "${YELLOW}   Run: ruff check agent/${NC}"
+        FAILED=1
+    fi
+else
+    echo -e "${YELLOW}   ⚠ ruff not installed (skipping)${NC}"
+    echo -e "${YELLOW}   Install with: pip install ruff${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# 4. MyPy Type Checking (if installed)
+# ============================================================================
+echo "🔎 Running mypy type checker..."
+
+if command -v mypy &> /dev/null; then
+    if mypy agent/ --ignore-missing-imports --no-error-summary > /dev/null 2>&1; then
+        echo -e "${GREEN}   ✓ Type check passed${NC}"
+    else
+        echo -e "${YELLOW}   ⚠ Type check found issues (not blocking)${NC}"
+        echo -e "${YELLOW}   Run: mypy agent/ --ignore-missing-imports${NC}"
+        # Don't fail commit on type check issues
+    fi
+else
+    echo -e "${YELLOW}   ⚠ mypy not installed (skipping)${NC}"
+    echo -e "${YELLOW}   Install with: pip install mypy${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# Summary
+# ============================================================================
+if [ $FAILED -eq 0 ]; then
+    echo -e "${GREEN}✅ All checks passed! Proceeding with commit.${NC}"
+    exit 0
+else
+    echo -e "${RED}❌ Some checks failed. Fix issues and try again.${NC}"
+    echo ""
+    echo "To bypass this hook (not recommended):"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi

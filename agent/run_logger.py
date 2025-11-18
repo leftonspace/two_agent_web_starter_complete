@@ -53,6 +53,20 @@ class RunSummary:
     estimated_cost_usd: Optional[float] = None           # STAGE 3: Pre-run cost estimate
 
 
+@dataclass
+class SessionSummary:
+    """Summary of an auto-pilot session containing multiple runs."""
+    session_id: str                                      # Unique session identifier
+    started_at: str                                      # ISO timestamp (UTC)
+    finished_at: Optional[str] = None                    # ISO timestamp (UTC)
+    task: str = ""                                       # Original task description
+    max_sub_runs: int = 3                                # Maximum sub-runs allowed
+    runs: List[Dict[str, Any]] = field(default_factory=list)  # List of run summaries + eval scores
+    final_decision: str = "unknown"                      # "success", "max_runs_reached", "stopped", etc.
+    total_cost_usd: float = 0.0                          # Total cost across all runs
+    session_config: Dict[str, Any] = field(default_factory=dict)  # Session-level config
+
+
 def _now_iso() -> str:
     """Return current UTC time as ISO string with milliseconds."""
     return datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
@@ -189,6 +203,124 @@ def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:
         return str(json_file)
     except Exception as e:
         print(f"[RunLog] Failed to save run summary: {e}")
+        return ""
+
+
+# ══════════════════════════════════════════════════════════════════════
+# STAGE 4: Session-Level Logging (Auto-Pilot)
+# ══════════════════════════════════════════════════════════════════════
+
+
+def start_session(
+    task: str,
+    max_sub_runs: int,
+    session_config: Optional[Dict[str, Any]] = None,
+) -> SessionSummary:
+    """
+    Create a new SessionSummary for tracking an auto-pilot session.
+
+    Args:
+        task: Task description for the session
+        max_sub_runs: Maximum number of sub-runs allowed
+        session_config: Optional session-level configuration
+
+    Returns:
+        SessionSummary instance with session_id and started_at populated
+    """
+    session_id = uuid.uuid4().hex[:12]  # 12-char unique ID
+    started_at = _now_iso()
+
+    return SessionSummary(
+        session_id=session_id,
+        started_at=started_at,
+        task=task,
+        max_sub_runs=max_sub_runs,
+        session_config=session_config or {},
+    )
+
+
+def log_session_run(
+    session: SessionSummary,
+    run_summary: Dict[str, Any],
+    eval_result: Dict[str, Any],
+) -> None:
+    """
+    Append a run summary and evaluation to the session.
+
+    Args:
+        session: SessionSummary instance
+        run_summary: RunSummary as dict (from asdict())
+        eval_result: Evaluation result from self_eval.evaluate_run()
+    """
+    run_entry = {
+        "run_id": run_summary.get("run_id"),
+        "final_status": run_summary.get("final_status"),
+        "rounds_completed": run_summary.get("rounds_completed"),
+        "cost_usd": run_summary.get("cost_summary", {}).get("total_usd", 0.0),
+        "evaluation": eval_result,
+        "full_summary": run_summary,  # Include full details for later analysis
+    }
+    session.runs.append(run_entry)
+
+    # Update total cost
+    session.total_cost_usd += run_entry["cost_usd"]
+
+
+def finalize_session(
+    session: SessionSummary,
+    final_decision: str,
+) -> SessionSummary:
+    """
+    Finalize a SessionSummary with final decision.
+
+    Args:
+        session: SessionSummary instance
+        final_decision: "success", "max_runs_reached", "stopped", etc.
+
+    Returns:
+        Updated SessionSummary instance
+    """
+    session.finished_at = _now_iso()
+    session.final_decision = final_decision
+    return session
+
+
+def save_session_summary(session: SessionSummary, base_dir: str = "run_logs") -> str:
+    """
+    Save SessionSummary to disk as JSON.
+
+    Creates: <base_dir>/<session_id>/session_summary.json
+
+    Args:
+        session: SessionSummary instance
+        base_dir: Base directory for logs (default: "run_logs")
+
+    Returns:
+        Path to the saved JSON file
+    """
+    # Get project root (parent of agent/)
+    agent_dir = Path(__file__).resolve().parent
+    project_root = agent_dir.parent
+
+    # Create session-specific directory
+    session_dir = project_root / base_dir / session.session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write JSON
+    json_file = session_dir / "session_summary.json"
+    try:
+        # Convert dataclass to dict
+        session_dict = asdict(session)
+
+        # Write with nice formatting
+        json_file.write_text(
+            json.dumps(session_dict, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+        print(f"[SessionLog] Saved session summary to {json_file}")
+        return str(json_file)
+    except Exception as e:
+        print(f"[SessionLog] Failed to save session summary: {e}")
         return ""
 
 

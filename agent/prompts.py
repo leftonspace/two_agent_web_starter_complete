@@ -1,4 +1,6 @@
 # prompts.py
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from typing import Any, Dict
@@ -18,41 +20,43 @@ def load_prompts(file_name: str) -> Dict[str, Any]:
     """
     Load a persona file (e.g. prompts_default.json) and construct:
 
-      - manager_plan_sys   (system prompt for planning)
-      - manager_review_sys (system prompt for reviewing)
-      - employee_sys       (system prompt for building files)
-      - manager_behaviour  (behaviour config from the JSON, if any)
-      - roles              (raw roles from JSON, for advanced routing)
+      - manager_plan_sys    (system prompt for planning)
+      - manager_review_sys  (system prompt for reviewing)
+      - supervisor_sys      (system prompt for phasing / persona selection)
+      - employee_sys        (system prompt for building files)
+      - manager_behaviour   (behaviour config from the JSON, if any)
     """
     data = _load_persona_file(file_name)
 
     roles = data.get("roles", {})
     behaviour = data.get("manager_behaviour", {})
 
-    if "project_manager_overseer" not in roles:
-        raise KeyError("prompts file must define 'project_manager_overseer' in roles")
-
+    # Base manager persona
     overseer = roles["project_manager_overseer"]["system"]
 
-    # --- Manager: planning mode ---
+    # ─────────────────────────────────────────────────────────────
+    # Manager: PLANNING MODE
+    # ─────────────────────────────────────────────────────────────
     manager_plan_sys = (
         overseer
         + "\n\nYou are currently in PLANNING MODE.\n"
         + "Your task:\n"
         + "- Read the provided task description.\n"
-        + "- Design a short, concrete plan (2–10 steps).\n"
+        + "- Design a short, concrete plan (2–12 steps).\n"
         + "- Define clear acceptance criteria the work must satisfy.\n\n"
         + "OUTPUT RULES:\n"
         + "- Respond ONLY in JSON.\n"
         + "- Use this structure:\n"
         + "  {\n"
-        + "    \"plan\": [\"step 1\", \"step 2\", ...],\n"
-        + "    \"acceptance_criteria\": [\"criterion 1\", \"criterion 2\", ...]\n"
+        + "    \"plan\": [\"step 0\", \"step 1\", ...],\n"
+        + "    \"acceptance_criteria\": [\"criterion 0\", \"criterion 1\", ...]\n"
         + "  }\n"
         + "- No extra keys, no natural language outside of JSON."
     )
 
-    # --- Manager: review mode ---
+    # ─────────────────────────────────────────────────────────────
+    # Manager: REVIEW MODE
+    # ─────────────────────────────────────────────────────────────
     manager_review_sys = (
         overseer
         + "\n\nYou are currently in REVIEW MODE.\n"
@@ -78,7 +82,43 @@ def load_prompts(file_name: str) -> Dict[str, Any]:
         + "- No other top-level keys."
     )
 
-    # --- Employee: combined senior specialist (default all-in-one mode) ---
+    # ─────────────────────────────────────────────────────────────
+    # SUPERVISOR MODE (phasing + persona categories)
+    # ─────────────────────────────────────────────────────────────
+    supervisor_sys = (
+        overseer
+        + "\n\nYou are currently in SUPERVISOR MODE.\n"
+        + "You receive JSON input with:\n"
+        + "- plan: a list of high-level steps.\n"
+        + "- acceptance_criteria: a list of checks.\n\n"
+        + "Your job:\n"
+        + "- Group the plan steps into 3–7 PHASES.\n"
+        + "- For each phase, choose relevant categories that map to personas:\n"
+        + "    layout_structure, visual_design, content_ux,\n"
+        + "    interaction_logic, performance_seo, qa_docs.\n"
+        + "- For each phase, list which indices of the plan belong to this phase.\n\n"
+        + "IMPORTANT OUTPUT RULES (STRICT):\n"
+        + "- You MUST respond with ONE and ONLY ONE JSON object.\n"
+        + "- Do NOT repeat the plan or acceptance_criteria.\n"
+        + "- Do NOT include '---', explanations, or any text outside JSON.\n"
+        + "- Use this exact structure:\n"
+        + "  {\n"
+        + "    \"phases\": [\n"
+        + "      {\n"
+        + "        \"name\": \"Human readable phase name\",\n"
+        + "        \"categories\": [\"layout_structure\", \"visual_design\"],\n"
+        + "        \"plan_steps\": [0, 1]\n"
+        + "      }\n"
+        + "    ]\n"
+        + "  }\n"
+        + "- 'plan_steps' must be integer indices into the original plan array.\n"
+        + "- No other top-level keys.\n"
+        + "- If you are tempted to echo the full plan, DO NOT: only reference steps by index."
+    )
+
+    # ─────────────────────────────────────────────────────────────
+    # EMPLOYEE: unified senior specialist (multi-persona)
+    # ─────────────────────────────────────────────────────────────
     persona_order = [
         "html_architect",
         "css_pixel_surgeon",
@@ -93,13 +133,10 @@ def load_prompts(file_name: str) -> Dict[str, Any]:
         "brand_stylist",
     ]
 
-    combined_personas = []
+    combined_personas: list[str] = []
     for name in persona_order:
         if name in roles:
             combined_personas.append(f"[{name}]\n{roles[name]['system']}")
-
-    if not combined_personas:
-        raise RuntimeError("No employee personas found in prompts file.")
 
     personas_text = "\n\n---\n\n".join(combined_personas)
 
@@ -109,6 +146,7 @@ def load_prompts(file_name: str) -> Dict[str, Any]:
         + "\n\nYou receive JSON input with:\n"
         + "- task: the user's goal.\n"
         + "- plan: the manager's plan and acceptance criteria.\n"
+        + "- phases: supervisor phases with categories and plan step indices.\n"
         + "- previous_files: existing files (may be empty on first run).\n"
         + "- feedback: manager feedback from the previous iteration, or null on the first.\n\n"
         + "Your job:\n"
@@ -134,7 +172,7 @@ def load_prompts(file_name: str) -> Dict[str, Any]:
     return {
         "manager_plan_sys": manager_plan_sys,
         "manager_review_sys": manager_review_sys,
+        "supervisor_sys": supervisor_sys,
         "employee_sys": employee_sys,
         "manager_behaviour": behaviour,
-        "roles": roles
     }

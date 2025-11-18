@@ -1,135 +1,156 @@
 # llm.py
+from __future__ import annotations
+
 import json
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import requests
 
 import cost_tracker
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_BASE = os.getenv("OPENAI_BASE", "https://api.openai.com/v1")
-
-# Default models per role (can be overridden by env vars)
-DEFAULT_MANAGER_MODEL = os.getenv("OPENAI_MODEL_MANAGER", "gpt-5-mini")
-DEFAULT_SUPERVISOR_MODEL = os.getenv("OPENAI_MODEL_SUPERVISOR", "gpt-5-nano")
-DEFAULT_EMPLOYEE_MODEL = os.getenv("OPENAI_MODEL_EMPLOYEE", "gpt-5")
+# Default model labels – can be overridden via env vars.
+DEFAULT_MANAGER_MODEL = os.getenv("DEFAULT_MANAGER_MODEL", "gpt-5-mini-2025-08-07")
+DEFAULT_SUPERVISOR_MODEL = os.getenv("DEFAULT_SUPERVISOR_MODEL", "gpt-5-nano")
+DEFAULT_EMPLOYEE_MODEL = os.getenv("DEFAULT_EMPLOYEE_MODEL", "gpt-5-2025-08-07")
 
 
 def _post(payload: dict) -> dict:
-    if not OPENAI_API_KEY:
-        raise RuntimeError("OPENAI_API_KEY is not set in the environment.")
+    """
+    Low-level helper to call the OpenAI Chat Completions endpoint.
 
-    url = f"{OPENAI_BASE}/chat/completions"
+    - Retries up to 3 times.
+    - On success: returns the full JSON response.
+    - On repeated failure: returns a *stub* dict with `timeout=True`
+      instead of raising, so the caller can handle it gracefully.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
 
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
     last_error: Exception | None = None
 
-    # Try up to 3 times on transient network issues / timeouts
     for attempt in range(1, 4):
         try:
-            print(f"[LLM] POST attempt {attempt}/3 to {url} (model={payload.get('model')})")
-            r = requests.post(
-                url,
+            resp = requests.post(
+                OPENAI_URL,
                 headers=headers,
                 json=payload,
-                timeout=180,  # 3 minutes per attempt
+                timeout=180,
             )
-            if r.status_code >= 400:
-                try:
-                    body = r.json()
-                except Exception:
-                    body = r.text
-                raise RuntimeError(
-                    f"API error: {r.status_code}\n"
-                    f"Response body: {json.dumps(body, indent=2) if isinstance(body, dict) else body}"
-                )
 
-            try:
-                return r.json()
-            except Exception as e:
-                raise RuntimeError(f"Failed to parse JSON from OpenAI response: {e}") from e
+            # If the API returns an HTTP error, show the body so we can debug.
+            if resp.status_code != 200:
+                print("=== OpenAI error body ===")
+                print(resp.text)
+                resp.raise_for_status()
 
-        except requests.exceptions.ReadTimeout as e:
-            last_error = e
-            print(f"[LLM] Read timeout on attempt {attempt}/3. Retrying...")
-            continue
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Error talking to OpenAI API: {e}") from e
+            return resp.json()
 
-    raise RuntimeError(f"Error talking to OpenAI API after 3 attempts: {last_error}")
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            print(
+                f"[LLM] HTTP/connection error on attempt {attempt}/3: {exc}. "
+                "Retrying..." if attempt < 3 else "[LLM] Giving up after 3 failed attempts."
+            )
+
+    # If we get here, all retries failed. Return a stub object with the
+    # shape our orchestrator expects, so it won't crash.
+    reason = str(last_error) if last_error is not None else "Unknown error"
+
+    return {
+        "timeout": True,
+        "reason": reason,
+        "plan": [],
+        "acceptance_criteria": [],
+        "phases": [],
+        # IMPORTANT: must be a dict, not a list, so the orchestrator's
+        # `files_dict = emp.get("files", {})` + `isinstance(files_dict, dict)`
+        # check does not explode.
+        "files": {},
+        "notes": "Step skipped due to upstream API error. "
+        "Safe stub returned by llm._post.",
+        "analysis": {"status": "timeout"},
+        "status": "timeout",
+    }
 
 
-def chat_json(role: str, system: str, user_content: str, model: Optional[str] = None, expect_json: bool = True) -> dict:
+
+def chat_json(
+    role: str,
+    system_prompt: str,
+    user_content: str,
+    *,
+    model: Optional[str] = None,
+    temperature: float = 0.2,
+    expect_json: bool = True,
+) -> Dict[str, Any]:
     """
-    Call the OpenAI Chat Completion API and parse a STRICT JSON reply.
-
-    role: 'manager', 'supervisor', or 'employee'
-    system: system prompt
-    user_content: user message (we expect the model to respond with JSON)
-    model: optional override model name
+    High-level helper that:
+    - Selects a model (manager / supervisor / employee) if not provided.
+    - Calls `_post` and records usage via `cost_tracker`.
+    - Returns parsed JSON (default) or raw text if `expect_json=False`.
     """
-    role_lower = (role or "unknown").lower()
-
     if model is None:
-        if role_lower == "manager":
-            model = DEFAULT_MANAGER_MODEL
-        elif role_lower == "supervisor":
-            model = DEFAULT_SUPERVISOR_MODEL
+        if role == "manager":
+            chosen_model = DEFAULT_MANAGER_MODEL
+        elif role == "supervisor":
+            chosen_model = DEFAULT_SUPERVISOR_MODEL
         else:
-            model = DEFAULT_EMPLOYEE_MODEL
+            chosen_model = DEFAULT_EMPLOYEE_MODEL
+    else:
+        chosen_model = model
 
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_content},
-        ],
-        # No temperature override here to avoid unsupported value errors.
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content},
+    ]
+
+    payload: Dict[str, Any] = {
+        "model": chosen_model,
+        "messages": messages,
+        "temperature": temperature,
     }
 
     data = _post(payload)
 
-    # Cost tracking (if usage is present)
-    usage = data.get("usage")
-    if usage:
-        prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
-        completion_tokens = int(usage.get("completion_tokens", 0) or 0)
-        cost_tracker.register_call(
-            role=role_lower,
-            model=model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-        )
-
-    # Extract message content
+    # Cost tracking – best-effort, non-fatal on failure.
     try:
-        msg = data["choices"][0]["message"]["content"]
-    except Exception as e:
-        raise RuntimeError(f"Unexpected OpenAI response format: {e}\nFull data: {data}") from e
+        usage = data.get("usage")
+        if usage:
+            total_cost = _estimate_cost(usage, model_name)
+            cost_tracker.append_history(
+                total_usd=total_cost,
+                prompt_tokens=usage["prompt_tokens"],
+                completion_tokens=usage["completion_tokens"],
+                model=model_name,
+            )
 
-    msg = msg.strip()
+    except Exception as e:  # noqa: BLE001
+        print(f"[CostTracker] Failed to record usage: {e}")
 
-    # Try direct JSON parse
+    # If caller wants raw text, don't try to parse it.
+    if not data.get("choices"):
+        if expect_json:
+            raise RuntimeError("Model returned no choices; cannot parse JSON.")
+        return {"raw": ""}
+
+    content = data["choices"][0]["message"]["content"]
+
+    if not expect_json:
+        return {"raw": content}
+
     try:
-        return json.loads(msg)
-    except Exception:
-        # Try to salvage the first {...} block
-        start = msg.find("{")
-        end = msg.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(msg[start : end + 1])
-            except Exception:
-                pass
-
-    raise RuntimeError(
-        "Model response was not valid JSON.\n"
-        f"Role: {role_lower}\n"
-        f"Model: {model}\n"
-        f"Content:\n{msg}"
-    )
+        return json.loads(content)
+    except json.JSONDecodeError as e:  # pragma: no cover
+        raise RuntimeError(
+            "Model response was not valid JSON.\n"
+            f"Role: {role}\n"
+            f"Model: {chosen_model}\n"
+            f"Content:\n{content}"
+        ) from e

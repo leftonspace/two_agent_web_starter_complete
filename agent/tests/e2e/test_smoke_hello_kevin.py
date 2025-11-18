@@ -1,6 +1,6 @@
-from pathlib import Path
 import importlib.util
 import json
+from pathlib import Path
 
 # Test file path: .../agent/tests/e2e/test_smoke_hello_kevin.py
 # parents[0] = .../agent/tests/e2e

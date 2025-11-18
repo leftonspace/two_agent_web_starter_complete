@@ -162,29 +162,54 @@ def get_total_cost_usd() -> float:
 
 
 def append_history(
-    log_file: Path,
-    project_name: str,
-    task: str,
-    status: str,
-    extra: Optional[Dict[str, Any]] = None,
+    log_file: Path | None = None,
+    project_name: str | None = None,
+    task: str | None = None,
+    status: str | None = None,
+    extra: Dict[str, Any] | None = None,
+    *,
+    total_usd: float | None = None,
+    prompt_tokens: int | None = None,
+    completion_tokens: int | None = None,
+    model: str | None = None,
 ) -> None:
     """
-    Append a JSON line to a history file with timestamp, project, task, status, and cost summary.
-    """
-    log_file.parent.mkdir(parents=True, exist_ok=True)
+    Append a history record.
 
-    payload: Dict[str, Any] = {
+    Two usage modes:
+
+    1) Tests call this with an explicit `log_file` and metadata fields
+       (project_name, task, status, extra). We append one JSON line to
+       that file. The field is named "project" to match test expectations.
+
+    2) Runtime usage logging from llm.chat_json() passes cost-related
+       fields (total_usd, prompt_tokens, completion_tokens, model) with
+       log_file=None. We append to the default history file via
+       load_history/save_history.
+    """
+
+    record: Dict[str, Any] = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
+        # NOTE: tests expect the key to be "project"
         "project": project_name,
         "task": task,
         "status": status,
-        "cost_summary": get_summary(),
+        "total_usd": total_usd,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "model": model,
     }
-    if extra:
-        payload["extra"] = extra
 
-    try:
+    if extra:
+        record.update(extra)
+
+    if log_file is not None:
+        # Test / ad-hoc mode: write JSONL to the provided file
+        log_file.parent.mkdir(parents=True, exist_ok=True)
         with log_file.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except Exception as e:
-        print(f"[CostTracker] Failed to write history to {log_file}: {e}")
+            f.write(json.dumps(record) + "\n")
+    else:
+        # Default runtime mode: use the shared cost history file
+        history = load_history()
+        history.append(record)
+        save_history(history)

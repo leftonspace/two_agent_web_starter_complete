@@ -316,15 +316,17 @@ def main() -> None:
         print(json.dumps(test_results, indent=2, ensure_ascii=False))
 
         # Visual / DOM analysis
-        browser_summary = None
-        screenshot_path = None
+        browser_summary: Optional[Dict[str, Any]] = None
+        screenshot_path: Optional[str] = None
         if use_visual_review:
-            print("\n[Analysis] Reading index.html DOM...")
-            analysis = analyze_site(out_dir)
-            browser_summary = analysis.get("dom_info")
-            screenshot_path = analysis.get("screenshot_path")
-            print("\n-- Browser Summary (DOM/style) --")
-            print(json.dumps(browser_summary, indent=2, ensure_ascii=False))
+            try:
+                print("\n[Analysis] Reading index.html DOM...")
+                index_path = out_dir / "index.html"
+                analysis = analyze_site(index_path)
+                browser_summary = analysis["dom_info"]
+                screenshot_path = analysis["screenshot_path"]
+            except Exception as e:  # pragma: no cover - best effort only
+                print(f"[Analysis] Skipped visual review due to error: {e}")
 
         # Manager review
         print("\n[Manager] Final review...")

@@ -1,17 +1,18 @@
 {
-  "mode": "3loop",
-  
-  "project_subdir": "multi_section_landing_full_test",
-  "task": " ... your big task ... ",
-  "use_visual_review": true,
+  "project_name": "ContaFuel marketing site",
+  "project_subdir": "contafuel_marketing",
+
+  "task": "Design and build a modern, mobile-first marketing site for ContaFuel, a healthy meal-prep brand. The site should include: a hero section with a clear value proposition, a 'How it works' section, a signature meals section with macros, a 'Why ContaFuel' benefits block, pricing plans, testimonials, and a final CTA. Focus on fast load, clean layout, and conversion-focused copy.",
+
   "max_rounds": 3,
+  "use_visual_review": true,
+  "use_snapshots": true,
+  "use_git": true,
+  "mode": "3loop",
+
   "prompts_file": "prompts_default.json",
 
-  "max_cost_usd": 1.0,
-  "cost_warning_usd": 0.5,
-
-  "interactive_cost_mode": "once",
-
-  "use_git": true
+  "cost_warning_usd": 0.8,
+  "max_cost_usd": 1.5,
+  "interactive_cost_mode": "once"
 }
-

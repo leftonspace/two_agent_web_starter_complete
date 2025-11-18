@@ -16,8 +16,10 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
+Issue = Dict[str, Any]
 
-def analyze_project(project_dir: str) -> List[Dict[str, Any]]:
+
+def analyze_project(project_dir: str | Path) -> List[Issue]:
     """
     Perform static analysis on all Python files in the project directory.
 
@@ -33,14 +35,14 @@ def analyze_project(project_dir: str) -> List[Dict[str, Any]]:
             "severity": "info" | "warning" | "error"
         }
     """
-    issues: List[Dict[str, Any]] = []
+    issues: List[Issue] = []
     project_path = Path(project_dir)
 
     if not project_path.exists():
         return issues
 
     # Find all Python files
-    py_files = list(project_path.rglob("*.py"))
+    py_files: List[Path] = list(project_path.rglob("*.py"))
 
     for py_file in py_files:
         # Skip files in hidden directories (like .git, .history, __pycache__)
@@ -52,12 +54,14 @@ def analyze_project(project_dir: str) -> List[Dict[str, Any]]:
         try:
             content = py_file.read_text(encoding="utf-8")
         except Exception as e:
-            issues.append({
-                "file": rel_path,
-                "line": 0,
-                "message": f"Failed to read file: {e}",
-                "severity": "warning"
-            })
+            issues.append(
+                {
+                    "file": rel_path,
+                    "line": 0,
+                    "message": f"Failed to read file: {e}",
+                    "severity": "warning",
+                }
+            )
             continue
 
         # Check for syntax errors
@@ -81,90 +85,105 @@ def analyze_project(project_dir: str) -> List[Dict[str, Any]]:
     return issues
 
 
-def _check_syntax(file_path: str, content: str) -> List[Dict[str, Any]]:
+def _check_syntax(file_path: str, content: str) -> List[Issue]:
     """Check for Python syntax errors."""
-    issues = []
+    issues: List[Issue] = []
     try:
         ast.parse(content)
     except SyntaxError as e:
-        issues.append({
-            "file": file_path,
-            "line": e.lineno or 0,
-            "message": f"Syntax error: {e.msg}",
-            "severity": "error"
-        })
-    except Exception as e:
-        issues.append({
-            "file": file_path,
-            "line": 0,
-            "message": f"Failed to parse file: {str(e)}",
-            "severity": "error"
-        })
+        issues.append(
+            {
+                "file": file_path,
+                "line": e.lineno or 0,
+                "message": f"Syntax error: {e.msg}",
+                "severity": "error",
+            }
+        )
+    except Exception as e:  # pragma: no cover - defensive
+        issues.append(
+            {
+                "file": file_path,
+                "line": 0,
+                "message": f"Failed to parse file: {str(e)}",
+                "severity": "error",
+            }
+        )
     return issues
 
 
-def _check_bare_excepts(file_path: str, content: str) -> List[Dict[str, Any]]:
+def _check_bare_excepts(file_path: str, content: str) -> List[Issue]:
     """Check for bare except clauses (except: without exception type)."""
-    issues = []
-    lines = content.split("\n")
+    issues: List[Issue] = []
+    lines = content.splitlines()
 
     for line_num, line in enumerate(lines, start=1):
-        # Look for "except:" (bare except)
-        # Exclude "except Exception" or "except SomeError"
         stripped = line.strip()
+        # Look for "except:" (bare except), ignoring things like "except Exception:"
         if re.match(r"^except\s*:", stripped):
-            issues.append({
-                "file": file_path,
-                "line": line_num,
-                "message": "Bare except clause found (consider specifying exception type)",
-                "severity": "warning"
-            })
+            issues.append(
+                {
+                    "file": file_path,
+                    "line": line_num,
+                    "message": "Bare except clause found (consider specifying exception type)",
+                    "severity": "warning",
+                }
+            )
 
     return issues
 
 
-def _check_long_functions(file_path: str, content: str) -> List[Dict[str, Any]]:
+def _check_long_functions(file_path: str, content: str) -> List[Issue]:
     """Check for functions that are too long (>200 lines)."""
-    issues = []
+    issues: List[Issue] = []
 
     try:
         tree = ast.parse(content)
     except Exception:
-        # If we can't parse, skip this check
+        # If we can't parse, skip this check (syntax handled elsewhere)
         return issues
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            # Calculate function length
-            if hasattr(node, "end_lineno") and hasattr(node, "lineno"):
-                func_length = node.end_lineno - node.lineno + 1
+            start_line = getattr(node, "lineno", None)
+            end_line = getattr(node, "end_lineno", None)
+
+            if isinstance(start_line, int) and isinstance(end_line, int):
+                func_length = end_line - start_line + 1
                 if func_length > 200:
-                    issues.append({
-                        "file": file_path,
-                        "line": node.lineno,
-                        "message": f"Function '{node.name}' is very long ({func_length} lines, consider refactoring)",
-                        "severity": "warning"
-                    })
+                    issues.append(
+                        {
+                            "file": file_path,
+                            "line": start_line,
+                            "message": (
+                                f"Function '{node.name}' is very long "
+                                f"({func_length} lines, consider refactoring)"
+                            ),
+                            "severity": "warning",
+                        }
+                    )
 
     return issues
 
 
-def _check_todos(file_path: str, content: str) -> List[Dict[str, Any]]:
+def _check_todos(file_path: str, content: str) -> List[Issue]:
     """Check for TODO and FIXME comments."""
-    issues = []
-    lines = content.split("\n")
+    issues: List[Issue] = []
+    lines = content.splitlines()
 
     for line_num, line in enumerate(lines, start=1):
-        # Look for TODO or FIXME in comments
         if "TODO" in line or "FIXME" in line:
-            # Extract the comment part
             comment_match = re.search(r"#\s*(TODO|FIXME).*", line, re.IGNORECASE)
             if comment_match:
-                issues.append({
-                    "file": file_path,
-                    "line": line_num,
-                    "message": f"Found {comment_match.group(1).upper()} comment: {comment_match.group(0)}",
-                    "severity": "info"
-                })
+                issues.append(
+                    {
+                        "file": file_path,
+                        "line": line_num,
+                        "message": (
+                            f"Found {comment_match.group(1).upper()} comment: "
+                            f"{comment_match.group(0)}"
+                        ),
+                        "severity": "info",
+                    }
+                )
 
     return issues

@@ -6,38 +6,24 @@ Loads configuration, performs cost estimation, and runs either:
 - Auto-pilot mode (multiple sub-runs with self-evaluation)
 - Single-run mode (2loop or 3loop)
 
-STAGE 5: Enhanced with status codes and improved error handling.
+Enhanced with status codes and improved error handling.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, Dict
 
-# We import defaults just for display purposes.
-try:
-    from llm import (
-        DEFAULT_EMPLOYEE_MODEL,
-        DEFAULT_MANAGER_MODEL,
-        DEFAULT_SUPERVISOR_MODEL,
-    )
-except ImportError:
-    # Fallback labels if constants are not accessible for any reason.
-    DEFAULT_MANAGER_MODEL = "gpt-5-mini"
-    DEFAULT_SUPERVISOR_MODEL = "gpt-5-nano"
-    DEFAULT_EMPLOYEE_MODEL = "gpt-5"
-
-# STAGE 2: Import run logging and cost tracking
 import cost_tracker
 from cost_estimator import estimate_run_cost, format_cost_estimate
 from run_logger import (
+    RunSummary,
     finalize_run,
     log_iteration,
     save_run_summary,
     start_run,
 )
-
-# STAGE 5: Import status codes
 from status_codes import (
     COMPLETED,
     EXCEPTION,
@@ -46,18 +32,37 @@ from status_codes import (
     USER_ABORT,
 )
 
+# We import defaults just for display purposes.
+try:
+    from llm import (
+        DEFAULT_EMPLOYEE_MODEL,
+        DEFAULT_MANAGER_MODEL,
+        DEFAULT_SUPERVISOR_MODEL,
+    )
+except ImportError:  # pragma: no cover - defensive
+    # Fallback labels if constants are not accessible for any reason.
+    DEFAULT_MANAGER_MODEL = "gpt-5-mini"
+    DEFAULT_SUPERVISOR_MODEL = "gpt-5-nano"
+    DEFAULT_EMPLOYEE_MODEL = "gpt-5"
 
-def _load_config() -> dict:
+Config = Dict[str, Any]
+
+
+def _load_config() -> Config:
+    """Load project_config.json from the agent directory."""
     cfg_path = Path(__file__).resolve().parent / "project_config.json"
     if not cfg_path.exists():
         raise FileNotFoundError(f"project_config.json not found at {cfg_path}")
-    return json.loads(cfg_path.read_text(encoding="utf-8"))
+    data = json.loads(cfg_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("project_config.json must contain a JSON object")
+    return data
 
 
-def _print_summary(cfg: dict) -> None:
-    mode = cfg.get("mode", "3loop")
+def _print_summary(cfg: Config) -> None:
+    mode = str(cfg.get("mode", "3loop")).lower().strip()
     project = cfg.get("project_subdir", "<unknown>")
-    task = cfg.get("task", "").strip()
+    task = str(cfg.get("task", "")).strip()
     short_task = (task[:120] + "…") if len(task) > 120 else task
 
     max_rounds = int(cfg.get("max_rounds", 1))
@@ -66,19 +71,23 @@ def _print_summary(cfg: dict) -> None:
 
     max_cost_usd = float(cfg.get("max_cost_usd", 0.0) or 0.0)
     cost_warning_usd = float(cfg.get("cost_warning_usd", 0.0) or 0.0)
-    interactive_cost_mode = cfg.get("interactive_cost_mode", "off")
+    interactive_cost_mode = str(cfg.get("interactive_cost_mode", "off"))
 
-    # Check for auto-pilot mode
     auto_pilot_cfg = cfg.get("auto_pilot")
-    auto_pilot_enabled = auto_pilot_cfg and auto_pilot_cfg.get("enabled", False)
+    auto_pilot_enabled = isinstance(auto_pilot_cfg, dict) and bool(
+        auto_pilot_cfg.get("enabled", False)
+    )
 
     print("======================================")
     print("  Two-Agent / Multi-Agent Runner")
     print("======================================")
-    print(f"Mode:             {mode}  (2loop = Manager↔Employee, 3loop = Manager↔Supervisor↔Employee)")
+    print(
+        "Mode:             "
+        f"{mode}  (2loop = Manager↔Employee, 3loop = Manager↔Supervisor↔Employee)"
+    )
 
-    if auto_pilot_enabled:
-        max_sub_runs = auto_pilot_cfg.get("max_sub_runs", 3)
+    if auto_pilot_enabled and isinstance(auto_pilot_cfg, dict):
+        max_sub_runs = int(auto_pilot_cfg.get("max_sub_runs", 3))
         print(f"Auto-Pilot:       ENABLED (max {max_sub_runs} sub-runs)")
 
     print(f"Project subdir:   {project}")
@@ -89,7 +98,7 @@ def _print_summary(cfg: dict) -> None:
     print("--------------------------------------")
     print(f"Cost warning:     {cost_warning_usd or 0.0:.4f} USD")
     print(f"Cost cap:         {max_cost_usd or 0.0:.4f} USD")
-    print(f"Interactive cost: {interactive_cost_mode!r}  (off|once)")
+    print(f"Interactive cost: {interactive_cost_mode!r}  (off|once|always)")
     print("--------------------------------------")
     print("Default models (can be overridden by env vars):")
     print(f"  Manager:   {DEFAULT_MANAGER_MODEL}")
@@ -98,7 +107,7 @@ def _print_summary(cfg: dict) -> None:
     print("======================================\n")
 
 
-def _run_auto_pilot_mode(cfg: dict, auto_pilot_cfg: dict) -> None:
+def _run_auto_pilot_mode(cfg: Config, auto_pilot_cfg: Config) -> None:
     """
     Run in auto-pilot mode with multiple sub-runs and self-evaluation.
 
@@ -106,36 +115,32 @@ def _run_auto_pilot_mode(cfg: dict, auto_pilot_cfg: dict) -> None:
         cfg: Main project configuration
         auto_pilot_cfg: Auto-pilot specific configuration
     """
-    from auto_pilot import run_auto_pilot
+    from auto_pilot import run_auto_pilot  # imported lazily to avoid cycles
 
-    # Extract configuration
-    mode = cfg.get("mode", "3loop").lower().strip()
+    mode = str(cfg.get("mode", "3loop")).lower().strip()
     project_subdir = cfg.get("project_subdir", "unknown_project")
-    task = cfg.get("task", "")
+    task = str(cfg.get("task", ""))
 
     # Determine project directory
     agent_dir = Path(__file__).resolve().parent
     project_root = agent_dir.parent
-    project_dir = project_root / "sites" / project_subdir
+    project_dir = project_root / "sites" / str(project_subdir)
 
-    # Auto-pilot settings
     max_sub_runs = int(auto_pilot_cfg.get("max_sub_runs", 3))
     max_rounds_per_run = int(cfg.get("max_rounds", 1))
 
-    # Model configuration
-    models_used = {
+    models_used: Dict[str, str] = {
         "manager": DEFAULT_MANAGER_MODEL,
         "supervisor": DEFAULT_SUPERVISOR_MODEL,
         "employee": DEFAULT_EMPLOYEE_MODEL,
     }
 
-    # Build config for sub-runs
-    run_config = {
-        "use_visual_review": cfg.get("use_visual_review", False),
-        "use_git": cfg.get("use_git", False),
-        "max_cost_usd": cfg.get("max_cost_usd", 0.0),
-        "cost_warning_usd": cfg.get("cost_warning_usd", 0.0),
-        "interactive_cost_mode": cfg.get("interactive_cost_mode", "off"),
+    run_config: Config = {
+        "use_visual_review": bool(cfg.get("use_visual_review", False)),
+        "use_git": bool(cfg.get("use_git", False)),
+        "max_cost_usd": float(cfg.get("max_cost_usd", 0.0) or 0.0),
+        "cost_warning_usd": float(cfg.get("cost_warning_usd", 0.0) or 0.0),
+        "interactive_cost_mode": str(cfg.get("interactive_cost_mode", "off")),
     }
 
     print("[AutoPilot] Starting auto-pilot mode")
@@ -173,77 +178,75 @@ def main() -> None:
     _print_summary(cfg)
 
     # ──────────────────────────────────────────────────────────────────────
-    # STAGE 4: Check for Auto-Pilot Mode
+    # Auto-Pilot Mode
     # ──────────────────────────────────────────────────────────────────────
-    auto_pilot_cfg = cfg.get("auto_pilot")
-    if auto_pilot_cfg and auto_pilot_cfg.get("enabled", False):
-        _run_auto_pilot_mode(cfg, auto_pilot_cfg)
+    auto_pilot_cfg_raw = cfg.get("auto_pilot")
+    if isinstance(auto_pilot_cfg_raw, dict) and auto_pilot_cfg_raw.get("enabled", False):
+        _run_auto_pilot_mode(cfg, auto_pilot_cfg_raw)
         return
 
     # ──────────────────────────────────────────────────────────────────────
-    # STAGE 2: Initialize Run Logging
+    # Single-run Mode: Initialize Run Logging
     # ──────────────────────────────────────────────────────────────────────
-    mode = cfg.get("mode", "3loop").lower().strip()
+    mode = str(cfg.get("mode", "3loop")).lower().strip()
     project_subdir = cfg.get("project_subdir", "unknown_project")
-    task = cfg.get("task", "")
+    task = str(cfg.get("task", ""))
     max_rounds = int(cfg.get("max_rounds", 1))
 
-    # Determine project directory
     agent_dir = Path(__file__).resolve().parent
     project_root = agent_dir.parent
-    project_dir = project_root / "sites" / project_subdir
+    project_dir = project_root / "sites" / str(project_subdir)
 
-    # Create RunSummary for this run
-    models_used = {
+    models_used: Dict[str, str] = {
         "manager": DEFAULT_MANAGER_MODEL,
         "supervisor": DEFAULT_SUPERVISOR_MODEL,
         "employee": DEFAULT_EMPLOYEE_MODEL,
     }
 
-    run_summary = start_run(
+    run_config: Config = {
+        "use_visual_review": bool(cfg.get("use_visual_review", False)),
+        "use_git": bool(cfg.get("use_git", False)),
+        "max_cost_usd": float(cfg.get("max_cost_usd", 0.0) or 0.0),
+        "cost_warning_usd": float(cfg.get("cost_warning_usd", 0.0) or 0.0),
+        "interactive_cost_mode": str(cfg.get("interactive_cost_mode", "off")),
+    }
+
+    run_summary: RunSummary = start_run(
         mode=mode,
         project_dir=str(project_dir),
         task=task,
         max_rounds=max_rounds,
         models_used=models_used,
-        config={
-            "use_visual_review": cfg.get("use_visual_review", False),
-            "use_git": cfg.get("use_git", False),
-            "max_cost_usd": cfg.get("max_cost_usd", 0.0),
-            "cost_warning_usd": cfg.get("cost_warning_usd", 0.0),
-            "interactive_cost_mode": cfg.get("interactive_cost_mode", "off"),
-        },
+        config=run_config,
     )
 
     print(f"\n[RunLog] Started run: {run_summary.run_id}")
     print(f"[RunLog] Mode: {mode}, Max rounds: {max_rounds}")
 
     # ──────────────────────────────────────────────────────────────────────
-    # STAGE 3: Cost Estimation & Interactive Approval
+    # Cost Estimation & Interactive Approval
     # ──────────────────────────────────────────────────────────────────────
     max_cost_usd = float(cfg.get("max_cost_usd", 0.0) or 0.0)
     cost_warning_usd = float(cfg.get("cost_warning_usd", 0.0) or 0.0)
-    interactive_cost_mode = cfg.get("interactive_cost_mode", "off")
+    interactive_cost_mode = str(cfg.get("interactive_cost_mode", "off"))
 
-    # Compute cost estimate
-    cost_estimate = estimate_run_cost(
+    cost_estimate: Dict[str, Any] = estimate_run_cost(
         mode=mode,
         max_rounds=max_rounds,
         models_used=models_used,
     )
 
-    # Store estimate in run_summary
-    run_summary.estimated_cost_usd = cost_estimate["estimated_total_usd"]
+    # Store estimate on the run, but also keep a local float for mypy
+    run_summary.estimated_cost_usd = float(cost_estimate.get("estimated_total_usd", 0.0))
+    estimated_cost: float = float(run_summary.estimated_cost_usd or 0.0)
 
-    # Display cost estimate
     print()
     print(format_cost_estimate(cost_estimate, max_cost_usd, cost_warning_usd))
     print()
 
-    # Interactive approval if configured
     if interactive_cost_mode in ("once", "always"):
         prompt_msg = "\n[Cost Control] Proceed with this run? "
-        prompt_msg += f"Estimated cost: ${cost_estimate['estimated_total_usd']:.4f} USD"
+        prompt_msg += f"Estimated cost: ${estimated_cost:.4f} USD"
         if max_cost_usd > 0:
             prompt_msg += f" (max allowed: ${max_cost_usd:.4f} USD)"
         prompt_msg += " [y/N]: "
@@ -255,7 +258,6 @@ def main() -> None:
 
         if user_input not in ("y", "yes"):
             print("\n[COST] Run aborted by user.")
-            # Finalize and save run summary (STAGE 5: use status constant)
             run_summary = finalize_run(
                 run_summary,
                 final_status=USER_ABORT,
@@ -268,10 +270,9 @@ def main() -> None:
 
         print("[COST] User approved. Continuing...")
 
-    # Warn if estimate exceeds cap (in "off" mode)
-    elif max_cost_usd > 0 and cost_estimate["estimated_total_usd"] > max_cost_usd:
+    elif max_cost_usd > 0 and estimated_cost > max_cost_usd:
         print("\n⚠️  [Cost Control] WARNING: Estimated cost exceeds max_cost_usd!")
-        print(f"    Estimate: ${cost_estimate['estimated_total_usd']:.4f}")
+        print(f"    Estimate: ${estimated_cost:.4f}")
         print(f"    Max cap:  ${max_cost_usd:.4f}")
         print("    Proceeding anyway (interactive_cost_mode is 'off')...")
 
@@ -281,20 +282,16 @@ def main() -> None:
     # ──────────────────────────────────────────────────────────────────────
     # Run the orchestrator
     # ──────────────────────────────────────────────────────────────────────
-    # STAGE 5: Use status constants
-    final_status = "unknown"
-    safety_status = None
+    final_status: str = "unknown"
+    safety_status: str | None = None
 
     try:
         if mode == "2loop":
             from orchestrator_2loop import main as main_2loop
-            # 2loop doesn't support run_summary yet
-            main_2loop()
+            main_2loop()  # 2loop path does its own logging
             final_status = COMPLETED
         else:
-            # Default to 3-loop if anything else
             from orchestrator import main as main_3loop
-            # Pass run_summary to enable STAGE 2 logging
             main_3loop(run_summary=run_summary)
             final_status = COMPLETED
 
@@ -319,23 +316,17 @@ def main() -> None:
             status=ITER_EXCEPTION,
             notes=f"Exception: {type(e).__name__}: {str(e)}",
         )
-        # Re-raise to preserve traceback if needed
+        # If you want the traceback surfaced to callers, uncomment:
         # raise
 
     finally:
-        # ──────────────────────────────────────────────────────────────────
-        # STAGE 2: Finalize and Save Run Log
-        # ──────────────────────────────────────────────────────────────────
         cost_summary = cost_tracker.get_summary()
-
         run_summary = finalize_run(
             run_summary,
             final_status=final_status,
             safety_status=safety_status,
             cost_summary=cost_summary,
         )
-
-        # Save the run summary
         log_path = save_run_summary(run_summary)
 
         print(f"\n[RunLog] Finalized run: {run_summary.run_id}")

@@ -9,7 +9,15 @@ import cost_tracker
 from git_utils import commit_all, ensure_repo
 from llm import chat_json
 from prompts import load_prompts
-from run_logger import finish_run, log_iteration, start_run
+from run_logger import (
+    finish_run_dict as finish_run,
+)
+from run_logger import (
+    log_iteration_dict as log_iteration,
+)
+from run_logger import (
+    start_run_dict as start_run,
+)
 from site_tools import analyze_site, load_existing_files, summarize_files_for_manager
 
 

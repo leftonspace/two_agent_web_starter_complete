@@ -11,13 +11,13 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 OSV_API_URL = "https://api.osv.dev/v1/querybatch"
 REQUEST_TIMEOUT = 30  # seconds
 
 
-def scan_dependencies(project_dir: str) -> List[Dict[str, Any]]:
+def scan_dependencies(project_dir: str | Path) -> List[Dict[str, Any]]:
     """
     Scan dependencies in requirements.txt for known vulnerabilities.
 
@@ -57,9 +57,9 @@ def scan_dependencies(project_dir: str) -> List[Dict[str, Any]]:
     try:
         vulnerabilities = _query_osv_api(packages)
         issues.extend(vulnerabilities)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - defensive
         print(f"[DepScan] OSV API query failed (gracefully continuing): {e}")
-        # Return empty list on API failure (graceful degradation)
+        # Return whatever we have (usually empty) on API failure
         return issues
 
     return issues
@@ -70,10 +70,11 @@ def _parse_requirements(content: str) -> List[Dict[str, str]]:
     Parse requirements.txt and extract package names and versions.
 
     Returns:
-        List of dicts with 'name' and 'version' keys
+        List of dicts with 'name' and 'version' keys.
+        Version is 'unknown' when not specified.
     """
-    packages = []
-    lines = content.split("\n")
+    packages: List[Dict[str, str]] = []
+    lines = content.splitlines()
 
     for line in lines:
         line = line.strip()
@@ -86,21 +87,29 @@ def _parse_requirements(content: str) -> List[Dict[str, str]]:
         if line.startswith("-"):
             continue
 
-        # Try to extract package name and version
         # Handle formats like:
         # - package==1.2.3
         # - package>=1.2.3
         # - package~=1.2.3
         # - package
-        match = re.match(r"^([a-zA-Z0-9_\-\.]+)([=<>~!]+)?(.+)?", line)
-        if match:
-            package_name = match.group(1)
-            version = match.group(3) if match.group(3) else "unknown"
+        match = re.match(r"^([a-zA-Z0-9_\-\.]+)([=<>~!]+)?(.+)?$", line)
+        if not match:
+            continue
 
-            packages.append({
+        package_name = match.group(1)
+        version_raw = match.group(3)
+
+        if version_raw:
+            version = version_raw.strip()
+        else:
+            version = "unknown"
+
+        packages.append(
+            {
                 "name": package_name,
-                "version": version.strip() if version != "unknown" else "unknown"
-            })
+                "version": version,
+            }
+        )
 
     return packages
 
@@ -115,46 +124,59 @@ def _query_osv_api(packages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     Returns:
         List of vulnerability issues
     """
-    issues = []
+    issues: List[Dict[str, Any]] = []
+
+    if not packages:
+        return issues
 
     # Build query batch
-    queries = []
+    queries: List[Dict[str, Any]] = []
     for pkg in packages:
-        query = {
+        name = pkg.get("name", "")
+        version = pkg.get("version", "unknown")
+
+        if not name:
+            continue
+
+        query: Dict[str, Any] = {
             "package": {
-                "name": pkg["name"],
-                "ecosystem": "PyPI"
+                "name": name,
+                "ecosystem": "PyPI",
             }
         }
         # Only add version if we have it
-        if pkg["version"] != "unknown":
-            query["version"] = pkg["version"]
+        if version != "unknown":
+            query["version"] = version
 
         queries.append(query)
 
-    # Make API request
-    payload = {"queries": queries}
+    if not queries:
+        return issues
+
+    payload: Dict[str, Any] = {"queries": queries}
 
     try:
         response = requests.post(
             OSV_API_URL,
             json=payload,
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
-        data = response.json()
+        data: Dict[str, Any] = response.json()
     except requests.exceptions.Timeout:
         print("[DepScan] OSV API request timed out")
         return issues
     except requests.exceptions.RequestException as e:
         print(f"[DepScan] OSV API request failed: {e}")
         return issues
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - defensive
         print(f"[DepScan] Unexpected error querying OSV API: {e}")
         return issues
 
     # Parse results
     results = data.get("results", [])
+    if not isinstance(results, list):
+        return issues
 
     for idx, result in enumerate(results):
         if idx >= len(packages):
@@ -162,22 +184,27 @@ def _query_osv_api(packages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 
         package_info = packages[idx]
         vulns = result.get("vulns", [])
+        if not isinstance(vulns, list):
+            continue
 
         for vuln in vulns:
-            # Extract vulnerability details
-            vuln_id = vuln.get("id", "UNKNOWN")
-            summary = vuln.get("summary", "No summary available")
+            if not isinstance(vuln, dict):
+                continue
+
+            vuln_id = str(vuln.get("id", "UNKNOWN"))
+            summary = str(vuln.get("summary", "No summary available"))
 
             # Determine severity
-            # OSV uses "severity" field with various schemas
             severity = _extract_severity(vuln)
 
-            issues.append({
-                "package": package_info["name"],
-                "version": package_info["version"],
-                "severity": severity,
-                "summary": f"[{vuln_id}] {summary}"
-            })
+            issues.append(
+                {
+                    "package": package_info.get("name", "unknown"),
+                    "version": package_info.get("version", "unknown"),
+                    "severity": severity,
+                    "summary": f"[{vuln_id}] {summary}",
+                }
+            )
 
     return issues
 
@@ -189,42 +216,35 @@ def _extract_severity(vuln: Dict[str, Any]) -> str:
     Returns:
         "critical", "medium", or "low"
     """
-    # Check if severity field exists
+    # Default if nothing is known
+    default = "medium"
+
     severity_entries = vuln.get("severity", [])
+    if isinstance(severity_entries, list):
+        for entry in severity_entries:
+            if not isinstance(entry, dict):
+                continue
+            sev_type = entry.get("type")
+            score_str = str(entry.get("score", ""))
 
-    if not severity_entries:
-        # Default to medium if no severity info
-        return "medium"
-
-    # OSV can have multiple severity entries (CVSS, etc.)
-    for entry in severity_entries:
-        if entry.get("type") == "CVSS_V3":
-            score_str = entry.get("score", "")
-            # Parse CVSS score (format: "CVSS:3.1/AV:N/AC:L/...")
-            # Extract the base score
-            try:
-                # Look for common patterns or compute from vector
-                # For simplicity, check if "CRITICAL" or "HIGH" in score
-                if "CRITICAL" in score_str.upper():
+            # Very rough mapping based on keywords in score/description.
+            if sev_type and "CVSS" in str(sev_type).upper():
+                upper = score_str.upper()
+                if "CRITICAL" in upper or "HIGH" in upper:
                     return "critical"
-                elif "HIGH" in score_str.upper():
-                    return "critical"
-                elif "MEDIUM" in score_str.upper():
+                if "MEDIUM" in upper:
                     return "medium"
-                elif "LOW" in score_str.upper():
+                if "LOW" in upper:
                     return "low"
-            except Exception:
-                pass
 
-    # If we have database_specific severity
     db_specific = vuln.get("database_specific", {})
-    sev = db_specific.get("severity", "").upper()
-    if sev in ("CRITICAL", "HIGH"):
-        return "critical"
-    elif sev == "MEDIUM":
-        return "medium"
-    elif sev == "LOW":
-        return "low"
+    if isinstance(db_specific, dict):
+        sev = str(db_specific.get("severity", "")).upper()
+        if sev in ("CRITICAL", "HIGH"):
+            return "critical"
+        if sev == "MEDIUM":
+            return "medium"
+        if sev == "LOW":
+            return "low"
 
-    # Default to medium
-    return "medium"
+    return default

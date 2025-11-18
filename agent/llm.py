@@ -5,7 +5,7 @@ import json
 import os
 from typing import Any, Dict, Optional
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 import cost_tracker
 

@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - AI Dev Team Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    .kpi-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        text-align: center;
+    }
+
+    .kpi-card .kpi-label {
+        font-size: 0.85rem;
+        color: #718096;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .kpi-card .kpi-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 5px;
+    }
+
+    .kpi-card .kpi-subtext {
+        font-size: 0.8rem;
+        color: #a0aec0;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .chart-container h3 {
+        margin-bottom: 20px;
+        color: #2d3748;
+        font-size: 1.2rem;
+    }
+
+    canvas {
+        max-height: 300px;
+    }
+
+    .progress-bar {
+        height: 24px;
+        background: #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .progress-fill.warning {
+        background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);
+    }
+
+    .progress-fill.danger {
+        background: linear-gradient(135deg, #fc8181 0%, #e53e3e 100%);
+    }
+
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .export-buttons button {
+        flex: 1;
+        padding: 10px 20px;
+    }
+
+    .qa-distribution {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .qa-stat {
+        text-align: center;
+        padding: 15px;
+        background: #f7fafc;
+        border-radius: 6px;
+    }
+
+    .qa-stat .qa-count {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .qa-stat .qa-label {
+        font-size: 0.85rem;
+        color: #718096;
+    }
+
+    .qa-stat.passed .qa-count { color: #38a169; }
+    .qa-stat.warning .qa-count { color: #d69e2e; }
+    .qa-stat.failed .qa-count { color: #e53e3e; }
+    .qa-stat.not-run .qa-count { color: #a0aec0; }
+
+    .disabled-message {
+        text-align: center;
+        padding: 60px 20px;
+        color: #718096;
+    }
+
+    .disabled-message svg {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not enabled %}
+<div class="card">
+    <div class="disabled-message">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        <h2>Analytics Dashboard Disabled</h2>
+        <p>Enable analytics in project_config.json to view metrics and insights.</p>
+    </div>
+</div>
+{% else %}
+
+<h1 style="margin-bottom: 20px;">📊 Analytics & Insights</h1>
+
+<!-- Export Buttons -->
+<div class="export-buttons">
+    <button onclick="window.location.href='/api/analytics/export/json'">
+        📥 Download JSON
+    </button>
+    <button onclick="window.location.href='/api/analytics/export/csv'" class="btn-secondary">
+        📄 Download CSV
+    </button>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">Total Runs</div>
+        <div class="kpi-value">{{ summary.total_runs }}</div>
+        <div class="kpi-subtext">
+            {{ summary.runs_2loop }} 2-loop / {{ summary.runs_3loop }} 3-loop
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">Total Tokens</div>
+        <div class="kpi-value">{{ "{:,}".format(summary.total_tokens) }}</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">Total Cost</div>
+        <div class="kpi-value">${{ "%.2f"|format(summary.total_cost) }}</div>
+        <div class="kpi-subtext">
+            ${{ "%.4f"|format(summary.avg_cost_per_run) }} avg/run
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">Avg Duration</div>
+        <div class="kpi-value">{{ "%.1f"|format(summary.avg_duration_seconds) }}s</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">QA Pass Rate</div>
+        <div class="kpi-value">{{ "%.0f"|format(summary.qa_summary.pass_rate * 100) }}%</div>
+        <div class="kpi-subtext">
+            {{ summary.qa_summary.qa_passed }} passed / {{ summary.qa_summary.total_qa_runs }} total
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">Jobs</div>
+        <div class="kpi-value">{{ summary.total_jobs }}</div>
+        <div class="kpi-subtext">
+            {{ summary.jobs_completed }} completed / {{ summary.jobs_failed }} failed
+        </div>
+    </div>
+</div>
+
+<!-- Budget Tracking (if configured) -->
+{% if summary.monthly_budget %}
+<div class="card">
+    <h2>💰 Monthly Budget</h2>
+    <p style="margin-bottom: 15px;">
+        <strong>${{ "%.2f"|format(summary.current_month_cost) }}</strong> of
+        <strong>${{ "%.2f"|format(summary.monthly_budget) }}</strong> used this month
+    </p>
+    {% set budget_percent = (summary.current_month_cost / summary.monthly_budget * 100) if summary.monthly_budget > 0 else 0 %}
+    {% set progress_class = "danger" if budget_percent >= 90 else ("warning" if budget_percent >= 70 else "") %}
+    <div class="progress-bar">
+        <div class="progress-fill {{ progress_class }}" style="width: {{ [budget_percent, 100]|min }}%">
+            {{ "%.0f"|format(budget_percent) }}%
+        </div>
+    </div>
+    {% if summary.budget_remaining %}
+    <p style="margin-top: 10px; color: #718096; font-size: 0.9rem;">
+        ${{ "%.2f"|format(summary.budget_remaining) }} remaining
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Time-Series Charts -->
+<div class="chart-container">
+    <h3>📈 Cost Over Time (Last {{ timeseries|length }} Days)</h3>
+    <canvas id="costChart"></canvas>
+</div>
+
+<div class="chart-container">
+    <h3>📊 Runs Over Time (Last {{ timeseries|length }} Days)</h3>
+    <canvas id="runsChart"></canvas>
+</div>
+
+<!-- QA Distribution -->
+<div class="card">
+    <h2>✓ QA Status Distribution</h2>
+    <div class="qa-distribution">
+        <div class="qa-stat passed">
+            <div class="qa-count">{{ summary.qa_summary.qa_passed }}</div>
+            <div class="qa-label">Passed</div>
+        </div>
+        <div class="qa-stat warning">
+            <div class="qa-count">{{ summary.qa_summary.qa_warning }}</div>
+            <div class="qa-label">Warning</div>
+        </div>
+        <div class="qa-stat failed">
+            <div class="qa-count">{{ summary.qa_summary.qa_failed }}</div>
+            <div class="qa-label">Failed</div>
+        </div>
+        <div class="qa-stat not-run">
+            <div class="qa-count">{{ summary.qa_summary.qa_not_run }}</div>
+            <div class="qa-label">Not Run</div>
+        </div>
+    </div>
+</div>
+
+<!-- Per-Project Table -->
+<div class="card">
+    <h2>📁 Per-Project Analytics</h2>
+    {% if projects %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>Runs</th>
+                <th>Last Run</th>
+                <th>Total Tokens</th>
+                <th>Total Cost</th>
+                <th>Avg Duration</th>
+                <th>QA Pass Rate</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for project in projects %}
+            <tr>
+                <td><strong>{{ project.project_name }}</strong></td>
+                <td>{{ project.runs_count }}</td>
+                <td style="font-size: 0.85rem; color: #718096;">
+                    {{ project.last_run_time[:19] if project.last_run_time else "N/A" }}
+                </td>
+                <td>{{ "{:,}".format(project.total_tokens) }}</td>
+                <td>${{ "%.2f"|format(project.total_cost) }}</td>
+                <td>{{ "%.1f"|format(project.avg_duration_seconds) }}s</td>
+                <td>
+                    {% set total_qa = project.qa_passed + project.qa_warning + project.qa_failed %}
+                    {% if total_qa > 0 %}
+                        {% set pass_rate = project.qa_passed / total_qa * 100 %}
+                        <span style="color: {% if pass_rate >= 80 %}#38a169{% elif pass_rate >= 50 %}#d69e2e{% else %}#e53e3e{% endif %}">
+                            {{ "%.0f"|format(pass_rate) }}%
+                        </span>
+                    {% else %}
+                        <span style="color: #a0aec0;">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No project data available</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Per-Model Table -->
+<div class="card">
+    <h2>🤖 Per-Model Analytics</h2>
+    {% if models %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Total Tokens</th>
+                <th>Total Cost</th>
+                <th>Usage Count</th>
+                <th>Cost Share</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for model in models %}
+            <tr>
+                <td><strong>{{ model.model_name }}</strong></td>
+                <td>{{ "{:,}".format(model.total_tokens) }}</td>
+                <td>${{ "%.4f"|format(model.total_cost) }}</td>
+                <td>{{ model.usage_count }} runs</td>
+                <td>
+                    {% if summary.total_cost > 0 %}
+                        {% set share = model.total_cost / summary.total_cost * 100 %}
+                        {{ "%.1f"|format(share) }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No model data available</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if enabled %}
+<script>
+    // Time-series data from backend
+    const timeseriesData = {{ timeseries|tojson|safe }};
+
+    // Helper function to draw a simple line chart
+    function drawLineChart(canvasId, data, valueKey, color, label) {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = 300 * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        const width = rect.width;
+        const height = 300;
+        const padding = 40;
+
+        // Extract values
+        const values = data.map(d => d[valueKey]);
+        const dates = data.map(d => d.date);
+
+        const maxValue = Math.max(...values, 1);
+        const minValue = 0;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw grid lines
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (height - 2 * padding) * i / 5;
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(width - padding, y);
+            ctx.stroke();
+        }
+
+        // Draw Y-axis labels
+        ctx.fillStyle = '#718096';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'right';
+
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (height - 2 * padding) * i / 5;
+            const value = maxValue - (maxValue - minValue) * i / 5;
+            ctx.fillText(value.toFixed(2), padding - 10, y + 4);
+        }
+
+        // Draw line
+        if (values.length > 0) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            values.forEach((value, i) => {
+                const x = padding + (width - 2 * padding) * i / (values.length - 1 || 1);
+                const y = height - padding - (height - 2 * padding) * (value - minValue) / (maxValue - minValue || 1);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+
+            // Draw points
+            ctx.fillStyle = color;
+            values.forEach((value, i) => {
+                const x = padding + (width - 2 * padding) * i / (values.length - 1 || 1);
+                const y = height - padding - (height - 2 * padding) * (value - minValue) / (maxValue - minValue || 1);
+
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+
+        // Draw X-axis labels (show every 5th date)
+        ctx.fillStyle = '#718096';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+
+        dates.forEach((date, i) => {
+            if (i % 5 === 0 || i === dates.length - 1) {
+                const x = padding + (width - 2 * padding) * i / (values.length - 1 || 1);
+                const dateStr = date.substring(5); // MM-DD
+                ctx.fillText(dateStr, x, height - padding + 20);
+            }
+        });
+    }
+
+    // Draw charts
+    drawLineChart('costChart', timeseriesData, 'cost', '#667eea', 'Cost (USD)');
+    drawLineChart('runsChart', timeseriesData, 'runs', '#38a169', 'Runs');
+</script>
+{% endif %}
+{% endblock %}

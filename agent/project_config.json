@@ -31,5 +31,11 @@
     "large_file_threshold": 5000,
     "require_smoke_tests_pass": false,
     "smoke_test_command": null
+  },
+
+  "analytics": {
+    "enabled": true,
+    "monthly_budget": 50.0,
+    "timeseries_days": 30
   }
 }

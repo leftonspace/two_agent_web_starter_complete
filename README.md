@@ -20,7 +20,7 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **VSCode integration**: Debug configs and build tasks
 - **Documentation**: Auto-generated API reference
 
-### Web Dashboard (Stage 7-10) 🆕
+### Web Dashboard (Stage 7-11) 🆕
 - **Visual interface**: Clean web UI for project management
 - **Background jobs**: Non-blocking execution with live progress ✨
 - **Job management**: List, view, cancel, and rerun jobs ✨
@@ -29,6 +29,10 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Diff viewer**: Interactive comparison between iterations ✨
 - **Quality assurance**: Automated quality checks with configurable gates ✨
 - **QA dashboard**: View quality status, issues, and metrics ✨
+- **Analytics dashboard**: Comprehensive metrics, trends, and insights ✨
+- **Cost analytics**: Track spending, budgets, and model costs ✨
+- **Performance metrics**: Duration, token usage, and efficiency trends ✨
+- **Data export**: Download analytics as JSON or CSV ✨
 - **Run history**: Browse past runs with detailed logs
 - **Cost tracking**: View token usage and cost breakdowns
 - **RESTful API**: Programmatic access to all features
@@ -371,7 +375,10 @@ cat docs/STAGE7_WEB_UI.md
 
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Complete developer documentation
 - **[docs/STAGE7_WEB_UI.md](docs/STAGE7_WEB_UI.md)** - Web dashboard guide
-- **[docs/STAGE8_JOB_MANAGER.md](docs/STAGE8_JOB_MANAGER.md)** - Job manager guide 🆕
+- **[docs/STAGE8_JOB_MANAGER.md](docs/STAGE8_JOB_MANAGER.md)** - Job manager guide
+- **[docs/STAGE9_PROJECT_EXPLORER.md](docs/STAGE9_PROJECT_EXPLORER.md)** - Project explorer guide
+- **[docs/STAGE10_QA_PIPELINE.md](docs/STAGE10_QA_PIPELINE.md)** - Quality assurance guide
+- **[docs/STAGE11_ANALYTICS_DASHBOARD.md](docs/STAGE11_ANALYTICS_DASHBOARD.md)** - Analytics & insights guide 🆕
 - **[docs/REFERENCE.md](docs/REFERENCE.md)** - Auto-generated API reference
 
 ## Architecture
@@ -427,6 +434,7 @@ User polls → Job detail page
 - **run_mode.py**: CLI entry point with cost estimation
 - **runner.py**: Programmatic API for web dashboard
 - **jobs.py**: Job manager for background execution (Stage 8)
+- **analytics.py**: Analytics engine with aggregations (Stage 11)
 - **webapp/app.py**: FastAPI web application
 - **run_logger.py**: Structured logging (RunSummary, SessionSummary)
 - **cost_tracker.py**: Token usage and cost tracking
@@ -443,7 +451,10 @@ User polls → Job detail page
 - **Stage 5**: Production hardening (status codes, safe I/O, tests)
 - **Stage 6**: Developer experience (dev tools, VSCode, docs)
 - **Stage 7**: Web dashboard with forms and history
-- **Stage 8**: Job manager with background execution 🆕
+- **Stage 8**: Job manager with background execution
+- **Stage 9**: Project explorer with snapshots and diff viewer
+- **Stage 10**: Quality assurance pipeline with automated checks
+- **Stage 11**: Analytics & insights dashboard 🆕
 
 ## Contributing
 

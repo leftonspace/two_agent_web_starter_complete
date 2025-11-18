@@ -31,6 +31,7 @@ from jobs import get_job_manager
 from runner import get_run_details, list_projects, list_run_history, run_project, run_qa_only
 import file_explorer
 import qa
+import analytics
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -792,6 +793,190 @@ async def api_compute_diff(
     )
 
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════
+# STAGE 11: Analytics Endpoints
+# ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    """
+    Analytics dashboard page showing metrics, trends, and insights.
+
+    STAGE 11: Displays aggregated analytics across all runs and jobs.
+    """
+    # Check if analytics is enabled
+    config = analytics.load_analytics_config()
+    if not config.get("enabled", True):
+        return templates.TemplateResponse(
+            "analytics.html",
+            {
+                "request": request,
+                "enabled": False,
+            },
+        )
+
+    # Get analytics data
+    data = analytics.get_analytics(config)
+
+    return templates.TemplateResponse(
+        "analytics.html",
+        {
+            "request": request,
+            "enabled": True,
+            "summary": data["summary"],
+            "projects": data["projects"],
+            "models": data["models"],
+            "timeseries": data["timeseries"],
+            "qa": data["qa"],
+        },
+    )
+
+
+@app.get("/api/analytics/summary")
+async def api_analytics_summary():
+    """
+    API endpoint for overall analytics summary.
+
+    STAGE 11: Returns top-level KPIs and metrics.
+
+    Returns:
+        JSON with AnalyticsSummary data
+    """
+    config = analytics.load_analytics_config()
+    data = analytics.get_analytics(config)
+    return data["summary"]
+
+
+@app.get("/api/analytics/projects")
+async def api_analytics_projects():
+    """
+    API endpoint for per-project analytics.
+
+    STAGE 11: Returns analytics broken down by project.
+
+    Returns:
+        JSON array of ProjectSummary objects
+    """
+    config = analytics.load_analytics_config()
+    data = analytics.get_analytics(config)
+    return data["projects"]
+
+
+@app.get("/api/analytics/models")
+async def api_analytics_models():
+    """
+    API endpoint for per-model analytics.
+
+    STAGE 11: Returns analytics broken down by model.
+
+    Returns:
+        JSON array of ModelSummary objects
+    """
+    config = analytics.load_analytics_config()
+    data = analytics.get_analytics(config)
+    return data["models"]
+
+
+@app.get("/api/analytics/timeseries")
+async def api_analytics_timeseries():
+    """
+    API endpoint for time-series analytics.
+
+    STAGE 11: Returns daily aggregates for charts.
+
+    Returns:
+        JSON object with 'daily' array of TimeSeriesPoint objects
+    """
+    config = analytics.load_analytics_config()
+    data = analytics.get_analytics(config)
+    return {"daily": data["timeseries"]}
+
+
+@app.get("/api/analytics/qa")
+async def api_analytics_qa():
+    """
+    API endpoint for QA analytics.
+
+    STAGE 11: Returns QA-specific metrics and distributions.
+
+    Returns:
+        JSON with QASummary data
+    """
+    config = analytics.load_analytics_config()
+    data = analytics.get_analytics(config)
+    return data["qa"]
+
+
+@app.get("/api/analytics/export/json")
+async def api_analytics_export_json():
+    """
+    Export complete analytics as JSON file.
+
+    STAGE 11: Downloads all analytics data as JSON.
+
+    Returns:
+        JSON file download
+    """
+    from fastapi.responses import Response
+
+    config = analytics.load_analytics_config()
+    data = analytics.get_analytics(config)
+
+    # Convert data models back to objects for export
+    runs = analytics.load_all_runs()
+    jobs = analytics.load_all_jobs()
+
+    summary = analytics.compute_overall_summary(runs, jobs, config)
+    project_summaries = analytics.compute_project_summaries(runs)
+    model_summaries = analytics.compute_model_summaries(runs)
+    timeseries_days = config.get("timeseries_days", 30)
+    timeseries = analytics.compute_timeseries(runs, days=timeseries_days)
+
+    json_content = analytics.export_analytics_json(
+        summary, project_summaries, model_summaries, timeseries
+    )
+
+    return Response(
+        content=json_content,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=analytics.json"},
+    )
+
+
+@app.get("/api/analytics/export/csv")
+async def api_analytics_export_csv():
+    """
+    Export analytics as CSV file.
+
+    STAGE 11: Downloads analytics data as CSV.
+
+    Returns:
+        CSV file download
+    """
+    from fastapi.responses import Response
+
+    config = analytics.load_analytics_config()
+
+    # Load and compute analytics
+    runs = analytics.load_all_runs()
+    jobs = analytics.load_all_jobs()
+
+    summary = analytics.compute_overall_summary(runs, jobs, config)
+    project_summaries = analytics.compute_project_summaries(runs)
+    model_summaries = analytics.compute_model_summaries(runs)
+
+    csv_content = analytics.export_analytics_csv(
+        summary, project_summaries, model_summaries
+    )
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=analytics.csv"},
+    )
 
 
 @app.get("/health")

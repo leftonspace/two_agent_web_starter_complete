@@ -1,0 +1,187 @@
+{
+    // VSCode Tasks for Multi-Agent Orchestrator
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run: Single Orchestrator Run",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/run_once.py"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run: Auto-Pilot Mode",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/run_autopilot.py"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run: Profile Performance",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/profile_run.py"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test: Sanity Tests",
+            "type": "shell",
+            "command": "python3",
+            "args": ["agent/tests_sanity/test_sanity.py"],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test: Type Check (mypy)",
+            "type": "shell",
+            "command": "mypy",
+            "args": ["agent/", "--ignore-missing-imports"],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": {
+                "owner": "python",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning|note):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
+        },
+        {
+            "label": "Lint: Ruff Check",
+            "type": "shell",
+            "command": "ruff",
+            "args": ["check", "agent/"],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": {
+                "owner": "python",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):(\\d+):\\s+(\\w+)\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
+        },
+        {
+            "label": "Lint: Ruff Format",
+            "type": "shell",
+            "command": "ruff",
+            "args": ["format", "agent/"],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean: Delete Logs",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/clean_logs.py", "--yes"],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean: Archive Logs",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/clean_logs.py", "--archive", "archived_logs"],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docs: Generate Reference",
+            "type": "shell",
+            "command": "python3",
+            "args": ["docs/generate_docs.py"],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Dev: Generate Fixture Site",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/generate_fixture.py"],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Dev: View Latest Logs",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/view_logs.py", "--latest"],
+            "group": "none",
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Dev: View All Logs",
+            "type": "shell",
+            "command": "python3",
+            "args": ["dev/view_logs.py", "--all"],
+            "group": "none",
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

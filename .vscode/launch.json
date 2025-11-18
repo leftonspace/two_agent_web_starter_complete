@@ -1,0 +1,98 @@
+{
+    // VSCode Launch Configuration for Multi-Agent Orchestrator
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🚀 Run Single Orchestrator Run",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/dev/run_once.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agent"
+            }
+        },
+        {
+            "name": "🔄 Run Auto-Pilot Mode",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/dev/run_autopilot.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agent"
+            }
+        },
+        {
+            "name": "🛡️ Run Safety Checks Only",
+            "type": "python",
+            "request": "launch",
+            "module": "agent.exec_safety",
+            "args": [
+                "${workspaceFolder}/sites/fixtures",
+                "Test task"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/agent",
+            "justMyCode": false
+        },
+        {
+            "name": "🐛 Debug Orchestrator (3-loop)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agent/run_mode.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agent"
+            },
+            "stopOnEntry": false
+        },
+        {
+            "name": "📊 Profile Run",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/dev/profile_run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agent"
+            }
+        },
+        {
+            "name": "🧪 Run Sanity Tests",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agent/tests_sanity/test_sanity.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/agent",
+            "justMyCode": false
+        },
+        {
+            "name": "🎨 Generate Fixture Site",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/dev/generate_fixture.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "🌐 View Logs",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/dev/view_logs.py",
+            "args": ["--latest"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "📚 Generate Documentation",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/docs/generate_docs.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

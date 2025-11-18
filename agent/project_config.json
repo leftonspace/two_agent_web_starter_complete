@@ -37,5 +37,22 @@
     "enabled": true,
     "monthly_budget": 50.0,
     "timeseries_days": 30
+  },
+
+  "prompts": {
+    "default_strategy": "baseline",
+    "strategies": {
+      "baseline": {
+        "file": "prompts_default.json",
+        "description": "Default balanced prompts for quality and cost"
+      }
+    }
+  },
+
+  "auto_tune": {
+    "enabled": false,
+    "apply_safely": true,
+    "min_runs_for_recommendations": 5,
+    "confidence_threshold": "medium"
   }
 }

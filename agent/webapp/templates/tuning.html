@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block title %}Tuning & Optimization - AI Dev Team Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tuning-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .auto-tune-toggle {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #cbd5e0;
+        transition: .4s;
+        border-radius: 24px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    input:checked + .slider {
+        background-color: #667eea;
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+
+    .rec-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .rec-card.high {
+        border-left-color: #38a169;
+    }
+
+    .rec-card.medium {
+        border-left-color: #d69e2e;
+    }
+
+    .rec-card.low {
+        border-left-color: #a0aec0;
+    }
+
+    .rec-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 10px;
+    }
+
+    .rec-category {
+        display: inline-block;
+        background: #f7fafc;
+        color: #4a5568;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .rec-confidence {
+        font-size: 0.85rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+    }
+
+    .rec-confidence.high {
+        background: #c6f6d5;
+        color: #22543d;
+    }
+
+    .rec-confidence.medium {
+        background: #feebc8;
+        color: #744210;
+    }
+
+    .rec-confidence.low {
+        background: #e2e8f0;
+        color: #4a5568;
+    }
+
+    .rec-change {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin: 15px 0;
+        font-size: 0.95rem;
+    }
+
+    .rec-value {
+        padding: 8px 12px;
+        background: #f7fafc;
+        border-radius: 4px;
+        font-family: monospace;
+        font-weight: 600;
+    }
+
+    .rec-value.current {
+        background: #fed7d7;
+        color: #742a2a;
+    }
+
+    .rec-value.recommended {
+        background: #c6f6d5;
+        color: #22543d;
+    }
+
+    .profile-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    .profile-stat {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .profile-stat .label {
+        font-size: 0.85rem;
+        color: #718096;
+        margin-bottom: 5px;
+    }
+
+    .profile-stat .value {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .insufficient-data {
+        background: #feebc8;
+        color: #744210;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tuning-header">
+    <div>
+        <h1 style="font-size: 1.75rem; color: #2d3748; margin-bottom: 5px;">🧠 Tuning & Optimization</h1>
+        <p style="color: #718096;">Self-learning recommendations based on historical performance</p>
+    </div>
+
+    <div class="auto-tune-toggle">
+        <span style="font-weight: 500; color: #4a5568;">Auto-Tune:</span>
+        <label class="switch">
+            <input type="checkbox" id="autoTuneToggle" {% if auto_tune_enabled %}checked{% endif %}>
+            <span class="slider"></span>
+        </label>
+        <span id="autoTuneStatus" style="color: {% if auto_tune_enabled %}#38a169{% else %}#a0aec0{% endif %};">
+            {% if auto_tune_enabled %}Enabled{% else %}Disabled{% endif %}
+        </span>
+    </div>
+</div>
+
+{% if not sufficient_data %}
+<div class="insufficient-data">
+    <strong>⚠ Insufficient Data for Recommendations</strong>
+    <p style="margin-top: 8px;">
+        Need at least {{ min_runs }} historical runs to generate reliable recommendations.
+        Current: {{ runs_count }} runs.
+    </p>
+</div>
+{% endif %}
+
+<!-- Profile Statistics -->
+{% if profile %}
+<div class="card">
+    <h2>📊 Project Performance Profile</h2>
+    <div class="profile-stats">
+        <div class="profile-stat">
+            <div class="label">Total Runs</div>
+            <div class="value">{{ profile.runs_count }}</div>
+        </div>
+        <div class="profile-stat">
+            <div class="label">Avg Cost</div>
+            <div class="value">${{ "%.2f"|format(profile.avg_cost) }}</div>
+        </div>
+        <div class="profile-stat">
+            <div class="label">QA Pass Rate</div>
+            <div class="value">{{ "%.0f"|format(profile.overall_qa_pass_rate * 100) }}%</div>
+        </div>
+        <div class="profile-stat">
+            <div class="label">Avg Rounds Used</div>
+            <div class="value">{{ "%.1f"|format(profile.avg_rounds_used) }}</div>
+        </div>
+        {% if profile.preferred_mode %}
+        <div class="profile-stat">
+            <div class="label">Preferred Mode</div>
+            <div class="value">{{ profile.preferred_mode }}</div>
+        </div>
+        {% endif %}
+        {% if profile.preferred_strategy %}
+        <div class="profile-stat">
+            <div class="label">Preferred Strategy</div>
+            <div class="value">{{ profile.preferred_strategy }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Recommendations -->
+<div class="card">
+    <h2>💡 Recommendations</h2>
+
+    {% if recommendations %}
+    <p style="color: #718096; margin-bottom: 20px;">
+        Based on {{ profile.runs_count }} historical runs, the system recommends the following optimizations:
+    </p>
+
+    {% for rec in recommendations %}
+    <div class="rec-card {{ rec.confidence }}">
+        <div class="rec-header">
+            <div>
+                <span class="rec-category">{{ rec.category }}</span>
+            </div>
+            <span class="rec-confidence {{ rec.confidence }}">{{ rec.confidence }} confidence</span>
+        </div>
+
+        <div class="rec-change">
+            <span class="rec-value current">{{ rec.current_value }}</span>
+            <span style="color: #718096;">→</span>
+            <span class="rec-value recommended">{{ rec.recommended_value }}</span>
+        </div>
+
+        <p style="color: #4a5568; margin-bottom: 10px;">{{ rec.explanation }}</p>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+            <span style="font-size: 0.85rem; color: #718096;">
+                <strong>Estimated Impact:</strong> {{ rec.estimated_impact }}
+            </span>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if auto_tune_enabled %}
+    <div style="margin-top: 20px; padding: 15px; background: #e6f2ff; border-radius: 6px; color: #2c5282;">
+        <strong>✓ Auto-Tune Enabled</strong>
+        <p style="margin-top: 8px; font-size: 0.9rem;">
+            These recommendations will be automatically applied to new runs. You can still override settings manually when starting a run.
+        </p>
+    </div>
+    {% else %}
+    <div style="margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 6px; color: #4a5568;">
+        <strong>💡 Enable Auto-Tune</strong>
+        <p style="margin-top: 8px; font-size: 0.9rem;">
+            Toggle the Auto-Tune switch above to automatically apply these recommendations to new runs.
+        </p>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <p style="color: #718096;">
+            {% if sufficient_data %}
+            No recommendations at this time. Current configuration appears optimal based on historical data.
+            {% else %}
+            Run more iterations to generate recommendations.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- How Auto-Tune Works -->
+<div class="card">
+    <h2>ℹ️ How Auto-Tune Works</h2>
+    <div style="color: #4a5568; line-height: 1.8;">
+        <p><strong>Data Analysis:</strong> The system analyzes historical runs for this project, comparing costs, QA pass rates, and performance across different modes and settings.</p>
+        <p style="margin-top: 10px;"><strong>Recommendations:</strong> Based on statistical analysis, it identifies settings that consistently deliver better results (higher QA pass rate, lower cost, or both).</p>
+        <p style="margin-top: 10px;"><strong>Auto-Tune:</strong> When enabled, recommendations are automatically applied to new runs. You can always override settings manually in the run configuration form.</p>
+        <p style="margin-top: 10px;"><strong>Safety:</strong> Auto-tune requires at least {{ min_runs }} runs before making recommendations, and it never applies low-confidence changes in safe mode.</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Auto-tune toggle
+    const toggle = document.getElementById('autoTuneToggle');
+    const status = document.getElementById('autoTuneStatus');
+
+    toggle.addEventListener('change', async function() {
+        const enabled = this.checked;
+
+        try {
+            const formData = new FormData();
+            formData.append('enabled', enabled);
+
+            const response = await fetch('/api/auto-tune/toggle', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                status.textContent = enabled ? 'Enabled' : 'Disabled';
+                status.style.color = enabled ? '#38a169' : '#a0aec0';
+
+                // Show success message
+                alert(data.message);
+            } else {
+                // Revert toggle on error
+                this.checked = !enabled;
+                alert('Failed to update auto-tune setting');
+            }
+        } catch (error) {
+            // Revert toggle on error
+            this.checked = !enabled;
+            alert('Failed to update auto-tune setting: ' + error.message);
+        }
+    });
+</script>
+{% endblock %}

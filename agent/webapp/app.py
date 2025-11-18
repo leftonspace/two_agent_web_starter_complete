@@ -12,6 +12,7 @@ STAGE 8: Job manager with background execution, live logs, and cancellation.
 
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -32,6 +33,7 @@ from runner import get_run_details, list_projects, list_run_history, run_project
 import file_explorer
 import qa
 import analytics
+import brain
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -800,6 +802,66 @@ async def api_compute_diff(
 # ══════════════════════════════════════════════════════════════════════
 
 
+@app.get("/tuning", response_class=HTMLResponse)
+async def tuning_page(request: Request):
+    """
+    Tuning & optimization page showing recommendations and auto-tune controls.
+
+    STAGE 12: Displays self-learning recommendations based on historical data.
+    """
+    # Get tuning config
+    tuning_config = brain.load_tuning_config()
+
+    # For now, use the first project or a default
+    # In a real implementation, this could be project-specific
+    # Get all projects
+    projects = list_projects()
+
+    if not projects:
+        # No projects, show empty state
+        return templates.TemplateResponse(
+            "tuning.html",
+            {
+                "request": request,
+                "profile": None,
+                "recommendations": [],
+                "sufficient_data": False,
+                "runs_count": 0,
+                "min_runs": tuning_config.min_runs_for_recommendations,
+                "auto_tune_enabled": tuning_config.enabled,
+            },
+        )
+
+    # Use first project for demo (in real app, user would select)
+    project_id = projects[0]["name"]
+
+    # Load current config
+    config_file = agent_dir / "project_config.json"
+    current_config = {}
+    if config_file.exists():
+        try:
+            with config_file.open("r", encoding="utf-8") as f:
+                current_config = json.load(f)
+        except Exception:
+            pass
+
+    # Get tuning analysis
+    analysis = brain.get_tuning_analysis(project_id, current_config)
+
+    return templates.TemplateResponse(
+        "tuning.html",
+        {
+            "request": request,
+            "profile": analysis["profile"],
+            "recommendations": analysis["recommendations"],
+            "sufficient_data": analysis["profile"]["sufficient_data"],
+            "runs_count": analysis["profile"]["runs_count"],
+            "min_runs": tuning_config.min_runs_for_recommendations,
+            "auto_tune_enabled": tuning_config.enabled,
+        },
+    )
+
+
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request):
     """
@@ -977,6 +1039,140 @@ async def api_analytics_export_csv():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=analytics.csv"},
     )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# STAGE 12: Self-Optimization & Auto-Tuning Endpoints
+# ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/api/projects/{project_id}/profile")
+async def api_get_project_profile(project_id: str):
+    """
+    Get project profile and tuning analysis.
+
+    STAGE 12: Returns historical performance data and recommendations.
+
+    Args:
+        project_id: Project identifier
+
+    Returns:
+        JSON with profile, recommendations, and tuning config
+    """
+    # Load current config for this project
+    agent_dir_path = agent_dir.parent / "sites" / project_id
+    if not agent_dir_path.exists():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    # Get current config from project_config.json as baseline
+    config_file = agent_dir / "project_config.json"
+    current_config = {}
+    if config_file.exists():
+        try:
+            with config_file.open("r", encoding="utf-8") as f:
+                current_config = json.load(f)
+        except Exception:
+            pass
+
+    # Get tuning analysis
+    analysis = brain.get_tuning_analysis(project_id, current_config)
+
+    return analysis
+
+
+@app.get("/api/projects/{project_id}/recommendations")
+async def api_get_recommendations(project_id: str):
+    """
+    Get current recommendations for a project.
+
+    STAGE 12: Returns just the recommendations without full profile.
+
+    Args:
+        project_id: Project identifier
+
+    Returns:
+        JSON array of recommendations
+    """
+    # Load current config
+    config_file = agent_dir / "project_config.json"
+    current_config = {}
+    if config_file.exists():
+        try:
+            with config_file.open("r", encoding="utf-8") as f:
+                current_config = json.load(f)
+        except Exception:
+            pass
+
+    # Build profile and generate recommendations
+    profile = brain.build_project_profile(project_id)
+    recommendations = brain.generate_recommendations(profile, current_config)
+
+    return {
+        "recommendations": [asdict(r) for r in recommendations],
+        "sufficient_data": profile.sufficient_data,
+        "runs_count": profile.runs_count,
+    }
+
+
+@app.post("/api/auto-tune/toggle")
+async def api_toggle_auto_tune(enabled: bool = Form(...)):
+    """
+    Toggle auto-tune on/off globally.
+
+    STAGE 12: Updates project_config.json to enable/disable auto-tuning.
+
+    Args:
+        enabled: True to enable, False to disable
+
+    Returns:
+        JSON with new auto-tune status
+    """
+    config_file = agent_dir / "project_config.json"
+
+    if not config_file.exists():
+        raise HTTPException(status_code=404, detail="Configuration file not found")
+
+    try:
+        # Read current config
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+
+        # Update auto-tune setting
+        if "auto_tune" not in config:
+            config["auto_tune"] = {}
+
+        config["auto_tune"]["enabled"] = enabled
+
+        # Write back
+        with config_file.open("w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+
+        return {
+            "success": True,
+            "enabled": enabled,
+            "message": f"Auto-tune {'enabled' if enabled else 'disabled'}"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update config: {str(e)}")
+
+
+@app.get("/api/strategies")
+async def api_get_strategies():
+    """
+    Get available prompt strategies.
+
+    STAGE 12: Returns list of available prompt strategies.
+
+    Returns:
+        JSON with available strategies
+    """
+    strategies = brain.get_available_strategies()
+
+    return {
+        "strategies": strategies,
+        "default": "baseline"
+    }
 
 
 @app.get("/health")

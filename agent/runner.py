@@ -26,6 +26,8 @@ from status_codes import (
 )
 # STAGE 10: Import QA module
 import qa
+# STAGE 12: Import brain module
+import brain
 
 
 def run_project(config: Dict[str, Any]) -> RunSummary:
@@ -73,9 +75,32 @@ def run_project(config: Dict[str, Any]) -> RunSummary:
         if field not in config:
             raise ValueError(f"Missing required config field: {field}")
 
+    # STAGE 12: Apply auto-tuning if enabled
+    original_config = config.copy()
+    project_subdir = config.get("project_subdir")
+
+    try:
+        tuning_config = brain.load_tuning_config()
+        if tuning_config.enabled and not config.get("_skip_auto_tune", False):
+            # Build project profile
+            profile = brain.build_project_profile(project_subdir)
+
+            # Generate recommendations
+            recommendations = brain.generate_recommendations(profile, config)
+
+            # Apply recommendations if sufficient data
+            if recommendations:
+                config = brain.apply_auto_tune(config, recommendations, tuning_config)
+                print(f"[BRAIN] Auto-tune applied {len(recommendations)} recommendations")
+                for rec in recommendations:
+                    print(f"  - {rec.category}: {rec.current_value} → {rec.recommended_value}")
+    except Exception as e:
+        # Auto-tune failures should not block runs
+        print(f"[BRAIN] Auto-tune failed (continuing with original config): {e}")
+        config = original_config
+
     # Extract configuration
     mode = config.get("mode", "3loop").lower().strip()
-    project_subdir = config.get("project_subdir")
     task = config.get("task", "")
     max_rounds = int(config.get("max_rounds", 1))
 
@@ -110,20 +135,29 @@ def run_project(config: Dict[str, Any]) -> RunSummary:
     }
 
     # Create RunSummary
+    run_config = {
+        "use_visual_review": config.get("use_visual_review", False),
+        "use_git": config.get("use_git", False),
+        "max_cost_usd": config.get("max_cost_usd", 0.0),
+        "cost_warning_usd": config.get("cost_warning_usd", 0.0),
+        "interactive_cost_mode": config.get("interactive_cost_mode", "off"),
+        "prompts_file": config.get("prompts_file", "prompts_default.json"),
+    }
+
+    # STAGE 12: Add prompt strategy and auto-tune metadata
+    prompt_strategy = config.get("prompts", {}).get("default_strategy", "baseline")
+    run_config["prompt_strategy"] = prompt_strategy
+    run_config["auto_tuned"] = config.get("_auto_tuned", False)
+    if config.get("_tuned_fields"):
+        run_config["tuned_fields"] = config.get("_tuned_fields")
+
     run_summary = start_run(
         mode=mode,
         project_dir=str(project_dir),
         task=task,
         max_rounds=max_rounds,
         models_used=models_used,
-        config={
-            "use_visual_review": config.get("use_visual_review", False),
-            "use_git": config.get("use_git", False),
-            "max_cost_usd": config.get("max_cost_usd", 0.0),
-            "cost_warning_usd": config.get("cost_warning_usd", 0.0),
-            "interactive_cost_mode": config.get("interactive_cost_mode", "off"),
-            "prompts_file": config.get("prompts_file", "prompts_default.json"),
-        },
+        config=run_config,
     )
 
     # Compute cost estimate

@@ -37,6 +37,16 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Cost tracking**: View token usage and cost breakdowns
 - **RESTful API**: Programmatic access to all features
 
+### Self-Optimization (Stage 12) 🆕
+- **Project profiling**: Historical behavior analysis per project ✨
+- **Intelligent recommendations**: Data-driven optimization suggestions ✨
+- **Prompt strategies**: A/B testing for different prompt sets ✨
+- **Auto-tuning**: Automatic application of recommendations ✨
+- **Confidence scoring**: High/medium/low confidence levels ✨
+- **Safety mechanisms**: Minimum data requirements and graceful fallbacks ✨
+- **Tuning dashboard**: View recommendations and control auto-tune ✨
+- **Quality-first optimization**: 70/30 QA vs cost weighting ✨
+
 ## Quick Start
 
 ### 1. Installation
@@ -121,6 +131,8 @@ two_agent_web_starter_complete/
 │   ├── runner.py              # Programmatic API (Stage 7)
 │   ├── jobs.py                # Job manager (Stage 8)
 │   ├── file_explorer.py       # File & snapshot explorer (Stage 9)
+│   ├── analytics.py           # Analytics engine (Stage 11)
+│   ├── brain.py               # Self-optimization engine (Stage 12)
 │   ├── cost_tracker.py        # Token and cost tracking
 │   ├── run_logger.py          # Structured run logging
 │   ├── auto_pilot.py          # Auto-pilot mode
@@ -129,12 +141,15 @@ two_agent_web_starter_complete/
 │   ├── status_codes.py        # Normalized status codes
 │   ├── safe_io.py             # Safe I/O helpers
 │   ├── project_config.json    # Configuration file
-│   ├── webapp/                # Web dashboard (Stage 7-9)
+│   ├── webapp/                # Web dashboard (Stage 7-12)
 │   │   ├── app.py            # FastAPI application
 │   │   └── templates/        # HTML templates
 │   ├── tests_stage7/         # Web dashboard tests
 │   ├── tests_stage8/         # Job manager tests
-│   └── tests_stage9/         # Project explorer tests
+│   ├── tests_stage9/         # Project explorer tests
+│   ├── tests_stage10/        # QA pipeline tests
+│   ├── tests_stage11/        # Analytics tests
+│   └── tests_stage12/        # Self-optimization tests
 ├── sites/                     # Generated web projects
 │   ├── my_project/
 │   └── another_project/
@@ -454,7 +469,8 @@ User polls → Job detail page
 - **Stage 8**: Job manager with background execution
 - **Stage 9**: Project explorer with snapshots and diff viewer
 - **Stage 10**: Quality assurance pipeline with automated checks
-- **Stage 11**: Analytics & insights dashboard 🆕
+- **Stage 11**: Analytics & insights dashboard
+- **Stage 12**: Self-optimization & auto-tuning layer ("brain") 🆕
 
 ## Contributing
 

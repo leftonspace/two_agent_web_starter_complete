@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs - AI Dev Team Dashboard{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <h1 style="font-size: 1.75rem; color: #2d3748;">Background Jobs</h1>
+    <div>
+        <a href="/" class="btn-secondary" style="display: inline-block; padding: 8px 16px; background: #718096; color: white; text-decoration: none; border-radius: 6px;">
+            ← Home
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>All Jobs</h2>
+        <div style="display: flex; gap: 10px;">
+            <a href="/jobs" style="padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 4px; text-decoration: none; color: #4a5568; {% if not filter_status %}background: #667eea; color: white;{% endif %}">
+                All
+            </a>
+            <a href="/jobs?status=running" style="padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 4px; text-decoration: none; color: #4a5568; {% if filter_status == 'running' %}background: #667eea; color: white;{% endif %}">
+                Running
+            </a>
+            <a href="/jobs?status=completed" style="padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 4px; text-decoration: none; color: #4a5568; {% if filter_status == 'completed' %}background: #667eea; color: white;{% endif %}">
+                Completed
+            </a>
+            <a href="/jobs?status=failed" style="padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 4px; text-decoration: none; color: #4a5568; {% if filter_status == 'failed' %}background: #667eea; color: white;{% endif %}">
+                Failed
+            </a>
+            <a href="/jobs?status=cancelled" style="padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 4px; text-decoration: none; color: #4a5568; {% if filter_status == 'cancelled' %}background: #667eea; color: white;{% endif %}">
+                Cancelled
+            </a>
+        </div>
+    </div>
+
+    {% if jobs %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Job ID</th>
+                <th>Project</th>
+                <th>Mode</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Duration</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in jobs %}
+            <tr>
+                <td>
+                    <a href="/jobs/{{ job.id }}">{{ job.id }}</a>
+                </td>
+                <td>{{ job.config.project_subdir }}</td>
+                <td>{{ job.config.mode }}</td>
+                <td>
+                    {% if job.status == 'queued' %}
+                        <span class="badge badge-info">{{ job.status }}</span>
+                    {% elif job.status == 'running' %}
+                        <span class="badge badge-warning">{{ job.status }}</span>
+                    {% elif job.status == 'completed' %}
+                        <span class="badge badge-success">{{ job.status }}</span>
+                    {% elif job.status == 'failed' %}
+                        <span class="badge badge-error">{{ job.status }}</span>
+                    {% elif job.status == 'cancelled' %}
+                        <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ job.status }}</span>
+                    {% else %}
+                        <span class="badge badge-info">{{ job.status }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ job.created_at[:19].replace('T', ' ') }}</td>
+                <td>
+                    {% if job.finished_at and job.started_at %}
+                        {% set start = job.started_at[:19] %}
+                        {% set finish = job.finished_at[:19] %}
+                        {# Calculate duration in seconds (simplified) #}
+                        <span style="color: #718096; font-size: 0.9rem;">
+                            {% if job.status == 'completed' %}✓{% elif job.status == 'failed' %}✗{% elif job.status == 'cancelled' %}⊘{% endif %}
+                        </span>
+                    {% elif job.status == 'running' %}
+                        <span style="color: #f6ad55; font-size: 0.9rem;">⏱️ Running...</span>
+                    {% elif job.status == 'queued' %}
+                        <span style="color: #90cdf4; font-size: 0.9rem;">⏸️ Queued</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 8px;">
+                        <a href="/jobs/{{ job.id }}" style="padding: 4px 8px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-size: 0.85rem;">
+                            View
+                        </a>
+                        {% if job.status in ['running', 'queued'] %}
+                        <button onclick="cancelJob('{{ job.id }}')" style="padding: 4px 8px; background: #fc8181; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+                            Cancel
+                        </button>
+                        {% else %}
+                        <form method="POST" action="/jobs/{{ job.id }}/rerun" style="display: inline;">
+                            <button type="submit" style="padding: 4px 8px; background: #68d391; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+                                Rerun
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+        </svg>
+        <p>No jobs yet. Create a new job from the home page!</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function cancelJob(jobId) {
+    if (!confirm('Are you sure you want to cancel this job?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/jobs/${jobId}/cancel`, {
+            method: 'POST',
+        });
+
+        if (response.ok) {
+            alert('Job cancellation requested');
+            location.reload();
+        } else {
+            const data = await response.json();
+            alert(`Failed to cancel job: ${data.detail || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert(`Error cancelling job: ${error.message}`);
+    }
+}
+
+// Auto-refresh page every 5 seconds if there are running jobs
+{% if jobs %}
+    {% for job in jobs %}
+        {% if job.status in ['running', 'queued'] %}
+            setInterval(() => {
+                location.reload();
+            }, 5000);
+            break;
+        {% endif %}
+    {% endfor %}
+{% endif %}
+</script>
+{% endblock %}

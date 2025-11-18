@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Job {{ job.id }} - AI Dev Team Dashboard{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="/jobs" style="color: #667eea; text-decoration: none;">← Back to Jobs</a>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Job {{ job.id }}</h2>
+        <div style="display: flex; gap: 10px;">
+            {% if job.status in ['running', 'queued'] %}
+            <button onclick="cancelJob()" style="padding: 8px 16px; background: #fc8181; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                Cancel Job
+            </button>
+            {% else %}
+            <form method="POST" action="/jobs/{{ job.id }}/rerun" style="display: inline;">
+                <button type="submit" style="padding: 8px 16px; background: #68d391; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    Rerun Job
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid" style="margin-top: 20px;">
+        <div class="stat-card">
+            <div class="label">Status</div>
+            <div class="value">
+                {% if job.status == 'queued' %}
+                    <span class="badge badge-info" style="font-size: 1.2rem; padding: 8px 16px;">{{ job.status }}</span>
+                {% elif job.status == 'running' %}
+                    <span class="badge badge-warning" style="font-size: 1.2rem; padding: 8px 16px;">{{ job.status }}</span>
+                {% elif job.status == 'completed' %}
+                    <span class="badge badge-success" style="font-size: 1.2rem; padding: 8px 16px;">{{ job.status }}</span>
+                {% elif job.status == 'failed' %}
+                    <span class="badge badge-error" style="font-size: 1.2rem; padding: 8px 16px;">{{ job.status }}</span>
+                {% elif job.status == 'cancelled' %}
+                    <span class="badge" style="background: #e2e8f0; color: #4a5568; font-size: 1.2rem; padding: 8px 16px;">{{ job.status }}</span>
+                {% else %}
+                    <span class="badge badge-info" style="font-size: 1.2rem; padding: 8px 16px;">{{ job.status }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Project</div>
+            <div class="value" style="font-size: 1.25rem;">{{ job.config.project_subdir }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Mode</div>
+            <div class="value" style="font-size: 1.25rem;">{{ job.config.mode }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📝 Configuration</h2>
+    <table style="width: 100%;">
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500; width: 200px;">Project</td>
+            <td style="padding: 10px;">{{ job.config.project_subdir }}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500;">Mode</td>
+            <td style="padding: 10px;">{{ job.config.mode }}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500;">Task</td>
+            <td style="padding: 10px;">{{ job.config.task }}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500;">Max Rounds</td>
+            <td style="padding: 10px;">{{ job.config.max_rounds }}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500;">Cost Limit</td>
+            <td style="padding: 10px;">${{ "%.2f"|format(job.config.max_cost_usd) }}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500;">Created At</td>
+            <td style="padding: 10px;">{{ job.created_at[:19].replace('T', ' ') }} UTC</td>
+        </tr>
+        {% if job.started_at %}
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500;">Started At</td>
+            <td style="padding: 10px;">{{ job.started_at[:19].replace('T', ' ') }} UTC</td>
+        </tr>
+        {% endif %}
+        {% if job.finished_at %}
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px; font-weight: 500;">Finished At</td>
+            <td style="padding: 10px;">{{ job.finished_at[:19].replace('T', ' ') }} UTC</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+{% if job.error %}
+<div class="card">
+    <h2 style="color: #e53e3e;">❌ Error</h2>
+    <div class="alert alert-error">
+        <strong>Job failed with error:</strong><br>
+        {{ job.error }}
+    </div>
+</div>
+{% endif %}
+
+{% if job.result_summary and job.result_summary.cost_summary %}
+<div class="card">
+    <h2>💰 Cost Summary</h2>
+
+    {% if job.result_summary.estimated_cost_usd %}
+    <div style="margin-bottom: 15px;">
+        <strong>Estimated Cost:</strong> ${{ "%.4f"|format(job.result_summary.estimated_cost_usd) }}
+    </div>
+    {% endif %}
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Input Tokens</th>
+                <th>Output Tokens</th>
+                <th>Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for model, data in job.result_summary.cost_summary.get('by_model', {}).items() %}
+            <tr>
+                <td>{{ model }}</td>
+                <td>{{ "{:,}".format(data.input_tokens) }}</td>
+                <td>{{ "{:,}".format(data.output_tokens) }}</td>
+                <td>${{ "%.4f"|format(data.cost_usd) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot style="font-weight: 600; background: #f7fafc;">
+            <tr>
+                <td>Total</td>
+                <td>{{ "{:,}".format(job.result_summary.cost_summary.total_input_tokens) }}</td>
+                <td>{{ "{:,}".format(job.result_summary.cost_summary.total_output_tokens) }}</td>
+                <td>${{ "%.4f"|format(job.result_summary.cost_summary.total_usd) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>📋 Live Logs</h2>
+    {% if job.status in ['running', 'queued'] %}
+    <div class="alert alert-info" style="margin-bottom: 15px;">
+        <strong>Live Updates Enabled:</strong> Logs will refresh automatically every 2 seconds.
+    </div>
+    {% endif %}
+
+    <div style="position: relative;">
+        <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+            <button onclick="copyLogs()" style="padding: 6px 12px; background: #718096; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">
+                Copy Logs
+            </button>
+        </div>
+        <pre id="log-container" style="background: #2d3748; color: #e2e8f0; padding: 20px; border-radius: 6px; overflow-x: auto; max-height: 600px; overflow-y: auto; font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; margin-top: 0;">Loading logs...</pre>
+    </div>
+</div>
+
+<script>
+const JOB_ID = '{{ job.id }}';
+const JOB_STATUS = '{{ job.status }}';
+let lastLogLength = 0;
+let logPollingInterval = null;
+
+async function fetchLogs() {
+    try {
+        const response = await fetch(`/api/jobs/${JOB_ID}/logs`);
+        if (response.ok) {
+            const data = await response.json();
+            const logContainer = document.getElementById('log-container');
+            const logs = data.logs || 'No logs yet...';
+
+            // Only update if logs changed (avoid flickering)
+            if (logs.length !== lastLogLength) {
+                logContainer.textContent = logs;
+                lastLogLength = logs.length;
+
+                // Auto-scroll to bottom if user is near bottom
+                const isNearBottom = logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight < 100;
+                if (isNearBottom) {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+            }
+        } else {
+            console.error('Failed to fetch logs:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+    }
+}
+
+async function checkJobStatus() {
+    try {
+        const response = await fetch(`/api/jobs/${JOB_ID}`);
+        if (response.ok) {
+            const job = await response.json();
+            if (job.status !== JOB_STATUS) {
+                // Job status changed, reload page
+                location.reload();
+            }
+        }
+    } catch (error) {
+        console.error('Error checking job status:', error);
+    }
+}
+
+async function cancelJob() {
+    if (!confirm('Are you sure you want to cancel this job?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/jobs/${JOB_ID}/cancel`, {
+            method: 'POST',
+        });
+
+        if (response.ok) {
+            alert('Job cancellation requested');
+            location.reload();
+        } else {
+            const data = await response.json();
+            alert(`Failed to cancel job: ${data.detail || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert(`Error cancelling job: ${error.message}`);
+    }
+}
+
+function copyLogs() {
+    const logContainer = document.getElementById('log-container');
+    const logs = logContainer.textContent;
+
+    navigator.clipboard.writeText(logs).then(() => {
+        alert('Logs copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy logs:', err);
+        alert('Failed to copy logs to clipboard');
+    });
+}
+
+// Initial log fetch
+fetchLogs();
+
+// If job is running or queued, poll for updates
+if (['running', 'queued'].includes(JOB_STATUS)) {
+    logPollingInterval = setInterval(() => {
+        fetchLogs();
+        checkJobStatus();
+    }, 2000);  // Poll every 2 seconds
+}
+</script>
+{% endblock %}

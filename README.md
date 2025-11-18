@@ -20,9 +20,11 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **VSCode integration**: Debug configs and build tasks
 - **Documentation**: Auto-generated API reference
 
-### Web Dashboard (Stage 7) 🆕
+### Web Dashboard (Stage 7-8) 🆕
 - **Visual interface**: Clean web UI for project management
-- **Run control**: Start and configure runs from your browser
+- **Background jobs**: Non-blocking execution with live progress ✨
+- **Job management**: List, view, cancel, and rerun jobs ✨
+- **Live log streaming**: Watch logs update in real-time ✨
 - **Run history**: Browse past runs with detailed logs
 - **Cost tracking**: View token usage and cost breakdowns
 - **RESTful API**: Programmatic access to all features
@@ -339,6 +341,7 @@ cat docs/STAGE7_WEB_UI.md
 
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Complete developer documentation
 - **[docs/STAGE7_WEB_UI.md](docs/STAGE7_WEB_UI.md)** - Web dashboard guide
+- **[docs/STAGE8_JOB_MANAGER.md](docs/STAGE8_JOB_MANAGER.md)** - Job manager guide 🆕
 - **[docs/REFERENCE.md](docs/REFERENCE.md)** - Auto-generated API reference
 
 ## Architecture
@@ -362,8 +365,9 @@ User → Manager (planning)
      → [iterate or approve]
 ```
 
-### Web Dashboard Flow (Stage 7)
+### Web Dashboard Flow (Stage 7-8)
 
+**Stage 7 (Blocking):**
 ```
 User → Web UI (form)
      → FastAPI app (validation)
@@ -373,11 +377,26 @@ User → Web UI (form)
      → Web UI (display)
 ```
 
+**Stage 8 (Background Jobs):**
+```
+User → Web UI (form)
+     → FastAPI app (create job)
+     → JobManager (background thread)
+     → runner.run_project() (API)
+     → Orchestrator (execution)
+     → run_logger (save results)
+     → Job state updated
+User polls → Job detail page
+          → API (get logs)
+          → Live updates
+```
+
 ### Key Components
 
 - **orchestrator.py**: 3-loop orchestration logic
 - **run_mode.py**: CLI entry point with cost estimation
 - **runner.py**: Programmatic API for web dashboard
+- **jobs.py**: Job manager for background execution (Stage 8)
 - **webapp/app.py**: FastAPI web application
 - **run_logger.py**: Structured logging (RunSummary, SessionSummary)
 - **cost_tracker.py**: Token usage and cost tracking
@@ -393,7 +412,8 @@ User → Web UI (form)
 - **Stage 4**: Auto-pilot mode with self-evaluation
 - **Stage 5**: Production hardening (status codes, safe I/O, tests)
 - **Stage 6**: Developer experience (dev tools, VSCode, docs)
-- **Stage 7**: Web dashboard (this stage) 🆕
+- **Stage 7**: Web dashboard with forms and history
+- **Stage 8**: Job manager with background execution 🆕
 
 ## Contributing
 

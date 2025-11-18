@@ -19,12 +19,16 @@ OS COMPATIBILITY:
 - Tools depend on external executables (ruff, black, pytest, git)
 - If these are not installed or not on PATH, tools will fail gracefully with
   structured error messages (exit_code 127)
-- Tested on Unix-like systems; Windows compatibility depends on having these
-  tools installed and available on PATH
+- Tested on Unix-like systems (Linux, macOS)
+- Windows compatibility: All tools work on Windows if the required executables
+  (ruff, black, pytest, git) are installed and available on PATH. Install these
+  tools using pip (for Python tools) or official installers (for git).
+  Note: Path separators and .git directory checks work cross-platform via pathlib.
 """
 
 from __future__ import annotations
 
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -39,7 +43,8 @@ from typing import Any, Dict, List, Optional
 def format_code(
     project_dir: str,
     formatter: str = "ruff",
-    paths: Optional[List[str]] = None
+    paths: Optional[List[str]] = None,
+    timeout: int = 60
 ) -> Dict[str, Any]:
     """
     Format source code using ruff or black.
@@ -50,6 +55,7 @@ def format_code(
         project_dir: Path to the project directory
         formatter: "ruff" or "black" (default: "ruff")
         paths: Optional list of specific paths to format (default: format entire project)
+        timeout: Timeout in seconds (default: 60)
 
     Returns:
         {
@@ -106,7 +112,7 @@ def format_code(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=timeout,
             shell=False  # Explicit: never use shell=True
         )
 
@@ -121,7 +127,7 @@ def format_code(
             "status": "failed",
             "exit_code": 124,
             "output": "",
-            "error": "Formatting timed out after 60 seconds"
+            "error": f"Formatting timed out after {timeout} seconds"
         }
     except Exception as e:
         return {
@@ -135,7 +141,8 @@ def format_code(
 def run_unit_tests(
     project_dir: str,
     test_path: str = "tests/unit",
-    extra_args: Optional[List[str]] = None
+    extra_args: Optional[List[str]] = None,
+    timeout: int = 300
 ) -> Dict[str, Any]:
     """
     Run unit tests using pytest.
@@ -146,6 +153,7 @@ def run_unit_tests(
         project_dir: Path to the project directory
         test_path: Path to unit tests directory (default: "tests/unit")
         extra_args: Optional extra arguments to pass to pytest
+        timeout: Timeout in seconds (default: 300)
 
     Returns:
         {
@@ -200,7 +208,7 @@ def run_unit_tests(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=timeout,
             shell=False  # Explicit: never use shell=True
         )
 
@@ -221,7 +229,7 @@ def run_unit_tests(
             "status": "failed",
             "exit_code": 124,
             "output": "",
-            "error": "Tests timed out after 300 seconds",
+            "error": f"Tests timed out after {timeout} seconds",
             "passed": 0,
             "failed": 0,
             "skipped": 0
@@ -241,7 +249,8 @@ def run_unit_tests(
 def run_integration_tests(
     project_dir: str,
     test_path: str = "tests/integration",
-    extra_args: Optional[List[str]] = None
+    extra_args: Optional[List[str]] = None,
+    timeout: int = 300
 ) -> Dict[str, Any]:
     """
     Run integration tests using pytest.
@@ -252,6 +261,7 @@ def run_integration_tests(
         project_dir: Path to the project directory
         test_path: Path to integration tests directory (default: "tests/integration")
         extra_args: Optional extra arguments to pass to pytest
+        timeout: Timeout in seconds (default: 300)
 
     Returns:
         {
@@ -265,12 +275,13 @@ def run_integration_tests(
         }
     """
     # Integration tests use the same implementation as unit tests, just different path
-    return run_unit_tests(project_dir, test_path, extra_args)
+    return run_unit_tests(project_dir, test_path, extra_args, timeout)
 
 
 def git_diff(
     project_dir: str,
-    options: Optional[List[str]] = None
+    options: Optional[List[str]] = None,
+    timeout: int = 30
 ) -> Dict[str, Any]:
     """
     Show git diff for the repository.
@@ -281,6 +292,7 @@ def git_diff(
     Args:
         project_dir: Path to the project directory (should be a git repo)
         options: Optional git diff options (e.g., ["--staged", "--stat"])
+        timeout: Timeout in seconds (default: 30)
 
     Returns:
         {
@@ -335,7 +347,7 @@ def git_diff(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=timeout,
             shell=False  # Explicit: never use shell=True
         )
 
@@ -360,7 +372,7 @@ def git_diff(
             "status": "failed",
             "exit_code": 124,
             "output": "",
-            "error": "git diff timed out after 30 seconds",
+            "error": f"git diff timed out after {timeout} seconds",
             "truncated": False
         }
     except Exception as e:
@@ -375,7 +387,8 @@ def git_diff(
 
 def git_status(
     project_dir: str,
-    short: bool = True
+    short: bool = True,
+    timeout: int = 10
 ) -> Dict[str, Any]:
     """
     Show git status for the repository.
@@ -386,6 +399,7 @@ def git_status(
     Args:
         project_dir: Path to the project directory (should be a git repo)
         short: Use short format (default: True)
+        timeout: Timeout in seconds (default: 10)
 
     Returns:
         {
@@ -436,7 +450,7 @@ def git_status(
             cwd=project_path,
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=timeout,
             shell=False  # Explicit: never use shell=True
         )
 
@@ -451,7 +465,7 @@ def git_status(
             "status": "failed",
             "exit_code": 124,
             "output": "",
-            "error": "git status timed out after 10 seconds"
+            "error": f"git status timed out after {timeout} seconds"
         }
     except Exception as e:
         return {
@@ -479,12 +493,16 @@ def _run_shell_internal(
     to prevent command injection attacks in multi-agent environments.
 
     This function is kept for internal orchestrator use only (e.g., for trusted
-    operations that require shell access). If you need to expose this to agents,
-    you MUST implement command whitelisting and input sanitization.
+    operations that require shell access). Commands are parsed using shlex.split()
+    and executed with shell=False to prevent command injection.
+
+    IMPORTANT: This only supports simple commands (not shell features like pipes,
+    redirects, or environment variable expansion). For complex shell operations,
+    use the specific tool functions instead (format_code, run_unit_tests, etc.).
 
     Args:
         project_dir: Path to the project directory
-        command: Shell command to execute
+        command: Shell command to execute (will be parsed with shlex.split)
         timeout: Timeout in seconds (default: 30)
 
     Returns:
@@ -505,16 +523,26 @@ def _run_shell_internal(
             "error": f"Project directory not found: {project_dir}"
         }
 
-    # For internal use, we still use shell=True but with explicit warnings
-    # A safer approach would be to use shlex.split() and shell=False
+    # Parse command safely using shlex.split() to avoid command injection
+    try:
+        cmd = shlex.split(command)
+    except ValueError as e:
+        return {
+            "status": "failed",
+            "exit_code": 1,
+            "output": "",
+            "error": f"Failed to parse command: {str(e)}"
+        }
+
+    # Execute with shell=False for safety
     try:
         result = subprocess.run(
-            command,
+            cmd,
             cwd=project_path,
             capture_output=True,
             text=True,
             timeout=timeout,
-            shell=True  # WARNING: Command injection risk
+            shell=False  # Safe: no shell interpretation
         )
 
         return {
@@ -529,6 +557,13 @@ def _run_shell_internal(
             "exit_code": 124,
             "output": "",
             "error": f"Command timed out after {timeout} seconds"
+        }
+    except FileNotFoundError as e:
+        return {
+            "status": "failed",
+            "exit_code": 127,
+            "output": "",
+            "error": f"Command not found: {cmd[0] if cmd else 'unknown'}"
         }
     except Exception as e:
         return {
@@ -596,50 +631,55 @@ def _parse_pytest_results(output: str) -> tuple[int, int, int]:
 TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "format_code": {
         "func": format_code,
-        "description": "Format source code using ruff (default) or black formatter. Requires ruff/black to be installed.",
+        "description": "Format source code using ruff (default) or black formatter. Requires ruff/black to be installed. Works on Windows if the formatter is on PATH.",
         "category": "code_quality",
         "parameters": {
             "project_dir": "Path to the project directory (required)",
             "formatter": "Formatter to use: 'ruff' (default) or 'black' (optional)",
-            "paths": "Optional list of specific paths to format; defaults to entire project (optional)"
+            "paths": "Optional list of specific paths to format; defaults to entire project (optional)",
+            "timeout": "Timeout in seconds; default: 60 (optional)"
         }
     },
     "run_unit_tests": {
         "func": run_unit_tests,
-        "description": "Run unit tests using pytest. Default test path: tests/unit. Requires pytest to be installed.",
+        "description": "Run unit tests using pytest. If test_path is not specified, defaults to 'tests/unit'. Requires pytest to be installed. Works on Windows if pytest is on PATH.",
         "category": "tests",
         "parameters": {
             "project_dir": "Path to the project directory (required)",
-            "test_path": "Path to unit tests directory; default: 'tests/unit' (optional)",
-            "extra_args": "Optional extra arguments for pytest, e.g. ['-v', '-k', 'test_name'] (optional)"
+            "test_path": "Path to unit tests directory; if not specified, defaults to 'tests/unit' (optional)",
+            "extra_args": "Optional extra arguments for pytest, e.g. ['-v', '-k', 'test_name'] (optional)",
+            "timeout": "Timeout in seconds; default: 300 (optional)"
         }
     },
     "run_integration_tests": {
         "func": run_integration_tests,
-        "description": "Run integration tests using pytest. Default test path: tests/integration. Requires pytest to be installed.",
+        "description": "Run integration tests using pytest. If test_path is not specified, defaults to 'tests/integration'. Requires pytest to be installed. Works on Windows if pytest is on PATH.",
         "category": "tests",
         "parameters": {
             "project_dir": "Path to the project directory (required)",
-            "test_path": "Path to integration tests directory; default: 'tests/integration' (optional)",
-            "extra_args": "Optional extra arguments for pytest, e.g. ['-v', '-k', 'test_name'] (optional)"
+            "test_path": "Path to integration tests directory; if not specified, defaults to 'tests/integration' (optional)",
+            "extra_args": "Optional extra arguments for pytest, e.g. ['-v', '-k', 'test_name'] (optional)",
+            "timeout": "Timeout in seconds; default: 300 (optional)"
         }
     },
     "git_diff": {
         "func": git_diff,
-        "description": "Show git diff for the repository. Requires git to be installed and project_dir to be a git repository.",
+        "description": "Show git diff for the repository. Requires git to be installed and project_dir to be a git repository. Works on Windows if git is on PATH.",
         "category": "git",
         "parameters": {
             "project_dir": "Path to the project directory (must be a git repo) (required)",
-            "options": "Optional git diff options, e.g. ['--staged', '--stat'] (optional)"
+            "options": "Optional git diff options, e.g. ['--staged', '--stat'] (optional)",
+            "timeout": "Timeout in seconds; default: 30 (optional)"
         }
     },
     "git_status": {
         "func": git_status,
-        "description": "Show git status for the repository. Requires git to be installed and project_dir to be a git repository.",
+        "description": "Show git status for the repository. Requires git to be installed and project_dir to be a git repository. Works on Windows if git is on PATH.",
         "category": "git",
         "parameters": {
             "project_dir": "Path to the project directory (must be a git repo) (required)",
-            "short": "Use short format; default: True (optional)"
+            "short": "Use short format; default: True (optional)",
+            "timeout": "Timeout in seconds; default: 10 (optional)"
         }
     }
     # NOTE: run_shell has been intentionally removed from the public tool registry

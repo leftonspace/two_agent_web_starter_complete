@@ -53,7 +53,9 @@
                 <td>
                     <a href="/jobs/{{ job.id }}">{{ job.id }}</a>
                 </td>
-                <td>{{ job.config.project_subdir }}</td>
+                <td>
+                    <a href="/projects/{{ job.config.project_subdir }}">{{ job.config.project_subdir }}</a>
+                </td>
                 <td>{{ job.config.mode }}</td>
                 <td>
                     {% if job.status == 'queued' %}

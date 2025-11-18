@@ -253,6 +253,39 @@
             color: #742a2a;
             border-left: 4px solid #e53e3e;
         }
+
+        nav {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 0;
+            margin-top: 15px;
+            border-radius: 6px;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 20px;
+            padding: 0;
+            margin: 0;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        nav a:hover {
+            background: rgba(255, 255, 255, 0.2);
+            text-decoration: none;
+        }
+
+        nav a.active {
+            background: rgba(255, 255, 255, 0.25);
+            font-weight: 600;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -261,6 +294,13 @@
         <div class="container">
             <h1>🤖 AI Dev Team Dashboard</h1>
             <p>Control and monitor your multi-agent orchestrator</p>
+            <nav>
+                <ul>
+                    <li><a href="/">🏠 Home</a></li>
+                    <li><a href="/jobs">📋 Jobs</a></li>
+                    <li><a href="/projects">📁 Projects</a></li>
+                </ul>
+            </nav>
         </div>
     </header>
 

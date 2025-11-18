@@ -29,6 +29,7 @@ if str(agent_dir) not in sys.path:
 
 from jobs import get_job_manager
 from runner import get_run_details, list_projects, list_run_history, run_project
+import file_explorer
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -234,6 +235,68 @@ async def view_run(request: Request, run_id: str):
     )
 
 
+# ============================================================================
+# STAGE 9: Project & Snapshot Explorer Routes
+# ============================================================================
+
+
+@app.get("/projects", response_class=HTMLResponse)
+async def list_projects_page(request: Request):
+    """
+    Projects list page showing all available projects.
+
+    STAGE 9: Browse all projects under sites/ directory.
+
+    Shows:
+    - List of all projects with file counts
+    - Links to explore each project
+    """
+    projects = list_projects()
+
+    return templates.TemplateResponse(
+        "projects.html",
+        {
+            "request": request,
+            "projects": projects,
+        },
+    )
+
+
+@app.get("/projects/{project_id}", response_class=HTMLResponse)
+async def view_project(request: Request, project_id: str):
+    """
+    Project detail page with file explorer and snapshot browser.
+
+    STAGE 9: Interactive file tree, snapshot list, and diff viewer.
+
+    Shows:
+    - File tree for browsing project files
+    - File viewer for inspecting contents
+    - List of snapshots for this project
+    - Diff viewer for comparing versions
+    """
+    # Get project root
+    sites_dir = agent_dir.parent / "sites"
+    project_path = sites_dir / project_id
+
+    # Verify project exists
+    if not project_path.exists() or not project_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    # Get snapshots for this project
+    snapshots = file_explorer.list_snapshots(project_path)
+
+    return templates.TemplateResponse(
+        "project_detail.html",
+        {
+            "request": request,
+            "project_id": project_id,
+            "project_path": str(project_path),
+            "snapshots": snapshots,
+        },
+    )
+
+
 @app.get("/api/projects")
 async def api_list_projects():
     """
@@ -383,6 +446,263 @@ async def api_cancel_job(job_id: str):
             )
 
     return {"success": True, "message": f"Job {job_id} cancellation requested"}
+
+
+# ============================================================================
+# STAGE 9: Project Explorer API Endpoints
+# ============================================================================
+
+
+@app.get("/api/projects/{project_id}/tree")
+async def api_get_project_tree(project_id: str, path: Optional[str] = None):
+    """
+    API endpoint to get file tree for a project.
+
+    STAGE 9: Returns hierarchical file tree as JSON.
+
+    Args:
+        project_id: Project identifier (directory name under sites/)
+        path: Optional subdirectory path (relative to project root)
+
+    Returns:
+        JSON array of file/directory nodes
+
+    Raises:
+        404: If project not found
+        403: If path is outside project directory
+    """
+    sites_dir = agent_dir.parent / "sites"
+    project_path = sites_dir / project_id
+
+    if not project_path.exists() or not project_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    # Get relative path if provided
+    relative_root = Path(path) if path else None
+
+    # Get tree
+    tree = file_explorer.get_project_tree(project_path, relative_root)
+
+    return tree
+
+
+@app.get("/api/projects/{project_id}/file")
+async def api_get_project_file(project_id: str, path: str):
+    """
+    API endpoint to get file content from a project.
+
+    STAGE 9: Returns file content with metadata.
+
+    Args:
+        project_id: Project identifier
+        path: File path relative to project root
+
+    Returns:
+        JSON with file content and metadata
+
+    Raises:
+        404: If project or file not found
+        403: If path is outside project directory
+        400: If file is binary or too large
+    """
+    sites_dir = agent_dir.parent / "sites"
+    project_path = sites_dir / project_id
+
+    if not project_path.exists() or not project_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    # Get file content
+    result = file_explorer.get_file_content(project_path, path)
+
+    if result["error"]:
+        if "Access denied" in result["error"]:
+            raise HTTPException(status_code=403, detail=result["error"])
+        elif "not found" in result["error"]:
+            raise HTTPException(status_code=404, detail=result["error"])
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+
+    return result
+
+
+@app.get("/api/projects/{project_id}/snapshots")
+async def api_list_snapshots(project_id: str):
+    """
+    API endpoint to list all snapshots for a project.
+
+    STAGE 9: Returns list of available snapshots (iterations).
+
+    Args:
+        project_id: Project identifier
+
+    Returns:
+        JSON array of snapshot objects
+
+    Raises:
+        404: If project not found
+    """
+    sites_dir = agent_dir.parent / "sites"
+    project_path = sites_dir / project_id
+
+    if not project_path.exists() or not project_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    snapshots = file_explorer.list_snapshots(project_path)
+
+    # Convert to dicts for JSON
+    return [asdict(snapshot) for snapshot in snapshots]
+
+
+@app.get("/api/projects/{project_id}/snapshots/{snapshot_id}/tree")
+async def api_get_snapshot_tree(project_id: str, snapshot_id: str, path: Optional[str] = None):
+    """
+    API endpoint to get file tree for a snapshot.
+
+    STAGE 9: Returns hierarchical file tree for a specific iteration.
+
+    Args:
+        project_id: Project identifier
+        snapshot_id: Snapshot identifier (e.g., "iteration_1")
+        path: Optional subdirectory path
+
+    Returns:
+        JSON array of file/directory nodes
+
+    Raises:
+        404: If project or snapshot not found
+    """
+    sites_dir = agent_dir.parent / "sites"
+    project_path = sites_dir / project_id
+
+    if not project_path.exists() or not project_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    snapshot_path = project_path / ".history" / snapshot_id
+
+    if not snapshot_path.exists() or not snapshot_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Snapshot not found: {snapshot_id}")
+
+    # Get relative path if provided
+    relative_root = Path(path) if path else None
+
+    # Get tree (use snapshot_path as project_path for tree generation)
+    tree = file_explorer.get_project_tree(snapshot_path, relative_root)
+
+    return tree
+
+
+@app.get("/api/projects/{project_id}/snapshots/{snapshot_id}/file")
+async def api_get_snapshot_file(project_id: str, snapshot_id: str, path: str):
+    """
+    API endpoint to get file content from a snapshot.
+
+    STAGE 9: Returns file content from a specific iteration.
+
+    Args:
+        project_id: Project identifier
+        snapshot_id: Snapshot identifier
+        path: File path relative to snapshot root
+
+    Returns:
+        JSON with file content and metadata
+
+    Raises:
+        404: If project, snapshot, or file not found
+        403: If path is outside snapshot directory
+    """
+    sites_dir = agent_dir.parent / "sites"
+    project_path = sites_dir / project_id
+
+    if not project_path.exists() or not project_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    snapshot_path = project_path / ".history" / snapshot_id
+
+    if not snapshot_path.exists() or not snapshot_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Snapshot not found: {snapshot_id}")
+
+    # Get file content
+    result = file_explorer.get_file_content(snapshot_path, path)
+
+    if result["error"]:
+        if "Access denied" in result["error"]:
+            raise HTTPException(status_code=403, detail=result["error"])
+        elif "not found" in result["error"]:
+            raise HTTPException(status_code=404, detail=result["error"])
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+
+    return result
+
+
+@app.get("/api/diff")
+async def api_compute_diff(
+    project_id: str,
+    file_path: str,
+    source_type: str,  # "current" or "snapshot"
+    source_id: Optional[str] = None,  # snapshot_id if source_type is "snapshot"
+    target_type: str = "current",  # "current" or "snapshot"
+    target_id: Optional[str] = None,  # snapshot_id if target_type is "snapshot"
+):
+    """
+    API endpoint to compute diff between two file versions.
+
+    STAGE 9: Compare file across snapshots or current version.
+
+    Args:
+        project_id: Project identifier
+        file_path: Relative path to file
+        source_type: "current" or "snapshot"
+        source_id: Snapshot ID if source_type is "snapshot"
+        target_type: "current" or "snapshot"
+        target_id: Snapshot ID if target_type is "snapshot"
+
+    Returns:
+        JSON with diff text and metadata
+
+    Raises:
+        404: If project or files not found
+        400: If parameters are invalid
+    """
+    sites_dir = agent_dir.parent / "sites"
+    project_path = sites_dir / project_id
+
+    if not project_path.exists() or not project_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+
+    # Build source path
+    if source_type == "current":
+        source_file_path = project_path / file_path
+        source_label = f"current/{file_path}"
+    elif source_type == "snapshot":
+        if not source_id:
+            raise HTTPException(status_code=400, detail="source_id required when source_type is 'snapshot'")
+        source_file_path = project_path / ".history" / source_id / file_path
+        source_label = f"{source_id}/{file_path}"
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid source_type: {source_type}")
+
+    # Build target path
+    if target_type == "current":
+        target_file_path = project_path / file_path
+        target_label = f"current/{file_path}"
+    elif target_type == "snapshot":
+        if not target_id:
+            raise HTTPException(status_code=400, detail="target_id required when target_type is 'snapshot'")
+        target_file_path = project_path / ".history" / target_id / file_path
+        target_label = f"{target_id}/{file_path}"
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid target_type: {target_type}")
+
+    # Compute diff
+    result = file_explorer.compute_diff(
+        source_file_path,
+        target_file_path,
+        file1_label=source_label,
+        file2_label=target_label,
+    )
+
+    return result
 
 
 @app.get("/health")

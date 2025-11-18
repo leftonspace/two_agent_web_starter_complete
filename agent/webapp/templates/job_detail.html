@@ -46,13 +46,25 @@
         </div>
         <div class="stat-card">
             <div class="label">Project</div>
-            <div class="value" style="font-size: 1.25rem;">{{ job.config.project_subdir }}</div>
+            <div class="value" style="font-size: 1.25rem;">
+                <a href="/projects/{{ job.config.project_subdir }}" style="text-decoration: none;">
+                    {{ job.config.project_subdir }}
+                </a>
+            </div>
         </div>
         <div class="stat-card">
             <div class="label">Mode</div>
             <div class="value" style="font-size: 1.25rem;">{{ job.config.mode }}</div>
         </div>
     </div>
+
+    {% if job.status in ['completed', 'failed', 'cancelled'] %}
+    <div style="margin-top: 15px;">
+        <a href="/projects/{{ job.config.project_subdir }}" style="display: inline-block; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">
+            📁 Browse Project Files & Snapshots
+        </a>
+    </div>
+    {% endif %}
 </div>
 
 <div class="card">

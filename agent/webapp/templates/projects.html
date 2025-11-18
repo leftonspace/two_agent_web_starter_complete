@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - AI Dev Team Dashboard{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <h1 style="font-size: 1.75rem; color: #2d3748;">Projects</h1>
+    <p style="color: #718096; margin-top: 8px;">Browse and explore your generated projects and their snapshots</p>
+</div>
+
+<div class="card">
+    <h2>All Projects</h2>
+
+    {% if projects %}
+    <div class="grid">
+        {% for project in projects %}
+        <div class="stat-card" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onclick="window.location.href='/projects/{{ project.name }}'">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                <div>
+                    <h3 style="font-size: 1.25rem; color: #2d3748; margin-bottom: 5px;">📁 {{ project.name }}</h3>
+                    <p style="font-size: 0.85rem; color: #718096;">{{ project.file_count }} files</p>
+                </div>
+                <a href="/projects/{{ project.name }}" style="padding: 6px 12px; background: #667eea; color: white; border-radius: 4px; text-decoration: none; font-size: 0.85rem;">
+                    Explore →
+                </a>
+            </div>
+            <div style="font-size: 0.8rem; color: #a0aec0;">
+                <code style="background: #f7fafc; padding: 2px 6px; border-radius: 3px;">{{ project.path }}</code>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+        </svg>
+        <p>No projects found. Run the orchestrator to create your first project!</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}

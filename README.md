@@ -20,11 +20,13 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **VSCode integration**: Debug configs and build tasks
 - **Documentation**: Auto-generated API reference
 
-### Web Dashboard (Stage 7-8) 🆕
+### Web Dashboard (Stage 7-9) 🆕
 - **Visual interface**: Clean web UI for project management
 - **Background jobs**: Non-blocking execution with live progress ✨
 - **Job management**: List, view, cancel, and rerun jobs ✨
 - **Live log streaming**: Watch logs update in real-time ✨
+- **Project explorer**: Browse files, view snapshots, compare versions ✨
+- **Diff viewer**: Interactive comparison between iterations ✨
 - **Run history**: Browse past runs with detailed logs
 - **Cost tracking**: View token usage and cost breakdowns
 - **RESTful API**: Programmatic access to all features
@@ -111,6 +113,8 @@ two_agent_web_starter_complete/
 │   ├── orchestrator_2loop.py   # 2-loop orchestrator
 │   ├── run_mode.py            # Main CLI entry point
 │   ├── runner.py              # Programmatic API (Stage 7)
+│   ├── jobs.py                # Job manager (Stage 8)
+│   ├── file_explorer.py       # File & snapshot explorer (Stage 9)
 │   ├── cost_tracker.py        # Token and cost tracking
 │   ├── run_logger.py          # Structured run logging
 │   ├── auto_pilot.py          # Auto-pilot mode
@@ -119,10 +123,12 @@ two_agent_web_starter_complete/
 │   ├── status_codes.py        # Normalized status codes
 │   ├── safe_io.py             # Safe I/O helpers
 │   ├── project_config.json    # Configuration file
-│   ├── webapp/                # Web dashboard (Stage 7)
+│   ├── webapp/                # Web dashboard (Stage 7-9)
 │   │   ├── app.py            # FastAPI application
 │   │   └── templates/        # HTML templates
-│   └── tests_stage7/         # Web dashboard tests
+│   ├── tests_stage7/         # Web dashboard tests
+│   ├── tests_stage8/         # Job manager tests
+│   └── tests_stage9/         # Project explorer tests
 ├── sites/                     # Generated web projects
 │   ├── my_project/
 │   └── another_project/
@@ -139,6 +145,7 @@ two_agent_web_starter_complete/
 │   └── view_logs.py          # View logs in browser
 ├── docs/                      # Documentation
 │   ├── STAGE7_WEB_UI.md      # Web dashboard guide
+│   ├── STAGE9_PROJECT_EXPLORER.md  # Project explorer guide
 │   ├── REFERENCE.md          # API reference
 │   └── generate_docs.py      # Doc generator
 ├── DEVELOPER_GUIDE.md         # Developer guide
@@ -166,8 +173,29 @@ python -m agent.webapp.app
 - 📊 Run history with filtering
 - 💰 Cost breakdown per run
 - 📝 Detailed iteration logs
+- 📁 Project file explorer (Stage 9)
+- 📸 Snapshot browsing (Stage 9)
+- 🔄 Version comparison & diff viewer (Stage 9)
 
-See [docs/STAGE7_WEB_UI.md](docs/STAGE7_WEB_UI.md) for complete documentation.
+See [docs/STAGE7_WEB_UI.md](docs/STAGE7_WEB_UI.md) for complete dashboard documentation.
+
+**Project Explorer (Stage 9):**
+
+Browse and explore your generated projects:
+
+```bash
+# Navigate to Projects in the web dashboard
+# http://127.0.0.1:8000/projects
+```
+
+Features:
+- 🗂️ **File Tree Browser**: Navigate project files with expand/collapse
+- 📄 **File Viewer**: View file contents with syntax highlighting
+- 📸 **Snapshot Browser**: Explore iteration history
+- 🔄 **Diff Viewer**: Compare versions with unified diff
+- 🔗 **Job Integration**: Direct links from job pages to project files
+
+See [docs/STAGE9_PROJECT_EXPLORER.md](docs/STAGE9_PROJECT_EXPLORER.md) for complete explorer documentation.
 
 ### Command Line
 

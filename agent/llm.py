@@ -27,6 +27,9 @@ def _post(payload: dict) -> dict:
     - On repeated failure: returns a *stub* dict with `timeout=True`
       instead of raising, so the caller can handle it gracefully.
     """
+    # Ensure OPENAI_URL is always in scope (defensive coding)
+    api_url = OPENAI_URL
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
@@ -41,7 +44,7 @@ def _post(payload: dict) -> dict:
     for attempt in range(1, 4):
         try:
             resp = requests.post(
-                OPENAI_URL,
+                api_url,
                 headers=headers,
                 json=payload,
                 timeout=180,
@@ -154,6 +157,19 @@ def chat_json(
 
     except Exception as e:  # noqa: BLE001
         print(f"[CostTracker] Failed to record usage: {e}")
+
+    # SAFE FALLBACK: If _post() returned a stub due to timeout/error,
+    # return a minimal safe dict instead of crashing the orchestrator.
+    if data.get("timeout"):
+        print(f"[LLM] Detected timeout stub from _post(). Reason: {data.get('reason', 'unknown')}")
+        return {
+            "plan": [],
+            "notes": f"LLM failure — safe stub returned. Reason: {data.get('reason', 'unknown')}",
+            "status": "timeout",
+            "files": {},
+            "acceptance_criteria": [],
+            "phases": [],
+        }
 
     # If caller wants raw text, don't try to parse it.
     if not data.get("choices"):

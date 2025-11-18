@@ -5,6 +5,8 @@ Run logging and evaluation layer for the multi-agent orchestrator.
 Provides two APIs:
 1. Legacy dict-based API (for backward compatibility)
 2. STAGE 2 dataclass-based API (for structured logging)
+
+STAGE 5: Enhanced with status codes and safe I/O.
 """
 
 from __future__ import annotations
@@ -15,6 +17,10 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# STAGE 5: Import status codes and safe I/O
+from safe_io import safe_json_write, safe_timestamp, safe_mkdir
+from status_codes import UNKNOWN
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -35,7 +41,12 @@ class IterationLog:
 
 @dataclass
 class RunSummary:
-    """Complete summary of an orchestrator run."""
+    """
+    Complete summary of an orchestrator run.
+
+    Tracks a single run from start to finish, including iterations,
+    costs, safety results, and final status.
+    """
     run_id: str                                          # Unique identifier
     started_at: str                                      # ISO timestamp (UTC)
     finished_at: Optional[str] = None                    # ISO timestamp (UTC)
@@ -44,7 +55,7 @@ class RunSummary:
     task: str = ""                                       # Original task description
     max_rounds: int = 1                                  # Maximum iterations allowed
     rounds_completed: int = 0                            # Actual iterations run
-    final_status: str = "unknown"                        # "success", "max_rounds_reached", etc.
+    final_status: str = UNKNOWN                          # From status_codes
     safety_status: Optional[str] = None                  # "passed"/"failed"/None
     models_used: Dict[str, str] = field(default_factory=dict)    # {"manager": "...", ...}
     cost_summary: Dict[str, Any] = field(default_factory=dict)   # From cost_tracker
@@ -55,21 +66,33 @@ class RunSummary:
 
 @dataclass
 class SessionSummary:
-    """Summary of an auto-pilot session containing multiple runs."""
+    """
+    Summary of an auto-pilot session containing multiple runs.
+
+    Tracks an entire auto-pilot session with multiple sub-runs,
+    evaluations, and the final decision.
+    """
     session_id: str                                      # Unique session identifier
     started_at: str                                      # ISO timestamp (UTC)
     finished_at: Optional[str] = None                    # ISO timestamp (UTC)
     task: str = ""                                       # Original task description
     max_sub_runs: int = 3                                # Maximum sub-runs allowed
     runs: List[Dict[str, Any]] = field(default_factory=list)  # List of run summaries + eval scores
-    final_decision: str = "unknown"                      # "success", "max_runs_reached", "stopped", etc.
+    final_decision: str = UNKNOWN                        # From status_codes (session level)
     total_cost_usd: float = 0.0                          # Total cost across all runs
     session_config: Dict[str, Any] = field(default_factory=dict)  # Session-level config
 
 
 def _now_iso() -> str:
-    """Return current UTC time as ISO string with milliseconds."""
-    return datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
+    """
+    Return current UTC time as ISO string with milliseconds.
+
+    STAGE 5: Uses safe_timestamp() for error resilience.
+
+    Returns:
+        ISO formatted timestamp string
+    """
+    return safe_timestamp()
 
 
 def start_run(
@@ -173,12 +196,14 @@ def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:
 
     Creates: <base_dir>/<run_id>/run_summary.json
 
+    STAGE 5: Uses safe I/O helpers for error resilience.
+
     Args:
         run: RunSummary instance
         base_dir: Base directory for logs (default: "run_logs")
 
     Returns:
-        Path to the saved JSON file
+        Path to the saved JSON file, or empty string on failure
     """
     # Get project root (parent of agent/)
     agent_dir = Path(__file__).resolve().parent
@@ -186,23 +211,19 @@ def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:
 
     # Create run-specific directory
     run_dir = project_root / base_dir / run.run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
+    if not safe_mkdir(run_dir):
+        print(f"[RUN] Failed to create run directory: {run_dir}")
+        return ""
 
     # Write JSON
     json_file = run_dir / "run_summary.json"
-    try:
-        # Convert dataclass to dict
-        run_dict = asdict(run)
+    run_dict = asdict(run)
 
-        # Write with nice formatting
-        json_file.write_text(
-            json.dumps(run_dict, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
-        print(f"[RunLog] Saved run summary to {json_file}")
+    if safe_json_write(json_file, run_dict):
+        print(f"[RUN] Saved run summary to {json_file}")
         return str(json_file)
-    except Exception as e:
-        print(f"[RunLog] Failed to save run summary: {e}")
+    else:
+        print(f"[RUN] Failed to save run summary to {json_file}")
         return ""
 
 
@@ -291,12 +312,14 @@ def save_session_summary(session: SessionSummary, base_dir: str = "run_logs") ->
 
     Creates: <base_dir>/<session_id>/session_summary.json
 
+    STAGE 5: Uses safe I/O helpers for error resilience.
+
     Args:
         session: SessionSummary instance
         base_dir: Base directory for logs (default: "run_logs")
 
     Returns:
-        Path to the saved JSON file
+        Path to the saved JSON file, or empty string on failure
     """
     # Get project root (parent of agent/)
     agent_dir = Path(__file__).resolve().parent
@@ -304,23 +327,19 @@ def save_session_summary(session: SessionSummary, base_dir: str = "run_logs") ->
 
     # Create session-specific directory
     session_dir = project_root / base_dir / session.session_id
-    session_dir.mkdir(parents=True, exist_ok=True)
+    if not safe_mkdir(session_dir):
+        print(f"[AUTO] Failed to create session directory: {session_dir}")
+        return ""
 
     # Write JSON
     json_file = session_dir / "session_summary.json"
-    try:
-        # Convert dataclass to dict
-        session_dict = asdict(session)
+    session_dict = asdict(session)
 
-        # Write with nice formatting
-        json_file.write_text(
-            json.dumps(session_dict, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
-        print(f"[SessionLog] Saved session summary to {json_file}")
+    if safe_json_write(json_file, session_dict):
+        print(f"[AUTO] Saved session summary to {json_file}")
         return str(json_file)
-    except Exception as e:
-        print(f"[SessionLog] Failed to save session summary: {e}")
+    else:
+        print(f"[AUTO] Failed to save session summary to {json_file}")
         return ""
 
 

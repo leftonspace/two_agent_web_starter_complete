@@ -4,11 +4,31 @@ Self-evaluation module for the multi-agent orchestrator.
 
 Evaluates RunSummary results to compute quality, safety, and cost scores.
 Used by auto-pilot mode to decide whether to retry, adjust, or stop.
+
+STAGE 5: Enhanced with status codes and improved docstrings.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict
+
+# STAGE 5: Import status codes
+from status_codes import (
+    APPROVED,
+    COMPLETED,
+    COST_CAP_EXCEEDED,
+    EVAL_CONTINUE,
+    EVAL_RETRY,
+    EVAL_STOP,
+    EXCEPTION,
+    MAX_ROUNDS_REACHED,
+    SAFETY_FAILED,
+    SAFETY_PASSED,
+    SUCCESS,
+    TIMEOUT,
+    UNKNOWN,
+    USER_ABORT,
+)
 
 
 def evaluate_run(run_summary: Dict[str, Any]) -> Dict[str, Any]:
@@ -36,8 +56,8 @@ def evaluate_run(run_summary: Dict[str, Any]) -> Dict[str, Any]:
             "recommendation": "continue" | "retry" | "stop"
         }
     """
-    # Extract fields with safe defaults
-    final_status = run_summary.get("final_status", "unknown")
+    # Extract fields with safe defaults (STAGE 5: use UNKNOWN constant)
+    final_status = run_summary.get("final_status", UNKNOWN)
     safety_status = run_summary.get("safety_status")
     rounds_completed = run_summary.get("rounds_completed", 0)
     max_rounds = run_summary.get("max_rounds", 1)
@@ -101,20 +121,27 @@ def _compute_quality_score(final_status: str, rounds_completed: int, max_rounds:
     """
     Compute quality score based on final_status and round efficiency.
 
+    STAGE 5: Uses status codes constants.
+
+    Args:
+        final_status: Run status code
+        rounds_completed: Number of rounds completed
+        max_rounds: Maximum allowed rounds
+
     Returns:
-        0.0 to 1.0
+        0.0 to 1.0 quality score
     """
-    # Base score from status
+    # Base score from status (STAGE 5: use constants)
     status_scores = {
-        "completed": 1.0,
-        "success": 1.0,
-        "approved": 0.9,
-        "max_rounds_reached": 0.5,
-        "timeout": 0.3,
-        "cost_cap_exceeded": 0.4,
-        "aborted_by_user": 0.0,
-        "exception": 0.2,
-        "unknown": 0.5,
+        COMPLETED: 1.0,
+        SUCCESS: 1.0,
+        APPROVED: 0.9,
+        MAX_ROUNDS_REACHED: 0.5,
+        TIMEOUT: 0.3,
+        COST_CAP_EXCEEDED: 0.4,
+        USER_ABORT: 0.0,
+        EXCEPTION: 0.2,
+        UNKNOWN: 0.5,
     }
     base_score = status_scores.get(final_status, 0.5)
 
@@ -132,12 +159,17 @@ def _compute_safety_score(safety_status: str | None) -> float:
     """
     Compute safety score based on safety_status.
 
+    STAGE 5: Uses status codes constants.
+
+    Args:
+        safety_status: Safety check status ("passed", "failed", or None)
+
     Returns:
-        0.0 to 1.0
+        0.0 to 1.0 safety score
     """
-    if safety_status == "passed":
+    if safety_status == SAFETY_PASSED:
         return 1.0
-    elif safety_status == "failed":
+    elif safety_status == SAFETY_FAILED or safety_status == "failed":
         return 0.0
     else:
         # None or unknown: neutral
@@ -180,35 +212,44 @@ def _compute_recommendation(
     """
     Compute recommendation based on scores and status.
 
+    STAGE 5: Uses status codes constants.
+
+    Args:
+        overall_score: Overall evaluation score (0-1)
+        final_status: Run status code
+        safety_status: Safety check status
+        score_quality: Quality score (0-1)
+        score_safety: Safety score (0-1)
+
     Returns:
-        "continue" - Run was good, continue to next task
-        "retry" - Run had issues but might succeed if retried
-        "stop" - Critical failure, stop auto-pilot
+        EVAL_CONTINUE - Run was good, continue to next task
+        EVAL_RETRY - Run had issues but might succeed if retried
+        EVAL_STOP - Critical failure, stop auto-pilot
     """
     # Critical failures -> stop
-    if final_status in ("exception", "aborted_by_user"):
-        return "stop"
+    if final_status in (EXCEPTION, USER_ABORT):
+        return EVAL_STOP
 
     # Safety failures -> stop (don't continue with unsafe code)
-    if safety_status == "failed" or score_safety < 0.3:
-        return "stop"
+    if safety_status == SAFETY_FAILED or safety_status == "failed" or score_safety < 0.3:
+        return EVAL_STOP
 
     # Good overall score -> continue
     if overall_score >= 0.7:
-        return "continue"
+        return EVAL_CONTINUE
 
     # Moderate score with specific issues -> retry
     if overall_score >= 0.4:
         # If quality is low but safety is ok, might be worth a retry
         if score_quality < 0.6 and score_safety >= 0.7:
-            return "retry"
+            return EVAL_RETRY
         # If we hit max rounds, retry might help
-        if final_status == "max_rounds_reached":
-            return "retry"
+        if final_status == MAX_ROUNDS_REACHED:
+            return EVAL_RETRY
 
     # Low score -> stop
     if overall_score < 0.4:
-        return "stop"
+        return EVAL_STOP
 
     # Default: continue
-    return "continue"
+    return EVAL_CONTINUE

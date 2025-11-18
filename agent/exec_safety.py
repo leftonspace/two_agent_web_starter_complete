@@ -3,6 +3,8 @@
 Safety checks orchestrator for the multi-agent system.
 
 Coordinates static analysis, dependency scanning, and runtime tests.
+
+STAGE 5: Enhanced with status codes and safe I/O.
 """
 
 from __future__ import annotations
@@ -14,6 +16,10 @@ from typing import Dict, Any, List
 
 from exec_analysis import analyze_project
 from exec_deps import scan_dependencies
+
+# STAGE 5: Import safe I/O and status codes
+from safe_io import safe_json_write, safe_mkdir, safe_timestamp
+from status_codes import SAFETY_FAILED_STATUS, SAFETY_PASSED
 
 
 def run_safety_checks(project_dir: str, task_description: str) -> Dict[str, Any]:
@@ -103,8 +109,9 @@ def _run_docker_tests_stub(project_dir: str) -> Dict[str, str]:
 
     For now, returns a passing stub.
     """
+    # STAGE 5: Use status constants
     return {
-        "status": "passed",
+        "status": SAFETY_PASSED,
         "details": "Docker tests not yet implemented (stub)"
     }
 
@@ -117,29 +124,36 @@ def _determine_status(
     """
     Determine overall safety status.
 
+    STAGE 5: Uses status codes constants.
+
     Fails if:
     - Any static issue with severity="error"
     - Any dependency issue with severity="critical"
     - Docker tests failed
 
+    Args:
+        static_issues: List of static analysis issues
+        dependency_issues: List of dependency vulnerabilities
+        docker_tests: Docker test results
+
     Returns:
-        "passed" or "failed"
+        SAFETY_PASSED or SAFETY_FAILED_STATUS
     """
     # Check for error-level static issues
     for issue in static_issues:
         if issue.get("severity") == "error":
-            return "failed"
+            return SAFETY_FAILED_STATUS
 
     # Check for critical dependency issues
     for issue in dependency_issues:
         if issue.get("severity") == "critical":
-            return "failed"
+            return SAFETY_FAILED_STATUS
 
-    # Check docker tests
-    if docker_tests.get("status") == "failed":
-        return "failed"
+    # Check docker tests (STAGE 5: use constant)
+    if docker_tests.get("status") == SAFETY_FAILED_STATUS or docker_tests.get("status") == "failed":
+        return SAFETY_FAILED_STATUS
 
-    return "passed"
+    return SAFETY_PASSED
 
 
 def _log_safety_run(result: Dict[str, Any], project_dir: str) -> None:

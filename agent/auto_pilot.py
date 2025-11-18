@@ -91,7 +91,6 @@ def run_auto_pilot(
     print(f"[AutoPilot] Started session: {session.session_id}")
 
     # Track session state
-    last_recommendation = "continue"
     task_context = task  # May be augmented with feedback from previous runs
 
     # Run sub-runs loop

@@ -47,31 +47,31 @@ def temp_sites_dir(tmp_path, monkeypatch):
     snap2.mkdir()
     (snap2 / "index.html").write_text("<html><body>v2</body></html>")
 
-    # Patch the sites directory path
-    monkeypatch.setattr("webapp.app.agent_dir", agent_dir)
+    # Patch the agent directory to point to temp agent path
+    # webapp uses agent_dir.parent / "sites", so if agent_dir = tmp_path/agent,
+    # then agent_dir.parent / "sites" = tmp_path / "sites"
+    monkeypatch.setattr("webapp.app.agent_dir", tmp_path / "agent")
 
     return sites_dir
 
 
 @pytest.fixture
-def client():
-    """Create FastAPI test client."""
+def client(temp_sites_dir):
+    """Create FastAPI test client with temporary sites dir."""
     # Import here to avoid circular imports
     from webapp.app import app
 
     return TestClient(app)
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_list_projects_page(client):
     """Test GET /projects page."""
     response = client.get("/projects")
 
     assert response.status_code == 200
-    assert b"Projects" in response.content
+    assert b"Projects" in response.content or b"projects" in response.content
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_view_project_page(client):
     """Test GET /projects/{project_id} page."""
     response = client.get("/projects/test_project")
@@ -80,7 +80,6 @@ def test_view_project_page(client):
     assert b"test_project" in response.content
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_view_project_not_found(client):
     """Test viewing non-existent project."""
     response = client.get("/projects/nonexistent_project")
@@ -88,7 +87,6 @@ def test_view_project_not_found(client):
     assert response.status_code == 404
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_get_project_tree(client):
     """Test GET /api/projects/{project_id}/tree."""
     response = client.get("/api/projects/test_project/tree")
@@ -99,7 +97,6 @@ def test_api_get_project_tree(client):
     assert len(tree) > 0
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_get_project_tree_subdir(client):
     """Test GET /api/projects/{project_id}/tree with path parameter."""
     response = client.get("/api/projects/test_project/tree?path=js")
@@ -109,7 +106,6 @@ def test_api_get_project_tree_subdir(client):
     assert isinstance(tree, list)
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_get_project_file(client):
     """Test GET /api/projects/{project_id}/file."""
     response = client.get("/api/projects/test_project/file?path=index.html")
@@ -121,7 +117,6 @@ def test_api_get_project_file(client):
     assert result["error"] is None
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_get_project_file_not_found(client):
     """Test getting non-existent file."""
     response = client.get("/api/projects/test_project/file?path=nonexistent.txt")
@@ -129,7 +124,6 @@ def test_api_get_project_file_not_found(client):
     assert response.status_code == 404
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_list_snapshots(client):
     """Test GET /api/projects/{project_id}/snapshots."""
     response = client.get("/api/projects/test_project/snapshots")
@@ -142,7 +136,6 @@ def test_api_list_snapshots(client):
     assert snapshots[1]["iteration"] == 2
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_get_snapshot_tree(client):
     """Test GET /api/projects/{project_id}/snapshots/{snapshot_id}/tree."""
     response = client.get("/api/projects/test_project/snapshots/iteration_1/tree")
@@ -152,7 +145,6 @@ def test_api_get_snapshot_tree(client):
     assert isinstance(tree, list)
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_get_snapshot_file(client):
     """Test GET /api/projects/{project_id}/snapshots/{snapshot_id}/file."""
     response = client.get(
@@ -165,7 +157,6 @@ def test_api_get_snapshot_file(client):
     assert "v1" in result["content"]
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_compute_diff_current_vs_current(client):
     """Test GET /api/diff for current vs current (identical)."""
     response = client.get(
@@ -184,7 +175,6 @@ def test_api_compute_diff_current_vs_current(client):
     assert "identical" in result["diff"].lower()
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_compute_diff_snapshot_vs_current(client):
     """Test GET /api/diff for snapshot vs current."""
     response = client.get(
@@ -204,7 +194,6 @@ def test_api_compute_diff_snapshot_vs_current(client):
     assert result["diff"] is not None
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_compute_diff_snapshot_vs_snapshot(client):
     """Test GET /api/diff for snapshot vs snapshot."""
     response = client.get(
@@ -224,7 +213,6 @@ def test_api_compute_diff_snapshot_vs_snapshot(client):
     assert "diff" in result
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_compute_diff_invalid_source_type(client):
     """Test diff with invalid source_type."""
     response = client.get(
@@ -240,7 +228,6 @@ def test_api_compute_diff_invalid_source_type(client):
     assert response.status_code == 400
 
 
-@pytest.mark.skip(reason="Requires mocking sites directory path")
 def test_api_compute_diff_missing_source_id(client):
     """Test diff with snapshot source_type but no source_id."""
     response = client.get(
@@ -254,6 +241,14 @@ def test_api_compute_diff_missing_source_id(client):
     )
 
     assert response.status_code == 400
+
+
+def test_api_path_traversal_blocked(client):
+    """Test that path traversal attempts are blocked."""
+    response = client.get("/api/projects/test_project/file?path=../../../etc/passwd")
+
+    # Should either return 403 (forbidden) or 404 (sanitized path not found)
+    assert response.status_code in [403, 404]
 
 
 def test_api_endpoints_documented():

@@ -139,9 +139,24 @@ def test_start_run_missing_fields(client):
 
 
 def test_start_run_invalid_project(client):
-    """Test POST /run with non-existent project."""
-    with patch("webapp.app.run_project") as mock_run:
-        mock_run.side_effect = FileNotFoundError("Project directory not found")
+    """Test POST /run with non-existent project (Stage 8: job created but fails)."""
+    from jobs import Job
+    from datetime import datetime
+
+    # Stage 8: Job is created successfully, but will fail in background
+    mock_job = Job(
+        id="job_fail_project",
+        status="queued",
+        config={},
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+        logs_path="run_logs/job_fail_project/job.log"
+    )
+
+    with patch("webapp.app.get_job_manager") as mock_get_manager:
+        mock_manager = MagicMock()
+        mock_manager.create_job.return_value = mock_job
+        mock_get_manager.return_value = mock_manager
 
         response = client.post(
             "/run",
@@ -153,14 +168,33 @@ def test_start_run_invalid_project(client):
                 "max_cost_usd": 1.0,
                 "cost_warning_usd": 0.5,
             },
+            follow_redirects=False,
         )
-        assert response.status_code == 404
+        # Stage 8: Job creation succeeds, returns redirect
+        assert response.status_code == 303
+        assert "/jobs/" in response.headers["location"]
+        # Job will fail when background thread runs (tested in Stage 8 tests)
 
 
 def test_start_run_invalid_config(client):
-    """Test POST /run with invalid configuration."""
-    with patch("webapp.app.run_project") as mock_run:
-        mock_run.side_effect = ValueError("Invalid mode")
+    """Test POST /run with invalid configuration (Stage 8: job created but fails)."""
+    from jobs import Job
+    from datetime import datetime
+
+    # Stage 8: Job is created successfully, but will fail in background
+    mock_job = Job(
+        id="job_fail_config",
+        status="queued",
+        config={},
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+        logs_path="run_logs/job_fail_config/job.log"
+    )
+
+    with patch("webapp.app.get_job_manager") as mock_get_manager:
+        mock_manager = MagicMock()
+        mock_manager.create_job.return_value = mock_job
+        mock_get_manager.return_value = mock_manager
 
         response = client.post(
             "/run",
@@ -172,16 +206,35 @@ def test_start_run_invalid_config(client):
                 "max_cost_usd": 1.0,
                 "cost_warning_usd": 0.5,
             },
+            follow_redirects=False,
         )
-        assert response.status_code == 400
+        # Stage 8: Job creation succeeds, returns redirect
+        assert response.status_code == 303
+        assert "/jobs/" in response.headers["location"]
+        # Job will fail when background thread runs (tested in Stage 8 tests)
 
 
 def test_start_run_success(client):
-    """Test successful POST /run."""
-    mock_run_summary = MagicMock()
-    mock_run_summary.run_id = "test_run_123"
+    """Test successful POST /run creates a background job (Stage 8 behavior)."""
+    from jobs import Job
+    from datetime import datetime
 
-    with patch("webapp.app.run_project", return_value=mock_run_summary):
+    # Mock job manager and job creation
+    mock_job = Job(
+        id="job_123",
+        status="queued",
+        config={},
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+        logs_path="run_logs/job_123/job.log"
+    )
+
+    with patch("webapp.app.get_job_manager") as mock_get_manager:
+        mock_manager = MagicMock()
+        mock_manager.create_job.return_value = mock_job
+        mock_manager.start_job.return_value = None
+        mock_get_manager.return_value = mock_manager
+
         response = client.post(
             "/run",
             data={
@@ -194,9 +247,59 @@ def test_start_run_success(client):
             },
             follow_redirects=False,
         )
-        # Should redirect to run detail page
+        # Stage 8: Should redirect to job detail page
         assert response.status_code == 303
-        assert response.headers["location"] == "/run/test_run_123"
+        assert response.headers["location"] == "/jobs/job_123"
+
+        # Verify job was created and started
+        assert mock_manager.create_job.called
+        assert mock_manager.start_job.called
+
+
+def test_start_run_creates_job_in_manager(client):
+    """Test that POST /run actually creates a job in the job manager."""
+    from jobs import Job
+    from datetime import datetime
+
+    mock_job = Job(
+        id="job_456",
+        status="queued",
+        config={},
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+        logs_path="run_logs/job_456/job.log"
+    )
+
+    with patch("webapp.app.get_job_manager") as mock_get_manager:
+        mock_manager = MagicMock()
+        mock_manager.create_job.return_value = mock_job
+        mock_manager.get_job.return_value = mock_job  # Job should be retrievable
+        mock_get_manager.return_value = mock_manager
+
+        response = client.post(
+            "/run",
+            data={
+                "project_subdir": "test_project",
+                "mode": "2loop",
+                "task": "Create a landing page",
+                "max_rounds": 3,
+            },
+            follow_redirects=False,
+        )
+
+        # Verify job was created with correct config
+        assert mock_manager.create_job.called
+        create_call_args = mock_manager.create_job.call_args
+        config = create_call_args[0][0]  # First argument to create_job
+        assert config["mode"] == "2loop"
+        assert config["project_subdir"] == "test_project"
+        assert config["task"] == "Create a landing page"
+
+        # Verify job was started
+        mock_manager.start_job.assert_called_once_with("job_456")
+
+        # Verify redirect
+        assert response.status_code == 303
 
 
 def test_view_run_not_found(client):

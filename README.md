@@ -313,21 +313,182 @@ export OPENAI_API_KEY=your-key-here
 
 ## Testing
 
+### Test Organization
+
+The project includes comprehensive test coverage across all stages:
+
+```
+agent/
+├── tests_sanity/          # Smoke tests for core functionality
+├── tests_stage7/          # Web dashboard tests
+├── tests_stage8/          # Job manager tests
+├── tests_stage9/          # Project explorer tests
+├── tests_stage10/         # QA pipeline tests
+├── tests_stage11/         # Analytics tests
+├── tests_stage12/         # Self-optimization tests
+├── tests_shared/          # Reusable fixtures and helpers
+└── tests_e2e/             # End-to-end integration tests
+```
+
+### Running Tests
+
+**Run all tests:**
 ```bash
-# Run all tests
 pytest
+```
 
-# Run sanity tests
-python agent/tests_sanity/test_sanity.py
+**Run tests by stage:**
+```bash
+# Stage 7: Web dashboard
+pytest agent/tests_stage7/ -v
 
-# Run Stage 7 tests
-pytest agent/tests_stage7/
+# Stage 8: Job manager
+pytest agent/tests_stage8/ -v
 
-# Run specific test file
+# Stage 9: Project explorer
+pytest agent/tests_stage9/ -v
+
+# Stage 10: QA pipeline
+pytest agent/tests_stage10/ -v
+
+# Stage 11: Analytics
+pytest agent/tests_stage11/ -v
+
+# Stage 12: Self-optimization
+pytest agent/tests_stage12/ -v
+```
+
+**Run specific test files:**
+```bash
+# Web API endpoints
 pytest agent/tests_stage7/test_webapp.py -v
 
-# Using make.py
-python make.py test
+# QA edge cases
+pytest agent/tests_stage10/test_qa_edge_cases.py -v
+
+# E2E pipeline test
+pytest agent/tests_e2e/test_full_pipeline.py -v
+```
+
+**Run with coverage:**
+```bash
+pytest --cov=agent --cov-report=html
+open htmlcov/index.html  # View coverage report
+```
+
+**Run E2E tests (marked with @pytest.mark.e2e):**
+```bash
+pytest -m e2e -v
+```
+
+**Using make.py:**
+```bash
+python make.py test        # Run sanity tests
+```
+
+### Test Coverage by Stage
+
+**Stage 7 - Web Dashboard:**
+- `test_webapp.py`: FastAPI routes, job creation, error handling
+- `test_runner.py`: Programmatic API, integration tests
+
+**Stage 8 - Job Manager:**
+- `test_job_manager.py`: Job CRUD, state persistence, background execution
+- `test_job_endpoints.py`: Job API endpoints, cancellation, log streaming
+
+**Stage 9 - Project Explorer:**
+- `test_webapp_routes.py`: File tree, snapshots, diff viewer, path traversal protection
+- `test_file_explorer.py`: File system operations, snapshot management
+
+**Stage 10 - QA Pipeline:**
+- `test_webapp_qa_endpoints.py`: QA API endpoints (9 tests)
+- `test_runner_qa_integration.py`: QA integration with runner (7 tests)
+- `test_qa_edge_cases.py`: Edge cases and error conditions (20+ tests)
+  - Missing HTML tags (title, meta, lang, h1)
+  - Accessibility issues (images without alt, empty buttons)
+  - Code quality (large files, excessive console.logs)
+  - Smoke test failures and timeouts
+  - Malformed HTML and empty projects
+  - Config handling and report serialization
+
+**Stage 11 - Analytics:**
+- `test_analytics.py`: Metrics aggregation, cost tracking, trends
+- `test_analytics_endpoints.py`: Analytics API, data export
+
+**Stage 12 - Self-Optimization:**
+- `test_brain.py`: Recommendations, profiling, auto-tuning
+- `test_brain_endpoints.py`: Tuning API, confidence scoring
+
+**End-to-End Tests:**
+- `test_full_pipeline.py`: Complete workflow testing
+  - Job creation and polling
+  - QA execution and reporting
+  - Analytics integration
+  - Tuning endpoint verification
+  - Failure handling scenarios
+  - Concurrent job management
+
+### Shared Test Fixtures
+
+The `tests_shared/fixtures.py` module provides reusable test fixtures:
+
+```python
+from agent.tests_shared.fixtures import (
+    temp_agent_dir,              # Temporary directory structure
+    sample_project_dir,           # Sample HTML/CSS/JS project
+    sample_project_with_snapshots, # Project with iteration history
+    sample_run_summary,           # Mock run data
+    sample_job,                   # Mock Job object
+    sample_qa_config,             # QA configuration
+    sample_qa_report,             # QA report data
+    create_minimal_html_project,  # Helper function
+)
+```
+
+### Writing New Tests
+
+**Example test structure:**
+
+```python
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+
+@pytest.fixture
+def client():
+    from webapp.app import app
+    return TestClient(app)
+
+def test_example_endpoint(client):
+    """Test description."""
+    response = client.get("/api/example")
+    assert response.status_code == 200
+    assert "expected_key" in response.json()
+```
+
+**Best practices:**
+- Use descriptive test names: `test_<what>_<condition>`
+- Mock heavy operations (LLM calls, file I/O)
+- Use temporary directories (`tmp_path` fixture)
+- Test both success and error cases
+- Verify status codes, data structure, and error messages
+- Use shared fixtures to reduce duplication
+
+### Continuous Integration
+
+GitHub Actions CI workflow runs on every push:
+
+```yaml
+# .github/workflows/tests.yml
+- Python 3.9+ compatibility
+- All unit tests
+- E2E tests (optional)
+- Coverage reporting
+```
+
+To run the same checks locally:
+```bash
+pytest --cov=agent --cov-report=term
 ```
 
 ## Development

@@ -234,13 +234,54 @@ def test_run_project_nonexistent_project():
         run_project(config)
 
 
-# Integration test would require mocking the full orchestrator
-# For now, we rely on manual testing and end-to-end tests
-@pytest.mark.skip(reason="Requires full orchestrator mocking")
-def test_run_project_success(mock_config, temp_project_dir, monkeypatch):
-    """Test successful run_project execution."""
+# Integration test with comprehensive mocking
+def test_run_project_integration(mock_config, temp_project_dir, tmp_path, monkeypatch):
+    """Test successful run_project execution with mocked orchestrator."""
     from runner import run_project
+    import run_logger
 
-    # This would require extensive mocking of orchestrator, cost_tracker, etc.
-    # Better tested as integration test
-    pass
+    # Setup temporary directory structure
+    agent_root = tmp_path / "agent"
+    agent_root.mkdir()
+    sites_dir = tmp_path / "sites"
+    sites_dir.mkdir()
+    project_dir = sites_dir / "test_project"
+    project_dir.mkdir()
+    (project_dir / "index.html").write_text("<html><body>Test</body></html>")
+
+    run_logs_dir = tmp_path / "run_logs"
+    run_logs_dir.mkdir()
+
+    # Patch the path resolution
+    monkeypatch.setattr("runner.Path", lambda x: tmp_path / "agent" / "runner.py" if x == "__file__" else Path(x))
+
+    # Mock the orchestrator execution
+    mock_run_summary = MagicMock()
+    mock_run_summary.run_id = "test_run_123"
+    mock_run_summary.final_status = "completed"
+    mock_run_summary.rounds_completed = 2
+    mock_run_summary.cost_summary = {"total_usd": 0.5}
+
+    with patch("runner.run_3loop_orchestrator") as mock_3loop, \
+         patch("runner.run_2loop_orchestrator") as mock_2loop, \
+         patch("runner.start_run") as mock_start, \
+         patch("runner.finalize_run") as mock_finalize, \
+         patch("runner.estimate_cost") as mock_estimate:
+
+        mock_start.return_value = mock_run_summary
+        mock_3loop.return_value = None  # Modifies run_summary in place
+        mock_estimate.return_value = {"estimated_total_usd": 0.8}
+        mock_finalize.return_value = mock_run_summary
+
+        # Update config to point to temp dirs
+        config = mock_config.copy()
+        config["project_subdir"] = "test_project"
+        config["_skip_auto_tune"] = True  # Skip Stage 12 auto-tuning for this test
+
+        # Run the project
+        result = run_project(config)
+
+        # Verify orchestrator was called
+        assert mock_3loop.called or mock_2loop.called
+        assert mock_start.called
+        assert result is not None

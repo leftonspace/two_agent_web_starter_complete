@@ -82,29 +82,31 @@ def _validate_cost_config(cfg: Dict[str, Any]) -> None:
     if max_cost is not None:
         try:
             max_cost_float = float(max_cost)
-            if max_cost_float < 0:
-                raise ValueError("max_cost_usd must be >= 0")
         except (TypeError, ValueError) as e:
             raise ValueError(f"max_cost_usd must be a valid number, got: {max_cost}") from e
+
+        if max_cost_float < 0:
+            raise ValueError("max_cost_usd must be >= 0")
 
     cost_warning = cfg.get("cost_warning_usd")
     if cost_warning is not None:
         try:
             cost_warning_float = float(cost_warning)
-            if cost_warning_float < 0:
-                raise ValueError("cost_warning_usd must be >= 0")
-
-            # Check warning <= max if both are set
-            if max_cost is not None:
-                max_cost_float = float(max_cost)
-                if cost_warning_float > max_cost_float:
-                    print(
-                        f"[Config Warning] cost_warning_usd ({cost_warning_float}) > "
-                        f"max_cost_usd ({max_cost_float}). "
-                        "Warning will trigger before cost cap."
-                    )
         except (TypeError, ValueError) as e:
             raise ValueError(f"cost_warning_usd must be a valid number, got: {cost_warning}") from e
+
+        if cost_warning_float < 0:
+            raise ValueError("cost_warning_usd must be >= 0")
+
+        # Check warning <= max if both are set
+        if max_cost is not None:
+            max_cost_float = float(max_cost)
+            if cost_warning_float > max_cost_float:
+                print(
+                    f"[Config Warning] cost_warning_usd ({cost_warning_float}) > "
+                    f"max_cost_usd ({max_cost_float}). "
+                    "Warning will trigger before cost cap."
+                )
 
     # Validate llm_very_important_stages
     very_important = cfg.get("llm_very_important_stages")
@@ -941,6 +943,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
 
                 for repo_path in repo_paths:
                     # Summarize git diff with LLM
+                    # STAGE 5.2: Pass cost cap to merge_manager
                     diff_summary = merge_manager.summarize_diff_with_llm(
                         run_id=core_run_id,
                         repo_path=repo_path,
@@ -949,7 +952,8 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                             "status": status,
                             "safety_status": iteration_safety_status,
                             "repo_path": str(repo_path),
-                        }
+                        },
+                        max_cost_usd=max_cost_usd,
                     )
                     if diff_summary.get("summary") != "No changes detected":
                         print(f"\n[MergeManager] Diff summary for {repo_path.name}: {diff_summary.get('summary', 'N/A')}")
@@ -1133,10 +1137,12 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                     "repo_path": str(repo_path),
                 })
 
+                # STAGE 5.2: Pass cost cap to merge_manager
                 commit_info = merge_manager.summarize_session(
                     run_id=core_run_id,
                     repo_path=repo_path,
                     task=task,
+                    max_cost_usd=max_cost_usd,
                 )
 
                 title = commit_info.get("title", f"Auto-commit: {core_run_id[:8]}")

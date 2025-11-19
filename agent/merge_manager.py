@@ -73,6 +73,7 @@ def summarize_diff_with_llm(
     run_id: str,
     repo_path: Path,
     context: Optional[Dict[str, Any]] = None,
+    max_cost_usd: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Summarize git diff using LLM analysis.
@@ -81,6 +82,7 @@ def summarize_diff_with_llm(
         run_id: Current run ID for logging
         repo_path: Path to the repository
         context: Optional context dict (stage info, etc.)
+        max_cost_usd: Maximum cost cap in USD (STAGE 5.2)
 
     Returns:
         Dict with:
@@ -137,6 +139,7 @@ Respond in JSON format ONLY:
 
     try:
         # Call LLM
+        # STAGE 5.2: Pass max_cost_usd for cost cap enforcement
         response = chat_json(
             role="merge_manager",
             system_prompt=system_prompt,
@@ -144,6 +147,7 @@ Respond in JSON format ONLY:
             model="gpt-5-mini",  # Use cheaper model for diff analysis
             temperature=0.1,
             expect_json=True,
+            max_cost_usd=max_cost_usd,
         )
 
         # Extract analysis (handle timeout case)
@@ -186,6 +190,7 @@ def summarize_session(
     run_id: str,
     repo_path: Path,
     task: Optional[str] = None,
+    max_cost_usd: float = 0.0,
 ) -> Dict[str, str]:
     """
     Generate semantic commit message for the entire session.
@@ -194,6 +199,7 @@ def summarize_session(
         run_id: Current run ID for logging
         repo_path: Path to the repository
         task: Optional task description for context
+        max_cost_usd: Maximum cost cap in USD (STAGE 5.2)
 
     Returns:
         Dict with:
@@ -245,6 +251,7 @@ Respond in JSON format ONLY:
 
     try:
         # Call LLM
+        # STAGE 5.2: Pass max_cost_usd for cost cap enforcement
         response = chat_json(
             role="merge_manager",
             system_prompt=system_prompt,
@@ -252,6 +259,7 @@ Respond in JSON format ONLY:
             model="gpt-5-mini",  # Use cheaper model for commit messages
             temperature=0.2,
             expect_json=True,
+            max_cost_usd=max_cost_usd,
         )
 
         # Extract commit message (handle timeout case)

@@ -66,8 +66,6 @@
   "auto_git_commit_mode": "semantic",
   "auto_git_commit_repos": ["default"],
 
-  "llm_importance_flag": false,
-  "llm_default_complexity": "low",
   "llm_very_important_stages": [],
 
   "repos": []

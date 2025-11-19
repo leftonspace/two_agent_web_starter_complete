@@ -49,6 +49,16 @@ try:
 except ImportError:
     OVERSEER_AVAILABLE = False
 
+# STAGE 3: Import dynamic workflow and memory systems
+try:
+    import workflow_manager
+    import memory_store
+    import inter_agent_bus
+    STAGE3_AVAILABLE = True
+except ImportError:
+    STAGE3_AVAILABLE = False
+    print("[Stage3] Warning: Stage 3 modules not available - using fixed iteration flow")
+
 # STAGE 4: Import merge manager and multi-repo routing
 import merge_manager
 from exec_safety import run_safety_checks
@@ -819,6 +829,59 @@ def main(
             }
         ]
 
+    # STAGE 3: Initialize workflow manager, memory store, and inter-agent bus
+    workflow_mgr = None
+    mem_store = None
+    agent_bus = None
+
+    if STAGE3_AVAILABLE:
+        try:
+            # Initialize workflow manager with run ID
+            workflow_mgr = workflow_manager.WorkflowManager(run_id=core_run_id)
+
+            # Create initial roadmap from supervisor phases
+            workflow_mgr.initialize(
+                plan_steps=plan.get("plan", []),
+                supervisor_phases=phase_list,
+                task=task
+            )
+
+            print(f"\n[Stage3] Initialized workflow with {len(phase_list)} stages")
+            roadmap_summary = workflow_mgr.get_roadmap_summary()
+            print(f"[Stage3] Roadmap: {roadmap_summary['total_stages']} stages ({roadmap_summary['pending_count']} pending)")
+
+            # Initialize memory store
+            mem_store = memory_store.MemoryStore(run_id=core_run_id)
+            print("[Stage3] Initialized memory store")
+
+            # Initialize inter-agent bus
+            agent_bus = inter_agent_bus.InterAgentBus()
+
+            # Set up logging callback for bus messages
+            def log_bus_message(msg: inter_agent_bus.Message):
+                try:
+                    core_logging.log_event(
+                        core_run_id,
+                        event_type="agent_message",
+                        data={
+                            "from": msg.from_agent,
+                            "to": msg.to_agent,
+                            "type": msg.message_type.value,
+                            "subject": msg.subject,
+                        }
+                    )
+                except Exception:
+                    pass  # Best effort
+
+            agent_bus.set_log_callback(log_bus_message)
+            print("[Stage3] Initialized inter-agent bus")
+
+        except Exception as e:
+            print(f"[Stage3] Warning: Failed to initialize Stage 3 systems: {e}")
+            workflow_mgr = None
+            mem_store = None
+            agent_bus = None
+
     # Optional interactive cost check after planning+phasing
     if not _maybe_confirm_cost(cfg, "after_planning_and_supervisor"):
         print("[User] Aborted run after planning & supervisor phasing.")
@@ -842,9 +905,31 @@ def main(
     # STAGE 5.2: Track cumulative file count for complexity estimation
     cumulative_files_written = 0
 
+    # STAGE 3: Track current stage for workflow integration
+    current_stage_idx = 0  # Index into phase_list
+    current_stage_obj = None  # Current Stage object from workflow_mgr
+
+    # Start first stage if workflow manager available
+    if workflow_mgr is not None and phase_list:
+        try:
+            next_stage = workflow_mgr.get_next_pending_stage()
+            if next_stage:
+                current_stage_obj = workflow_mgr.start_stage(next_stage.id)
+                print(f"\n[Stage3] Started stage: {current_stage_obj.name}")
+
+                # Initialize stage memory
+                if mem_store is not None:
+                    mem_store.get_or_create_memory(
+                        stage_id=current_stage_obj.id,
+                        stage_name=current_stage_obj.name
+                    )
+        except Exception as e:
+            print(f"[Stage3] Warning: Failed to start first stage: {e}")
+
     # 3) Iterations: Supervisor → Employee (per phase) → Manager review
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
+
 
         # PHASE 1.4: Log iteration start artifact
         if mission_id and ARTIFACTS_AVAILABLE:
@@ -1087,6 +1172,70 @@ def main(
         last_status = status
         last_tests = test_results
         last_feedback = feedback
+
+        # STAGE 3: Use InterAgentBus to send review message
+        if agent_bus is not None:
+            try:
+                if status == "approved":
+                    agent_bus.send_message(
+                        from_agent="manager",
+                        to_agent="supervisor",
+                        message_type=inter_agent_bus.MessageType.INFO,
+                        subject="Work Approved",
+                        body={"status": "approved", "iteration": iteration},
+                        requires_response=False
+                    )
+                else:
+                    agent_bus.send_message(
+                        from_agent="manager",
+                        to_agent="employee",
+                        message_type=inter_agent_bus.MessageType.TARGETED_FIX_REQUEST,
+                        subject="Changes Requested",
+                        body={"feedback": feedback, "iteration": iteration},
+                        requires_response=True
+                    )
+            except Exception as e:
+                print(f"[Stage3] Warning: Failed to send bus message: {e}")
+
+        # STAGE 3: Store manager review findings in memory
+        if mem_store is not None and current_stage_obj is not None:
+            try:
+                # Store review as a finding
+                if status != "approved" and feedback:
+                    # Parse feedback to extract findings
+                    # feedback can be a string or a list
+                    if isinstance(feedback, list):
+                        for idx, item in enumerate(feedback):
+                            severity = "error" if "error" in str(item).lower() or "bug" in str(item).lower() else "warning"
+                            mem_store.add_finding(
+                                stage_id=current_stage_obj.id,
+                                severity=severity,
+                                category="manager_review",
+                                description=str(item),
+                            )
+                    elif isinstance(feedback, str) and feedback:
+                        severity = "warning" if status == "needs_changes" else "info"
+                        mem_store.add_finding(
+                            stage_id=current_stage_obj.id,
+                            severity=severity,
+                            category="manager_review",
+                            description=feedback,
+                        )
+
+                # Increment audit count
+                audit_count = workflow_mgr.increment_audit_count(current_stage_obj.id)
+                print(f"[Stage3] Audit #{audit_count} for stage: {current_stage_obj.name}")
+
+                # Check for unresolved findings
+                unresolved = mem_store.get_unresolved_findings(current_stage_obj.id)
+                print(f"[Stage3] Unresolved findings: {len(unresolved)}")
+
+                # If approved and no unresolved findings, stage can be completed
+                if status == "approved" and len(unresolved) == 0:
+                    print(f"[Stage3] Stage ready for completion (approved, no unresolved findings)")
+
+            except Exception as e:
+                print(f"[Stage3] Warning: Failed to store findings in memory: {e}")
 
         # ─────────────────────────────────────────────────────────────
         # SAFETY CHECKS (STAGE 1 Integration)
@@ -1350,6 +1499,34 @@ def main(
 
         if status == "approved":
             print("\n[Manager] Approved – stopping iterations.")
+
+            # STAGE 3: Complete the current stage when approved
+            if workflow_mgr is not None and current_stage_obj is not None:
+                try:
+                    workflow_mgr.complete_stage(current_stage_obj.id)
+                    print(f"[Stage3] ✓ Completed stage: {current_stage_obj.name}")
+
+                    # Move to next stage if available
+                    next_stage = workflow_mgr.get_next_pending_stage()
+                    if next_stage:
+                        current_stage_obj = workflow_mgr.start_stage(next_stage.id)
+                        print(f"[Stage3] → Started next stage: {current_stage_obj.name}")
+
+                        # Initialize memory for new stage
+                        if mem_store is not None:
+                            mem_store.get_or_create_memory(
+                                stage_id=current_stage_obj.id,
+                                stage_name=current_stage_obj.name
+                            )
+
+                        # Continue iterations for next stage (don't break)
+                        continue
+                    else:
+                        print("[Stage3] ✓ All stages completed!")
+
+                except Exception as e:
+                    print(f"[Stage3] Warning: Failed to complete/advance stage: {e}")
+
             break
         else:
             print("\n[Manager] Requested changes – will continue if rounds remain.")

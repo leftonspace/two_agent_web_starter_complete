@@ -10,11 +10,11 @@ import cost_tracker
 # PHASE 1.3: Import prompt security for injection defense
 import prompt_security
 
-from git_utils import commit_all, ensure_repo
-from llm import chat_json
-from prompts import load_prompts
-from run_logger import finish_run, log_iteration, start_run
-from site_tools import analyze_site, load_existing_files, summarize_files_for_manager
+# PHASE 1.5: Import dependency injection context
+from orchestrator_context import OrchestratorContext
+
+# Legacy imports kept for backward compatibility with helper functions
+# All actual usage in main() now uses context-based calls
 
 
 def _load_config() -> Dict[str, Any]:
@@ -118,7 +118,14 @@ def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:
     return answer in ("y", "yes")
 
 
-def main() -> None:
+def main(context: Optional[OrchestratorContext] = None) -> None:
+    # PHASE 1.5: Initialize dependency injection context
+    if context is None:
+        context = OrchestratorContext.create_default(None)
+        print("[DI] Using default production context")
+    else:
+        print("[DI] Using provided context (likely test context)")
+
     cfg = _load_config()
     out_dir = _ensure_out_dir(cfg)
 
@@ -173,43 +180,43 @@ def main() -> None:
     # Git setup
     git_ready = False
     if use_git:
-        git_ready = ensure_repo(out_dir)
+        git_ready = context.git_utils.ensure_repo(out_dir)
 
     # Cost tracker: reset state for this run
-    cost_tracker.reset()
+    context.cost_tracker.reset()
 
     # Load prompts/personas
-    prompts = load_prompts(prompts_file)
+    prompts = context.prompts.load_prompts(prompts_file)
     manager_plan_sys = prompts["manager_plan_sys"]
     manager_review_sys = prompts["manager_review_sys"]
     employee_sys = prompts["employee_sys"]
 
     # Run log
     mode = "2loop"
-    run_record = start_run(cfg, mode, out_dir)
+    run_record = context.run_logger.start_run(cfg, mode, out_dir)
 
     # 1) Manager planning
     print("\n====== MANAGER PLANNING (2-loop) ======")
-    plan = chat_json("manager", manager_plan_sys, task)
+    plan = context.llm.chat_json("manager", manager_plan_sys, task)
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
 
-    total_cost = cost_tracker.get_total_cost_usd()
+    total_cost = context.cost_tracker.get_total_cost_usd()
     print(f"\n[Cost] After planning: ~${total_cost:.4f} USD")
 
     if max_cost_usd and total_cost > max_cost_usd:
         print("[Cost] Max cost exceeded during planning. Aborting run.")
         final_status = "aborted_cost_cap_planning"
-        final_cost_summary = cost_tracker.get_summary()
-        finish_run(run_record, final_status, final_cost_summary, out_dir)
+        final_cost_summary = context.cost_tracker.get_summary()
+        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
         return
 
     # Optional interactive confirmation (once)
     if not _maybe_confirm_cost(cfg, "after_planning"):
         print("[User] Aborted run after planning.")
         final_status = "aborted_by_user_after_planning"
-        final_cost_summary = cost_tracker.get_summary()
-        finish_run(run_record, final_status, final_cost_summary, out_dir)
+        final_cost_summary = context.cost_tracker.get_summary()
+        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
         return
 
     # Track last review/tests to drive model choice
@@ -224,7 +231,7 @@ def main() -> None:
         employee_model = _choose_employee_model(iteration, last_status, last_tests)
         print(f"[ModelSelect] Employee will use model: {employee_model}")
 
-        existing_files = load_existing_files(out_dir)
+        existing_files = context.site_tools.load_existing_files(out_dir)
         if existing_files:
             print(f"[Files] Loaded {len(existing_files)} existing files from {out_dir}")
         else:
@@ -239,7 +246,7 @@ def main() -> None:
         }
 
         print("\n[Employee] Building / updating site...")
-        emp = chat_json(
+        emp = context.llm.chat_json(
             "employee",
             employee_sys,
             json.dumps(emp_payload, ensure_ascii=False),
@@ -278,7 +285,7 @@ def main() -> None:
         screenshot_path = None
         if use_visual_review:
             print("\n[Analysis] Reading index.html DOM for manager...")
-            analysis = analyze_site(out_dir)
+            analysis = context.site_tools.analyze_site(out_dir)
             browser_summary = analysis.get("dom_info")
             screenshot_path = analysis.get("screenshot_path")
             print("\n-- Browser Summary (DOM/style) --")
@@ -289,13 +296,13 @@ def main() -> None:
         mgr_payload = {
             "task": task,
             "plan": plan,
-            "files_summary": summarize_files_for_manager(load_existing_files(out_dir)),
+            "files_summary": context.site_tools.summarize_files_for_manager(context.site_tools.load_existing_files(out_dir)),
             "tests": test_results,
             "browser_summary": browser_summary,
             "screenshot_path": screenshot_path,
             "iteration": iteration,
         }
-        review = chat_json(
+        review = context.llm.chat_json(
             "manager",
             manager_review_sys,
             json.dumps(mgr_payload, ensure_ascii=False),
@@ -317,12 +324,12 @@ def main() -> None:
                 f"status={status}, all_passed={test_results.get('all_passed')}"
             )
             # PHASE 1.4: Pass secret scanning configuration
-            commit_success = commit_all(out_dir, commit_message, git_secret_scanning_enabled)
+            commit_success = context.git_utils.commit_all(out_dir, commit_message, git_secret_scanning_enabled)
             if not commit_success:
                 print(f"[Git] Warning: Commit failed for iteration {iteration}")
 
         # RUN LOG: record this iteration
-        log_iteration(
+        context.run_logger.log_iteration_legacy(
             run_record,
             {
                 "iteration": iteration,
@@ -335,7 +342,7 @@ def main() -> None:
         )
 
         # Cost checks after this iteration
-        total_cost = cost_tracker.get_total_cost_usd()
+        total_cost = context.cost_tracker.get_total_cost_usd()
         print(f"\n[Cost] After iteration {iteration}: ~${total_cost:.4f} USD")
 
         if cost_warning_usd and total_cost > cost_warning_usd:
@@ -359,7 +366,7 @@ def main() -> None:
 
     # Final status & cost
     final_status = last_status or "completed_no_status"
-    final_cost_summary = cost_tracker.get_summary()
+    final_cost_summary = context.cost_tracker.get_summary()
 
     print("\n====== DONE (2-loop) ======")
     print(f"Final status: {final_status}")
@@ -372,7 +379,7 @@ def main() -> None:
     cost_log_dir.mkdir(parents=True, exist_ok=True)
     cost_log_file = cost_log_dir / f"{cfg['project_subdir']}.jsonl"
 
-    cost_tracker.append_history(
+    context.cost_tracker.append_history(
         log_file=cost_log_file,
         project_name=cfg["project_subdir"],
         task=task,
@@ -381,7 +388,7 @@ def main() -> None:
     )
 
     # RUN LOG: finalize and write JSONL entry
-    finish_run(run_record, final_status, final_cost_summary, out_dir)
+    context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
 
 
 if __name__ == "__main__":

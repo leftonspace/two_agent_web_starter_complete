@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# PHASE 1.5: Import dependency injection context
+from orchestrator_context import OrchestratorContext
+
 # STAGE 2.2: Import core logging for main run events
 import core_logging
 import cost_tracker
@@ -472,9 +475,12 @@ def main(
     run_summary: Optional[RunSummary] = None,
     mission_id: Optional[str] = None,
     cfg_override: Optional[Dict[str, Any]] = None,
+    context: Optional[OrchestratorContext] = None,
 ) -> Dict[str, Any]:
     """
     Main 3-loop orchestrator function.
+
+    PHASE 1.5: Now supports dependency injection for easier testing.
 
     Args:
         run_summary: Optional RunSummary for STAGE 2 logging.
@@ -482,12 +488,21 @@ def main(
         mission_id: Optional mission ID for PHASE 1.4 artifact logging.
                     If provided, artifacts will be logged to artifacts/<mission_id>/.
         cfg_override: Optional config dict override. If provided, uses this instead of loading from file.
+        context: Optional OrchestratorContext for dependency injection.
+                 If None, creates default context with real implementations.
 
     Returns:
         Dict with run results (status, rounds_completed, cost_summary, etc.)
     """
+    # PHASE 1.5: Initialize dependency injection context
+    if context is None:
+        context = OrchestratorContext.create_default(cfg_override)
+        print("[DI] Using default production context")
+    else:
+        print("[DI] Using provided context (likely test context)")
+
     # STAGE 2.2: Create run ID for core logging
-    core_run_id = core_logging.new_run_id()
+    core_run_id = context.logger.new_run_id()
 
     cfg = cfg_override if cfg_override is not None else _load_config()
     # STAGE 5.2: Validate cost configuration
@@ -511,7 +526,7 @@ def main(
             print("[Security] CRITICAL: Task blocked due to high-severity injection attempt")
             print(f"[Security] Original task: {original_task[:200]}...")
             # Log security event
-            core_logging.log_event(core_run_id, "security_task_blocked", {
+            context.logger.log_event(core_run_id, "security_task_blocked", {
                 "original_task": original_task,
                 "detected_patterns": detected_patterns,
             })
@@ -522,7 +537,7 @@ def main(
             }
         else:
             print(f"[Security] Task sanitized (patterns detected but not blocked)")
-            core_logging.log_event(core_run_id, "security_task_sanitized", {
+            context.logger.log_event(core_run_id, "security_task_sanitized", {
                 "detected_patterns": detected_patterns,
                 "original_length": len(original_task),
                 "sanitized_length": len(task),
@@ -566,13 +581,13 @@ def main(
     # Git
     git_ready = False
     if use_git:
-        git_ready = ensure_repo(out_dir)
+        git_ready = context.git_utils.ensure_repo(out_dir)
 
     # Cost tracker
-    cost_tracker.reset()
+    context.cost_tracker.reset()
 
     # Load prompts
-    prompts = load_prompts(prompts_file)
+    prompts = context.prompts.load_prompts(prompts_file)
     manager_plan_sys = prompts["manager_plan_sys"]
     manager_review_sys = prompts["manager_review_sys"]
     employee_sys_base = prompts["employee_sys"]
@@ -710,7 +725,8 @@ def main(
         print("[Overseer] Overseer system not available")
 
     # STAGE 2.1: Get tool metadata for injection into prompts
-    tool_metadata = get_tool_metadata()
+    tool_metadata_str = context.exec_tools.get_tool_metadata()
+    tool_metadata = json.loads(tool_metadata_str) if isinstance(tool_metadata_str, str) else tool_metadata_str
 
     # PHASE 1.1: Filter tools by domain if domain routing is active
     if domain_allowed_tools is not None:
@@ -742,10 +758,10 @@ def main(
 
     # Run log
     mode = "3loop"
-    run_record = start_run(cfg, mode, out_dir)
+    run_record = context.run_logger.start_run(cfg, mode, out_dir)
 
     # STAGE 2.2: Log run start
-    core_logging.log_start(
+    context.logger.log_start(
         core_run_id,
         project_folder=str(out_dir),
         task_description=task,
@@ -773,7 +789,7 @@ def main(
     print(f"[ModelRouter] Manager planning will use: {manager_model}")
 
     # STAGE 2.2: Log LLM call
-    core_logging.log_llm_call(
+    context.logger.log_llm_call(
         core_run_id,
         role="manager",
         model=manager_model,
@@ -781,7 +797,7 @@ def main(
         phase="planning"
     )
 
-    plan = chat_json(
+    plan = context.llm.chat_json(
         "manager",
         manager_plan_sys,
         task,
@@ -811,7 +827,7 @@ def main(
 
     # STAGE 2: Log manager planning phase
     if run_summary is not None:
-        log_iteration_new(
+        context.run_logger.log_iteration(
             run_summary,
             index=0,  # Planning phase (pre-iteration)
             role="manager",
@@ -819,23 +835,23 @@ def main(
             notes="Manager created initial plan and acceptance criteria",
         )
 
-    total_cost = cost_tracker.get_total_cost_usd()
+    total_cost = context.cost_tracker.get_total_cost_usd()
     print(f"\n[Cost] After planning: ~${total_cost:.4f} USD")
 
     # STAGE 5.2: Log cost checkpoint after planning
-    core_logging.log_cost_checkpoint(
+    context.logger.log_cost_checkpoint(
         core_run_id,
         checkpoint="after_planning",
         total_cost_usd=total_cost,
         max_cost_usd=max_cost_usd,
-        cost_summary=cost_tracker.get_summary(),
+        cost_summary=context.cost_tracker.get_summary(),
     )
 
     if max_cost_usd and total_cost > max_cost_usd:
         print("[Cost] Max cost exceeded during planning. Aborting run.")
         final_status = "aborted_cost_cap_planning"
-        final_cost_summary = cost_tracker.get_summary()
-        finish_run(run_record, final_status, final_cost_summary, out_dir)
+        final_cost_summary = context.cost_tracker.get_summary()
+        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
         return
 
     # 2) Supervisor phasing
@@ -857,7 +873,7 @@ def main(
     print(f"[ModelRouter] Supervisor phasing will use: {supervisor_model}")
 
     # STAGE 2.2: Log LLM call
-    core_logging.log_llm_call(
+    context.logger.log_llm_call(
         core_run_id,
         role="supervisor",
         model=supervisor_model,
@@ -865,7 +881,7 @@ def main(
         phase="supervisor_phasing"
     )
 
-    phases = chat_json(
+    phases = context.llm.chat_json(
         "supervisor",
         supervisor_sys,
         json.dumps(sup_payload, ensure_ascii=False),
@@ -921,7 +937,7 @@ def main(
             # Set up logging callback for bus messages
             def log_bus_message(msg: inter_agent_bus.Message):
                 try:
-                    core_logging.log_event(
+                    context.logger.log_event(
                         core_run_id,
                         event_type="agent_message",
                         data={
@@ -947,8 +963,8 @@ def main(
     if not _maybe_confirm_cost(cfg, "after_planning_and_supervisor"):
         print("[User] Aborted run after planning & supervisor phasing.")
         final_status = "aborted_by_user_after_planning"
-        final_cost_summary = cost_tracker.get_summary()
-        finish_run(run_record, final_status, final_cost_summary, out_dir)
+        final_cost_summary = context.cost_tracker.get_summary()
+        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
         return
 
     # Track last review status/tests to drive model choice
@@ -1006,7 +1022,7 @@ def main(
                 print(f"[Mission] Warning: Failed to log iteration start: {e}")
 
         # STAGE 2.2: Log iteration begin
-        core_logging.log_iteration_begin(
+        context.logger.log_iteration_begin(
             core_run_id,
             iteration=iteration,
             mode=mode,
@@ -1027,7 +1043,7 @@ def main(
         )
         print(f"[ModelRouter] Employee will use model: {employee_model}")
 
-        existing_files = load_existing_files(out_dir)
+        existing_files = context.site_tools.load_existing_files(out_dir)
         if existing_files:
             print(f"[Files] Loaded {len(existing_files)} existing files from {out_dir}")
         else:
@@ -1057,7 +1073,7 @@ def main(
             )
 
             # STAGE 2.2: Log LLM call
-            core_logging.log_llm_call(
+            context.logger.log_llm_call(
                 core_run_id,
                 role="employee",
                 model=employee_model,
@@ -1067,7 +1083,7 @@ def main(
                 phase_name=phase.get('name', 'Unnamed phase')
             )
 
-            emp = chat_json(
+            emp = context.llm.chat_json(
                 "employee",
                 employee_sys_phase,
                 json.dumps(phase_payload, ensure_ascii=False),
@@ -1118,7 +1134,7 @@ def main(
 
             # STAGE 2.2: Log file writes
             if written_files:
-                core_logging.log_file_write(
+                context.logger.log_file_write(
                     core_run_id,
                     files=written_files,
                     summary=f"Employee phase {phase_index} wrote {len(written_files)} files (total: {cumulative_files_written})",
@@ -1140,12 +1156,12 @@ def main(
                     print(f"[Mission] Warning: Failed to log code artifact: {e}")
 
             # refresh for next phase
-            existing_files = load_existing_files(out_dir)
+            existing_files = context.site_tools.load_existing_files(out_dir)
 
         # Snapshot for this iteration
         snap_dir = snapshots_root / f"iteration_{iteration}"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        final_files = load_existing_files(out_dir)
+        final_files = context.site_tools.load_existing_files(out_dir)
         for rel_path, content in final_files.items():
             snap_path = snap_dir / rel_path
             snap_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1163,7 +1179,7 @@ def main(
             try:
                 print("\n[Analysis] Reading index.html DOM...")
                 index_path = out_dir / "index.html"
-                analysis = analyze_site(index_path)
+                analysis = context.site_tools.analyze_site(index_path)
                 browser_summary = analysis["dom_info"]
                 screenshot_path = analysis["screenshot_path"]
             except Exception as e:  # pragma: no cover - best effort only
@@ -1175,7 +1191,7 @@ def main(
             "task": task,
             "plan": plan,
             "phases": phase_list,
-            "files_summary": summarize_files_for_manager(final_files),
+            "files_summary": context.site_tools.summarize_files_for_manager(final_files),
             "tests": test_results,
             "browser_summary": browser_summary,
             "screenshot_path": screenshot_path,
@@ -1195,7 +1211,7 @@ def main(
         print(f"[ModelRouter] Manager review will use: {manager_review_model}")
 
         # STAGE 2.2: Log LLM call
-        core_logging.log_llm_call(
+        context.logger.log_llm_call(
             core_run_id,
             role="manager",
             model=manager_review_model,
@@ -1204,7 +1220,7 @@ def main(
             phase="review"
         )
 
-        review = chat_json(
+        review = context.llm.chat_json(
             "manager",
             manager_review_sys,
             json.dumps(mgr_payload, ensure_ascii=False),
@@ -1340,7 +1356,7 @@ def main(
 
             # Defensive handling: catch any unexpected errors from run_safety_checks
             try:
-                safety_result = run_safety_checks(str(out_dir), task)
+                safety_result = context.exec_safety.run_safety_checks(str(out_dir), task)
 
                 # Use summary_status if available, fall back to status
                 iteration_safety_status = safety_result.get("summary_status") or safety_result.get("status", "failed")
@@ -1353,7 +1369,7 @@ def main(
                 warning_count = sum(1 for i in static_issues if i.get("severity") == "warning")
                 warning_count += sum(1 for i in dep_issues if i.get("severity") == "warning")
 
-                core_logging.log_safety_check(
+                context.logger.log_safety_check(
                     core_run_id,
                     summary_status=iteration_safety_status,
                     error_count=error_count,
@@ -1430,7 +1446,7 @@ def main(
                 for repo_path in repo_paths:
                     # Summarize git diff with LLM
                     # STAGE 5.2: Pass cost cap to merge_manager
-                    diff_summary = merge_manager.summarize_diff_with_llm(
+                    diff_summary = context.merge_manager.summarize_diff_with_llm(
                         run_id=core_run_id,
                         repo_path=repo_path,
                         context={
@@ -1455,12 +1471,12 @@ def main(
                 f"status={status}, all_passed={test_results.get('all_passed')}"
             )
             # PHASE 1.4: Pass secret scanning configuration
-            commit_success = commit_all(out_dir, commit_message, git_secret_scanning_enabled)
+            commit_success = context.git_utils.commit_all(out_dir, commit_message, git_secret_scanning_enabled)
             if not commit_success:
                 print(f"[Git] Warning: Commit failed for iteration {iteration}")
 
         # RUN LOG: record this iteration (legacy dict-based)
-        log_iteration_dict(
+        context.run_logger.log_iteration_legacy(
             run_record,
             {
                 "iteration": iteration,
@@ -1491,7 +1507,7 @@ def main(
             else:
                 notes_parts.append("Some tests failed")
 
-            log_iteration_new(
+            context.run_logger.log_iteration(
                 run_summary,
                 index=iteration,
                 role="manager",  # Last role in iteration is manager review
@@ -1501,7 +1517,7 @@ def main(
             )
 
         # STAGE 2.2: Log iteration end
-        core_logging.log_iteration_end(
+        context.logger.log_iteration_end(
             core_run_id,
             iteration=iteration,
             status=status,
@@ -1525,16 +1541,16 @@ def main(
         # ─────────────────────────────────────────────────────────────
         # STAGE 3: Cost Control Enforcement
         # ─────────────────────────────────────────────────────────────
-        total_cost = cost_tracker.get_total_cost_usd()
+        total_cost = context.cost_tracker.get_total_cost_usd()
         print(f"\n[Cost] After iteration {iteration}: ~${total_cost:.4f} USD")
 
         # STAGE 5.2: Log cost checkpoint after each iteration
-        core_logging.log_cost_checkpoint(
+        context.logger.log_cost_checkpoint(
             core_run_id,
             checkpoint=f"iteration_{iteration}",
             total_cost_usd=total_cost,
             max_cost_usd=max_cost_usd,
-            cost_summary=cost_tracker.get_summary(),
+            cost_summary=context.cost_tracker.get_summary(),
             iteration=iteration,
             status=status,
         )
@@ -1545,7 +1561,7 @@ def main(
                 artifacts.log_cost_summary(
                     mission_id=mission_id,
                     checkpoint=f"iteration_{iteration}",
-                    cost_summary=cost_tracker.get_summary(),
+                    cost_summary=context.cost_tracker.get_summary(),
                 )
             except Exception as e:
                 print(f"[Mission] Warning: Failed to log cost checkpoint: {e}")
@@ -1613,7 +1629,7 @@ def main(
         print("[Safety] Run ended with UNRESOLVED SAFETY ISSUES")
         final_status = "failed_safety_unresolved"
 
-    final_cost_summary = cost_tracker.get_summary()
+    final_cost_summary = context.cost_tracker.get_summary()
 
     print("\n====== DONE (3-loop) ======")
     print(f"Final status: {final_status}")
@@ -1626,7 +1642,7 @@ def main(
     cost_log_dir.mkdir(parents=True, exist_ok=True)
     cost_log_file = cost_log_dir / f"{cfg['project_subdir']}.jsonl"
 
-    cost_tracker.append_history(
+    context.cost_tracker.append_history(
         log_file=cost_log_file,
         project_name=cfg["project_subdir"],
         task=task,
@@ -1635,8 +1651,8 @@ def main(
     )
 
     # STAGE 5.2: Final cost checkpoint
-    final_total_cost = cost_tracker.get_total_cost_usd()
-    core_logging.log_cost_checkpoint(
+    final_total_cost = context.cost_tracker.get_total_cost_usd()
+    context.logger.log_cost_checkpoint(
         core_run_id,
         checkpoint="final",
         total_cost_usd=final_total_cost,
@@ -1646,7 +1662,7 @@ def main(
     )
 
     # RUN LOG: finalize
-    finish_run(run_record, final_status, final_cost_summary, out_dir)
+    context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
 
     # STAGE 4.2: Semantic git commit (if enabled and not already committed by individual iterations)
     auto_git_commit = cfg.get("auto_git_commit", False)
@@ -1672,14 +1688,14 @@ def main(
 
                 print(f"\n[SemanticCommit] Processing {repo_name}...")
 
-                core_logging.log_event(core_run_id, "git_commit_attempt", {
+                context.logger.log_event(core_run_id, "git_commit_attempt", {
                     "mode": "semantic",
                     "final_status": final_status,
                     "repo_path": str(repo_path),
                 })
 
                 # STAGE 5.2: Pass cost cap to merge_manager
-                commit_info = merge_manager.summarize_session(
+                commit_info = context.merge_manager.summarize_session(
                     run_id=core_run_id,
                     repo_path=repo_path,
                     task=task,
@@ -1693,39 +1709,39 @@ def main(
                 print(f"[SemanticCommit] {repo_name} - Body preview: {body[:100]}...")
 
                 # Create commit
-                commit_success = merge_manager.make_commit(
+                commit_success = context.merge_manager.make_commit(
                     repo_path=repo_path,
                     title=title,
                     body=body,
                 )
 
                 if commit_success:
-                    core_logging.log_event(core_run_id, "git_commit_success", {
+                    context.logger.log_event(core_run_id, "git_commit_success", {
                         "title": title,
                         "mode": "semantic",
                         "repo_path": str(repo_path),
                     })
                     print(f"[SemanticCommit] ✅ {repo_name} - Commit created successfully")
                 else:
-                    core_logging.log_event(core_run_id, "git_commit_skipped", {
+                    context.logger.log_event(core_run_id, "git_commit_skipped", {
                         "reason": "No changes or commit failed",
                         "repo_path": str(repo_path),
                     })
                     print(f"[SemanticCommit] ⚠️  {repo_name} - No commit created (no changes or failed)")
 
         except Exception as e:
-            core_logging.log_event(core_run_id, "git_commit_failed", {
+            context.logger.log_event(core_run_id, "git_commit_failed", {
                 "error": str(e),
             })
             print(f"[SemanticCommit] ❌ Failed to create semantic commit: {e}")
     elif auto_git_commit and not git_ready:
-        core_logging.log_event(core_run_id, "git_commit_skipped", {
+        context.logger.log_event(core_run_id, "git_commit_skipped", {
             "reason": "Git not initialized",
         })
         print("[SemanticCommit] Skipped - git not initialized")
 
     # STAGE 2.2: Log final status
-    core_logging.log_final_status(
+    context.logger.log_final_status(
         core_run_id,
         status=final_status,
         reason=f"Run completed with status: {final_status}",
@@ -1816,16 +1832,21 @@ def main(
     }
 
 
-def run(config: Dict[str, Any], mission_id: Optional[str] = None) -> Dict[str, Any]:
+def run(
+    config: Dict[str, Any],
+    mission_id: Optional[str] = None,
+    context: Optional[OrchestratorContext] = None,
+) -> Dict[str, Any]:
     """
-    PHASE 1.5: Public entry point for running orchestrator with mission support.
+    PHASE 1.5: Public entry point for running orchestrator with mission support and DI.
 
     This function provides a clean API for running the orchestrator programmatically,
-    with optional mission artifact logging.
+    with optional mission artifact logging and dependency injection.
 
     Args:
         config: Configuration dictionary (same structure as project_config.json)
         mission_id: Optional mission ID for artifact logging
+        context: Optional OrchestratorContext for dependency injection (for testing)
 
     Returns:
         Dict with run results (status, rounds_completed, cost_summary, etc.)
@@ -1845,6 +1866,7 @@ def run(config: Dict[str, Any], mission_id: Optional[str] = None) -> Dict[str, A
         run_summary=None,
         mission_id=mission_id,
         cfg_override=config,
+        context=context,
     )
 
 

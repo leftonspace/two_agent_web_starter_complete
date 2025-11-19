@@ -237,6 +237,44 @@ class ToolConfig:
 
 
 @dataclass
+class HRConfig:
+    """
+    PHASE 2.3: HR tools configuration.
+
+    Configuration for HR department tools: email, calendar, HRIS.
+    """
+
+    # SMTP Email Configuration
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_address: Optional[str] = None
+    smtp_use_tls: bool = True
+
+    # Google Calendar Configuration
+    google_calendar_credentials_path: Optional[str] = None  # Path to OAuth2 credentials JSON
+    google_calendar_calendar_id: str = "primary"
+
+    # HRIS Configuration
+    hris_system: str = "bamboohr"  # "bamboohr" | "workday" | "generic"
+
+    # BambooHR
+    hris_bamboohr_api_key: Optional[str] = None
+    hris_bamboohr_subdomain: Optional[str] = None
+
+    # Workday
+    hris_workday_api_key: Optional[str] = None
+    hris_workday_tenant: Optional[str] = None
+
+    # Generic HRIS
+    hris_generic_base_url: Optional[str] = None
+    hris_generic_api_key: Optional[str] = None
+    hris_generic_auth_header: str = "Authorization"
+    hris_generic_endpoint: str = "/api/employees"
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -277,6 +315,9 @@ class Config:
 
     # PHASE 2.1: Tool plugins
     tools: ToolConfig = field(default_factory=ToolConfig)
+
+    # PHASE 2.3: HR tools
+    hr: HRConfig = field(default_factory=HRConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

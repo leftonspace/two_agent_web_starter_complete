@@ -2,9 +2,13 @@
 """
 Run logging and evaluation layer for the multi-agent orchestrator.
 
+⚠️  DEPRECATION WARNING (Phase 1.6): This module is deprecated.
+Use core_logging.py for all new code. This module will be removed in v2.0.
+See docs/MIGRATION_LOGGING.md for migration guide.
+
 Provides two APIs:
-1. Legacy dict-based API (for backward compatibility)
-2. STAGE 2 dataclass-based API (for structured logging)
+1. Legacy dict-based API (for backward compatibility) - DEPRECATED
+2. STAGE 2 dataclass-based API (for structured logging) - DEPRECATED
 
 STAGE 5: Enhanced with status codes and safe I/O.
 """
@@ -13,6 +17,7 @@ from __future__ import annotations
 
 import json
 import uuid
+import warnings
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
@@ -113,6 +118,9 @@ def start_run(
     """
     Create a new RunSummary for tracking an orchestrator run.
 
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging.new_run_id() and log_start() instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
+
     Args:
         mode: "2loop" or "3loop"
         project_dir: Path to the project directory
@@ -124,6 +132,13 @@ def start_run(
     Returns:
         RunSummary instance with run_id and started_at populated
     """
+    warnings.warn(
+        "start_run() is deprecated and will be removed in v2.0. "
+        "Use core_logging.new_run_id() and log_start() instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     run_id = uuid.uuid4().hex[:12]  # 12-char unique ID
     started_at = _now_iso()
 
@@ -150,6 +165,9 @@ def log_iteration(
     """
     Append an iteration log entry to the RunSummary.
 
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging.log_iteration_begin() and log_iteration_end() instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
+
     Args:
         run: RunSummary instance
         index: Iteration number (1-based)
@@ -158,6 +176,13 @@ def log_iteration(
         notes: Free-text description
         safety_status: Optional "passed"/"failed"
     """
+    warnings.warn(
+        "log_iteration() is deprecated and will be removed in v2.0. "
+        "Use core_logging.log_iteration_begin() and log_iteration_end() instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     iteration = IterationLog(
         index=index,
         role=role,
@@ -179,6 +204,9 @@ def finalize_run(
     """
     Finalize a RunSummary with final status and cost information.
 
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging.log_final_status() instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
+
     Args:
         run: RunSummary instance
         final_status: "success", "max_rounds_reached", "timeout", "aborted", etc.
@@ -188,6 +216,13 @@ def finalize_run(
     Returns:
         Updated RunSummary instance
     """
+    warnings.warn(
+        "finalize_run() is deprecated and will be removed in v2.0. "
+        "Use core_logging.log_final_status() instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     run.finished_at = _now_iso()
     run.final_status = final_status
     if safety_status is not None:
@@ -365,7 +400,17 @@ def start_run_legacy(config: Dict[str, Any], mode: str, out_dir: Path) -> Dict[s
     """
     Legacy dict-based API for backward compatibility.
     Create an in-memory record for this run.
+
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging.new_run_id() and log_start() instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
     """
+    warnings.warn(
+        "start_run_legacy() is deprecated and will be removed in v2.0. "
+        "Use core_logging.new_run_id() and log_start() instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     project_subdir = str(config.get("project_subdir", out_dir.name))
     task = str(config.get("task", ""))
 
@@ -396,7 +441,17 @@ def log_iteration_legacy(run_record: Dict[str, Any], iteration_data: Dict[str, A
     """
     Legacy dict-based API for backward compatibility.
     Append one iteration summary to the in-memory run_record.
+
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging.log_iteration_begin() and log_iteration_end() instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
     """
+    warnings.warn(
+        "log_iteration_legacy() is deprecated and will be removed in v2.0. "
+        "Use core_logging.log_iteration_begin() and log_iteration_end() instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     iters: List[Dict[str, Any]] = run_record.setdefault("iterations", [])
     iters.append(dict(iteration_data))
     run_record["iterations_run"] = len(iters)
@@ -412,7 +467,17 @@ def finish_run_legacy(
     Legacy dict-based API for backward compatibility.
     Finalize run_record and append it as one JSON line to:
       agent/run_logs/<project_subdir>_<mode>.jsonl
+
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging.log_final_status() instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
     """
+    warnings.warn(
+        "finish_run_legacy() is deprecated and will be removed in v2.0. "
+        "Use core_logging.log_final_status() instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     run_record["finished_at_utc"] = _now_iso()
     run_record["final_status"] = final_status
     run_record["cost_summary"] = cost_summary

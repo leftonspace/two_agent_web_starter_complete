@@ -191,9 +191,18 @@ def main(context: Optional[OrchestratorContext] = None) -> None:
     manager_review_sys = prompts["manager_review_sys"]
     employee_sys = prompts["employee_sys"]
 
-    # Run log
+    # PHASE 1.6: Initialize core_logging (structured event system)
     mode = "2loop"
-    run_record = context.run_logger.start_run(cfg, mode, out_dir)
+    core_run_id = context.logger.new_run_id()
+    context.logger.log_start(
+        core_run_id,
+        project_folder=str(out_dir),
+        task_description=task,
+        config=cfg,
+    )
+
+    # PHASE 1.6: Removed run_logger.start_run() - now using core_logging only
+    # run_record = context.run_logger.start_run(cfg, mode, out_dir)
 
     # 1) Manager planning
     print("\n====== MANAGER PLANNING (2-loop) ======")
@@ -208,7 +217,14 @@ def main(context: Optional[OrchestratorContext] = None) -> None:
         print("[Cost] Max cost exceeded during planning. Aborting run.")
         final_status = "aborted_cost_cap_planning"
         final_cost_summary = context.cost_tracker.get_summary()
-        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+        # PHASE 1.6: core_logging.log_final_status() handles this now
+        context.logger.log_final_status(
+            core_run_id,
+            status=final_status,
+            reason="Cost cap exceeded during planning phase",
+            iterations=0,
+            total_cost_usd=total_cost,
+        )
         return
 
     # Optional interactive confirmation (once)
@@ -216,7 +232,14 @@ def main(context: Optional[OrchestratorContext] = None) -> None:
         print("[User] Aborted run after planning.")
         final_status = "aborted_by_user_after_planning"
         final_cost_summary = context.cost_tracker.get_summary()
-        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+        # PHASE 1.6: core_logging.log_final_status() handles this now
+        context.logger.log_final_status(
+            core_run_id,
+            status=final_status,
+            reason="Run aborted by user after planning",
+            iterations=0,
+            total_cost_usd=context.cost_tracker.get_total_cost_usd(),
+        )
         return
 
     # Track last review/tests to drive model choice
@@ -227,6 +250,13 @@ def main(context: Optional[OrchestratorContext] = None) -> None:
     # 2) Iterative manager <-> employee loop
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
+
+        # PHASE 1.6: Log iteration start
+        context.logger.log_iteration_begin(
+            core_run_id,
+            iteration=iteration,
+            phase="2loop_iteration",
+        )
 
         employee_model = _choose_employee_model(iteration, last_status, last_tests)
         print(f"[ModelSelect] Employee will use model: {employee_model}")
@@ -317,6 +347,15 @@ def main(context: Optional[OrchestratorContext] = None) -> None:
         last_tests = test_results
         last_feedback = feedback
 
+        # PHASE 1.6: Log iteration end
+        context.logger.log_iteration_end(
+            core_run_id,
+            iteration=iteration,
+            status=status,
+            tests_passed=test_results.get("all_passed", False),
+            files_written=len(files_dict),
+        )
+
         # Git commit
         if git_ready:
             commit_message = (
@@ -328,18 +367,20 @@ def main(context: Optional[OrchestratorContext] = None) -> None:
             if not commit_success:
                 print(f"[Git] Warning: Commit failed for iteration {iteration}")
 
-        # RUN LOG: record this iteration
-        context.run_logger.log_iteration_legacy(
-            run_record,
-            {
-                "iteration": iteration,
-                "status": status,
-                "tests": test_results,
-                "employee_model": employee_model,
-                "screenshot_path": screenshot_path,
-                "feedback_size": len(feedback) if isinstance(feedback, list) else None,
-            },
-        )
+        # PHASE 1.6: Removed run_logger.log_iteration_legacy() - now using core_logging only
+        # Already using: context.logger.log_iteration_begin() (line ~255)
+        # Already using: context.logger.log_iteration_end() (line ~351)
+        # context.run_logger.log_iteration_legacy(
+        #     run_record,
+        #     {
+        #         "iteration": iteration,
+        #         "status": status,
+        #         "tests": test_results,
+        #         "employee_model": employee_model,
+        #         "screenshot_path": screenshot_path,
+        #         "feedback_size": len(feedback) if isinstance(feedback, list) else None,
+        #     },
+        # )
 
         # Cost checks after this iteration
         total_cost = context.cost_tracker.get_total_cost_usd()
@@ -387,8 +428,18 @@ def main(context: Optional[OrchestratorContext] = None) -> None:
         extra={"max_rounds": max_rounds, "mode": "2loop"},
     )
 
-    # RUN LOG: finalize and write JSONL entry
-    context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+    # PHASE 1.6: Log final status with core_logging
+    context.logger.log_final_status(
+        core_run_id,
+        status=final_status,
+        reason=f"2-loop orchestration completed with status: {final_status}",
+        iterations=max_rounds,
+        total_cost_usd=context.cost_tracker.get_total_cost_usd(),
+    )
+
+    # PHASE 1.6: Removed run_logger.finish_run_legacy() - now using core_logging only
+    # Already using: context.logger.log_final_status() (line above)
+    # context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
 
 
 if __name__ == "__main__":

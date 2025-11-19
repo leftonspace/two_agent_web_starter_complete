@@ -95,20 +95,14 @@ from repo_router import resolve_repo_path
 #    - New structured event logging system (STAGE 2)
 #    - Provides granular event tracking (LLM calls, file writes, etc.)
 #
-# DEPRECATION PLAN: The legacy logging API should eventually be phased out in favor
-# of core_logging once all consumers are migrated. For now, both are maintained to
-# avoid breaking existing scripts/dashboards that depend on the legacy format.
+# PHASE 1.6: Legacy run_logger imports removed - now using core_logging only
+# RunSummary kept for type annotations only (STAGE 2 structured API)
 from run_logger import RunSummary
-from run_logger import (
-    finish_run_legacy as finish_run,
-)
-from run_logger import log_iteration as log_iteration_new
-from run_logger import (
-    log_iteration_legacy as log_iteration_dict,
-)
-from run_logger import (
-    start_run_legacy as start_run,
-)
+# PHASE 1.6: Removed unused legacy imports:
+# from run_logger import finish_run_legacy as finish_run
+# from run_logger import log_iteration as log_iteration_new
+# from run_logger import log_iteration_legacy as log_iteration_dict
+# from run_logger import start_run_legacy as start_run
 from site_tools import (
     analyze_site,
     load_existing_files,
@@ -758,7 +752,8 @@ def main(
 
     # Run log
     mode = "3loop"
-    run_record = context.run_logger.start_run(cfg, mode, out_dir)
+    # PHASE 1.6: Removed run_logger.start_run() - now using core_logging only
+    # run_record = context.run_logger.start_run(cfg, mode, out_dir)
 
     # STAGE 2.2: Log run start
     context.logger.log_start(
@@ -851,7 +846,15 @@ def main(
         print("[Cost] Max cost exceeded during planning. Aborting run.")
         final_status = "aborted_cost_cap_planning"
         final_cost_summary = context.cost_tracker.get_summary()
-        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+        # PHASE 1.6: core_logging.log_final_status() handles this now
+        # context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+        context.logger.log_final_status(
+            core_run_id,
+            status=final_status,
+            reason="Cost cap exceeded during planning phase",
+            iterations=0,
+            total_cost_usd=total_cost
+        )
         return
 
     # 2) Supervisor phasing
@@ -964,7 +967,15 @@ def main(
         print("[User] Aborted run after planning & supervisor phasing.")
         final_status = "aborted_by_user_after_planning"
         final_cost_summary = context.cost_tracker.get_summary()
-        context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+        # PHASE 1.6: core_logging.log_final_status() handles this now
+        # context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+        context.logger.log_final_status(
+            core_run_id,
+            status=final_status,
+            reason="Run aborted by user after planning and supervisor phasing",
+            iterations=0,
+            total_cost_usd=context.cost_tracker.get_total_cost_usd()
+        )
         return
 
     # Track last review status/tests to drive model choice
@@ -1475,18 +1486,20 @@ def main(
             if not commit_success:
                 print(f"[Git] Warning: Commit failed for iteration {iteration}")
 
-        # RUN LOG: record this iteration (legacy dict-based)
-        context.run_logger.log_iteration_legacy(
-            run_record,
-            {
-                "iteration": iteration,
-                "status": status,
-                "tests": test_results,
-                "employee_model": employee_model,
-                "screenshot_path": screenshot_path,
-                "feedback_size": len(feedback) if isinstance(feedback, list) else None,
-            },
-        )
+        # PHASE 1.6: Removed run_logger.log_iteration_legacy() - now using core_logging only
+        # Already using: context.logger.log_iteration_begin() (line ~1042)
+        # Already using: context.logger.log_iteration_end() (line ~1537)
+        # context.run_logger.log_iteration_legacy(
+        #     run_record,
+        #     {
+        #         "iteration": iteration,
+        #         "status": status,
+        #         "tests": test_results,
+        #         "employee_model": employee_model,
+        #         "screenshot_path": screenshot_path,
+        #         "feedback_size": len(feedback) if isinstance(feedback, list) else None,
+        #     },
+        # )
 
         # STAGE 2: Log iteration with new structured API
         if run_summary is not None:
@@ -1661,8 +1674,9 @@ def main(
         final_status=final_status,
     )
 
-    # RUN LOG: finalize
-    context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
+    # PHASE 1.6: Removed run_logger.finish_run_legacy() - now using core_logging only
+    # Already using: context.logger.log_final_status() (line ~1761)
+    # context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
 
     # STAGE 4.2: Semantic git commit (if enabled and not already committed by individual iterations)
     auto_git_commit = cfg.get("auto_git_commit", False)

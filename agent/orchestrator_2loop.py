@@ -151,6 +151,9 @@ def main() -> None:
     interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
     use_git: bool = bool(cfg.get("use_git", False))
 
+    # PHASE 1.4: Git secret scanning configuration
+    git_secret_scanning_enabled: bool = bool(cfg.get("git_secret_scanning_enabled", True))
+
     print("=== PROJECT CONFIG (2-loop) ===")
     print(f"Project folder: {out_dir}")
     print(f"Task: {task}")
@@ -161,6 +164,7 @@ def main() -> None:
     print(f"cost_warning_usd: {cost_warning_usd}")
     print(f"interactive_cost_mode: {interactive_cost_mode}")
     print(f"use_git: {use_git}")
+    print(f"git_secret_scanning_enabled: {git_secret_scanning_enabled}")
 
     # snapshots: per-iteration copies
     snapshots_root = out_dir / ".history"
@@ -312,7 +316,10 @@ def main() -> None:
                 f"2loop iteration {iteration}: "
                 f"status={status}, all_passed={test_results.get('all_passed')}"
             )
-            commit_all(out_dir, commit_message)
+            # PHASE 1.4: Pass secret scanning configuration
+            commit_success = commit_all(out_dir, commit_message, git_secret_scanning_enabled)
+            if not commit_success:
+                print(f"[Git] Warning: Commit failed for iteration {iteration}")
 
         # RUN LOG: record this iteration
         log_iteration(

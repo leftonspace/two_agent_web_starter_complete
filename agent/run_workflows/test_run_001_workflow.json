@@ -5,7 +5,7 @@
       "version": 1,
       "stages": [
         {
-          "id": "220cf441-99e1-4d31-b93e-85afe8238aec",
+          "id": "57a8c055-ab9a-4ff8-bae4-66a69952f2bf",
           "name": "Phase 1",
           "description": "Complete: layout",
           "categories": [
@@ -16,13 +16,13 @@
             1
           ],
           "status": "completed",
-          "created_at": 1763525202.351263,
-          "completed_at": 1763525202.3536701,
+          "created_at": 1763528471.2596934,
+          "completed_at": 1763528471.2636933,
           "audit_count": 0,
           "regression_source": null
         },
         {
-          "id": "1a01a1a0-1b0e-4155-8ea3-e8514156345e",
+          "id": "a7756f96-5f12-424e-ac6d-22525c1c849a",
           "name": "Phase 2",
           "description": "Complete: visual",
           "categories": [
@@ -32,19 +32,19 @@
             2
           ],
           "status": "pending",
-          "created_at": 1763525202.3512926,
+          "created_at": 1763528471.2597158,
           "completed_at": null,
           "audit_count": 0,
           "regression_source": null
         }
       ],
-      "created_at": 1763525202.3512998,
+      "created_at": 1763528471.2597198,
       "created_by": "supervisor",
       "mutation_type": "initial",
       "mutation_reason": "Initial roadmap created from supervisor phases"
     }
   ],
   "active_stage_id": null,
-  "created_at": 1763525202.351308,
-  "updated_at": 1763525202.353671
+  "created_at": 1763528471.2597244,
+  "updated_at": 1763528471.2636955
 }

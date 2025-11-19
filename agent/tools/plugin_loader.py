@@ -51,6 +51,10 @@ from .base import (
     create_error_result,
 )
 
+# PHASE 2.2: Permission checking and audit logging
+from agent.permissions import PermissionChecker, get_permission_checker
+from agent.tool_audit_log import log_tool_access
+
 # Setup logging
 logger = logging.getLogger(__name__)
 
@@ -367,16 +371,17 @@ class ToolRegistry:
 
         This is the main entry point for tool execution. It:
         1. Looks up the tool
-        2. Checks permissions
-        3. Validates input parameters
-        4. Executes with timeout
-        5. Validates output
-        6. Returns ToolResult
+        2. Checks RBAC permissions (PHASE 2.2)
+        3. Logs access attempt to audit log (PHASE 2.2)
+        4. Validates input parameters
+        5. Executes with timeout
+        6. Validates output
+        7. Returns ToolResult
 
         Args:
             tool_name: Name of tool to execute
             params: Input parameters (will be validated against schema)
-            context: Execution context with permissions, project_path, etc.
+            context: Execution context with permissions, role_id, domain, etc.
 
         Returns:
             ToolResult with success status, data, and optional error
@@ -407,17 +412,66 @@ class ToolRegistry:
 
         manifest = tool.get_manifest()
 
-        # Check permissions
-        has_permission, permission_error = self.check_permissions(
-            tool_name,
-            context.permissions
-        )
-        if not has_permission:
-            return create_error_result(
-                f"Insufficient permissions: {permission_error}",
-                required_permissions=manifest.required_permissions,
-                user_permissions=context.permissions
+        # PHASE 2.2: Role-based permission checking
+        # If context has role_id, use RBAC; otherwise fall back to basic permission check
+        permission_checker = get_permission_checker()
+
+        if context.role_id:
+            # Use RBAC with PermissionChecker
+            allowed, denial_reason = permission_checker.check_tool_access(
+                role_id=context.role_id,
+                tool_name=tool_name,
+                domain=context.domain
             )
+
+            # Log access attempt to audit log
+            log_tool_access(
+                mission_id=context.mission_id,
+                role_id=context.role_id,
+                tool_name=tool_name,
+                domain=context.domain,
+                allowed=allowed,
+                reason=denial_reason,
+                user_id=context.user_id,
+                permissions_checked=manifest.required_permissions
+            )
+
+            if not allowed:
+                logger.warning(
+                    f"Tool access denied: role={context.role_id} tool={tool_name} "
+                    f"domain={context.domain} reason={denial_reason}"
+                )
+                return create_error_result(
+                    f"Access denied: {denial_reason}",
+                    required_permissions=manifest.required_permissions,
+                    role_id=context.role_id,
+                    domain=context.domain,
+                    tool_name=tool_name
+                )
+        else:
+            # Fallback to basic permission checking (for backward compatibility)
+            has_permission, permission_error = self.check_permissions(
+                tool_name,
+                context.permissions
+            )
+            if not has_permission:
+                # Log access attempt (without role_id)
+                log_tool_access(
+                    mission_id=context.mission_id,
+                    role_id="unknown",
+                    tool_name=tool_name,
+                    domain=context.domain,
+                    allowed=False,
+                    reason=permission_error,
+                    user_id=context.user_id,
+                    permissions_checked=manifest.required_permissions
+                )
+
+                return create_error_result(
+                    f"Insufficient permissions: {permission_error}",
+                    required_permissions=manifest.required_permissions,
+                    user_permissions=context.permissions
+                )
 
         # Validate input parameters
         is_valid, validation_error = tool.validate_params(params)
@@ -431,7 +485,8 @@ class ToolRegistry:
         # Execute with timeout
         try:
             logger.info(
-                f"Executing tool '{tool_name}' for mission {context.mission_id}"
+                f"Executing tool '{tool_name}' for mission {context.mission_id} "
+                f"(role={context.role_id}, domain={context.domain})"
             )
 
             result = await asyncio.wait_for(

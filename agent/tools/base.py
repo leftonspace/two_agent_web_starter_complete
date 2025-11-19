@@ -188,6 +188,8 @@ class ToolExecutionContext:
         project_path: Root directory of the project being worked on
         config: Configuration dictionary from orchestrator
         permissions: List of permissions granted to current user/role
+        role_id: PHASE 2.2: Current role for RBAC (e.g., "hr_recruiter")
+        domain: PHASE 2.2: Current domain context (e.g., "hr", "finance")
         dry_run: If True, tool should simulate execution without side effects
         max_cost_usd: Maximum cost allowed for this execution (0 = no limit)
         metadata: Additional context-specific metadata
@@ -197,6 +199,10 @@ class ToolExecutionContext:
     project_path: Path
     config: Dict[str, Any] = field(default_factory=dict)
     permissions: List[str] = field(default_factory=list)
+
+    # PHASE 2.2: Role-based access control
+    role_id: Optional[str] = None
+    domain: Optional[str] = None
 
     # Optional fields
     user_id: Optional[str] = None

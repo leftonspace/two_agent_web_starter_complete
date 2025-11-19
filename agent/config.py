@@ -202,8 +202,9 @@ class AuthConfig:
 class ToolConfig:
     """
     PHASE 2.1: Tool plugin system configuration.
+    PHASE 2.2: Enhanced with role-based permissions and audit logging.
 
-    Controls tool plugin discovery, loading, and execution.
+    Controls tool plugin discovery, loading, execution, and access control.
     """
 
     # Plugin discovery
@@ -222,6 +223,17 @@ class ToolConfig:
 
     # Feature flags
     auto_reload_plugins: bool = False  # Automatically reload plugins when files change (dev mode)
+
+    # PHASE 2.2: Role-based permissions
+    permissions_matrix_path: Optional[str] = None  # Path to permissions_matrix.json (None = default)
+    enable_rbac: bool = True  # Enable role-based access control
+    require_role_id: bool = False  # Require role_id in execution context (strict mode)
+
+    # PHASE 2.2: Audit logging
+    enable_audit_logging: bool = True  # Enable comprehensive audit logging
+    audit_log_path: Optional[str] = None  # Path to audit log (None = default: data/tool_access_log.jsonl)
+    audit_log_retention_days: int = 90  # Delete audit logs older than N days (0 = keep forever)
+    audit_log_denied_only: bool = False  # Log only denied access attempts (saves space)
 
 
 @dataclass

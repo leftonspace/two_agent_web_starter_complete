@@ -5,6 +5,7 @@ import json
 import os
 import random
 import time
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import requests
@@ -19,11 +20,59 @@ DEFAULT_MANAGER_MODEL = os.getenv("DEFAULT_MANAGER_MODEL", "gpt-5-mini-2025-08-0
 DEFAULT_SUPERVISOR_MODEL = os.getenv("DEFAULT_SUPERVISOR_MODEL", "gpt-5-nano")
 DEFAULT_EMPLOYEE_MODEL = os.getenv("DEFAULT_EMPLOYEE_MODEL", "gpt-5-2025-08-07")
 
-# STAGE 3.3: Retry and timeout configuration
-MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "5"))  # Increased from 3 to 5
-REQUEST_TIMEOUT = int(os.getenv("LLM_TIMEOUT_SECONDS", "180"))  # 3 minutes default
-INITIAL_BACKOFF = float(os.getenv("LLM_INITIAL_BACKOFF", "2.0"))  # Initial delay in seconds
-MAX_BACKOFF = float(os.getenv("LLM_MAX_BACKOFF", "60.0"))  # Max delay in seconds
+
+# STAGE 3.3: Load LLM resilience config from project_config.json
+def _load_llm_config() -> Dict[str, Any]:
+    """
+    Load LLM resilience configuration from project_config.json.
+
+    STAGE 3.3: Reads config values with fallback to environment variables
+    and hardcoded defaults.
+
+    Returns:
+        Dict with max_retries, timeout_seconds, initial_backoff, max_backoff, fallback_model
+    """
+    config_path = Path(__file__).resolve().parent / "project_config.json"
+
+    # Default values (fallback)
+    defaults = {
+        "max_retries": 5,
+        "timeout_seconds": 180,
+        "initial_backoff": 2.0,
+        "max_backoff": 60.0,
+        "fallback_model": None,
+    }
+
+    try:
+        if config_path.exists():
+            with config_path.open("r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                llm_resilience = cfg.get("llm_resilience", {})
+
+                return {
+                    "max_retries": llm_resilience.get("max_retries", defaults["max_retries"]),
+                    "timeout_seconds": llm_resilience.get("timeout_seconds", defaults["timeout_seconds"]),
+                    "initial_backoff": llm_resilience.get("initial_backoff", defaults["initial_backoff"]),
+                    "max_backoff": llm_resilience.get("max_backoff", defaults["max_backoff"]),
+                    "fallback_model": llm_resilience.get("fallback_model", defaults["fallback_model"]),
+                }
+    except Exception as e:
+        print(f"[LLM] Warning: Failed to load config from {config_path}: {e}")
+        print("[LLM] Using default configuration")
+
+    # Return defaults if config file not found or failed to load
+    return defaults
+
+
+# Load config at module level (cached)
+_llm_config = _load_llm_config()
+
+# STAGE 3.3: Retry and timeout configuration (from config or env vars)
+MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", str(_llm_config["max_retries"])))
+REQUEST_TIMEOUT = int(os.getenv("LLM_TIMEOUT_SECONDS", str(_llm_config["timeout_seconds"])))
+INITIAL_BACKOFF = float(os.getenv("LLM_INITIAL_BACKOFF", str(_llm_config["initial_backoff"])))
+MAX_BACKOFF = float(os.getenv("LLM_MAX_BACKOFF", str(_llm_config["max_backoff"])))
+FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", _llm_config.get("fallback_model") or "")
 
 
 def validate_api_connectivity() -> tuple[bool, Optional[str]]:
@@ -196,12 +245,14 @@ def chat_json(
     model: Optional[str] = None,
     temperature: float = 0.2,
     expect_json: bool = True,
+    _fallback_attempt: bool = False,  # STAGE 3.3: Internal flag for fallback retry
 ) -> Dict[str, Any]:
     """
     High-level helper that:
     - Selects a model (manager / supervisor / employee) if not provided.
     - Calls `_post` and records usage via `cost_tracker`.
     - Returns parsed JSON (default) or raw text if `expect_json=False`.
+    - STAGE 3.3: On failure, retries with fallback model if configured.
 
     `system_prompt` is the original parameter name.
     `system` is an alias used by some callers (e.g. code_review_bot).
@@ -216,6 +267,9 @@ def chat_json(
             chosen_model = DEFAULT_EMPLOYEE_MODEL
     else:
         chosen_model = model
+
+    # STAGE 3.3: Store original model for fallback logic
+    original_model = chosen_model
 
     # Choose which system message to use
     effective_system = system if system is not None else (system_prompt or "")
@@ -260,12 +314,45 @@ def chat_json(
         print(f"[CostTracker] Failed to record usage: {e}")
 
     # STAGE 3.3: SAFE FALLBACK - If _post() returned a stub due to timeout/error,
-    # return a minimal safe dict instead of crashing the orchestrator.
+    # try fallback model if configured and not already tried.
     # The stub now includes llm_failure=True to help orchestrator detect issues.
     if data.get("llm_failure") or data.get("timeout"):
         reason = data.get('reason', 'unknown')
         print(f"[LLM] ⚠️  DETECTED LLM FAILURE STUB from _post()")
-        print(f"[LLM] Role: {role}, Reason: {reason}")
+        print(f"[LLM] Role: {role}, Model: {chosen_model}, Reason: {reason}")
+
+        # STAGE 3.3: Try fallback model if configured and not already tried
+        if FALLBACK_MODEL and not _fallback_attempt and chosen_model != FALLBACK_MODEL:
+            print(f"[LLM] 🔄 ATTEMPTING FALLBACK to model: {FALLBACK_MODEL}")
+            print(f"[LLM] Original model '{chosen_model}' failed, trying fallback...")
+
+            # Recursive call with fallback model
+            try:
+                fallback_result = chat_json(
+                    role=role,
+                    system_prompt=system_prompt,
+                    user_content=user_content,
+                    system=system,
+                    model=FALLBACK_MODEL,  # Force fallback model
+                    temperature=temperature,
+                    expect_json=expect_json,
+                    _fallback_attempt=True,  # Prevent infinite fallback loop
+                )
+
+                # If fallback succeeded, add metadata and return
+                if not fallback_result.get("llm_failure"):
+                    print(f"[LLM] ✅ FALLBACK SUCCEEDED with model: {FALLBACK_MODEL}")
+                    fallback_result["_fallback_used"] = True
+                    fallback_result["_original_model"] = original_model
+                    fallback_result["_fallback_model"] = FALLBACK_MODEL
+                    return fallback_result
+                else:
+                    print(f"[LLM] ❌ FALLBACK ALSO FAILED with model: {FALLBACK_MODEL}")
+                    # Fall through to return failure
+            except Exception as fallback_error:
+                print(f"[LLM] ❌ FALLBACK EXCEPTION: {fallback_error}")
+                # Fall through to return failure
+
         print("[LLM] This stage will produce no meaningful output.")
 
         return {
@@ -278,6 +365,7 @@ def chat_json(
             "phases": [],
             "findings": [],  # Return empty findings but mark as failure
             "reason": reason,
+            "original_model": original_model,  # Track which model failed
         }
 
     # If caller wants raw text, don't try to parse it.

@@ -12,12 +12,15 @@ This module provides intelligent model selection based on:
 PHASE 3.2: Extended to support multiple providers (OpenAI, Anthropic, Local)
 with ModelConfig dataclass for flexible routing.
 
+PHASE 1.7: Integrated with ModelRegistry for externalized model configuration.
+Model names now resolved from agent/models.json instead of hard-coded.
+
 KEY CONSTRAINT:
-GPT-5 is ONLY allowed on 2nd or 3rd interactions AND only when:
+High-end models (gpt-5, etc.) are ONLY allowed on 2nd or 3rd interactions AND only when:
 - Complexity is "high" OR
 - is_very_important is True
 
-First interactions ALWAYS use cheaper models (gpt-5-mini or gpt-5-nano).
+First interactions ALWAYS use cheaper models (gpt-5-mini or similar).
 """
 
 from __future__ import annotations
@@ -25,6 +28,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional, Union
+
+# PHASE 1.7: Import model registry for externalized configuration
+from model_registry import get_registry, ModelInfo
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -91,44 +97,56 @@ def get_provider_for_model(model_name: str) -> ModelProvider:
         return ModelProvider.OPENAI
 
 # ══════════════════════════════════════════════════════════════════════
-# Model Routing Rules
+# PHASE 1.7: Model Routing Rules (Registry-Based)
 # ══════════════════════════════════════════════════════════════════════
 
-# Task type -> Complexity -> Model mapping
-# This is the base routing table before applying GPT-5 constraints
+# Initialize registry (singleton)
+_registry = None
+
+
+def _get_registry():
+    """Get or initialize model registry."""
+    global _registry
+    if _registry is None:
+        _registry = get_registry()
+    return _registry
+
+
+# Task type -> Complexity -> Model alias mapping
+# These reference aliases in models.json instead of hard-coded IDs
 ROUTING_RULES: Dict[str, Dict[str, str]] = {
     # Planning (Manager, Supervisor)
     "planning": {
-        "low": "gpt-5-mini-2025-08-07",
-        "high": "gpt-5-2025-08-07",  # Subject to interaction index constraint
+        "low": "manager_default",
+        "high": "high_complexity",  # Subject to interaction index constraint
     },
     # Code generation/editing (Employee)
     "code": {
-        "low": "gpt-5-mini-2025-08-07",
-        "high": "gpt-5-2025-08-07",  # Subject to interaction index constraint
+        "low": "employee_default",
+        "high": "high_complexity",  # Subject to interaction index constraint
     },
     # Documentation, commit messages, summaries
     "docs": {
-        "low": "gpt-5-mini-2025-08-07",
-        "high": "gpt-5-mini-2025-08-07",  # Docs rarely need GPT-5
+        "low": "employee_default",
+        "high": "employee_default",  # Docs rarely need high-end models
     },
     # Analysis (QA, diff summaries, etc.)
     "analysis": {
-        "low": "gpt-5-nano",
-        "high": "gpt-5-mini-2025-08-07",
+        "low": "cost_optimized",
+        "high": "employee_default",
     },
     # Supervisor reviews
     "review": {
-        "low": "gpt-5-nano",
-        "high": "gpt-5-mini-2025-08-07",
+        "low": "cost_optimized",
+        "high": "employee_default",
     },
 }
 
-# Fallback model if task type is unknown
-DEFAULT_MODEL = "gpt-5-mini-2025-08-07"
+# Fallback model alias if task type is unknown
+DEFAULT_MODEL_ALIAS = "employee_default"
 
-# GPT-5 constraint: Only allowed on these interaction indices
-GPT5_ALLOWED_INTERACTIONS = [2, 3]
+# High-end model constraint: Only allowed on these interaction indices
+HIGH_END_ALLOWED_INTERACTIONS = [2, 3]
 
 
 def choose_model(
@@ -142,6 +160,8 @@ def choose_model(
     """
     Choose the appropriate model based on task characteristics.
 
+    PHASE 1.7: Now uses ModelRegistry to resolve model aliases from models.json.
+
     Args:
         task_type: Type of task ("planning", "code", "docs", "analysis", "review")
         complexity: Task complexity ("low" or "high")
@@ -153,52 +173,71 @@ def choose_model(
     Returns:
         Model identifier string (e.g., "gpt-5-2025-08-07")
 
-    GPT-5 Constraint Rules:
-    1. GPT-5 is ONLY allowed on interaction indices 2 or 3
-    2. Even on those interactions, GPT-5 is only used if:
+    High-End Model Constraint Rules:
+    1. High-end models (gpt-5, etc.) are ONLY allowed on interaction indices 2 or 3
+    2. Even on those interactions, high-end models are only used if:
        - complexity == "high" OR is_very_important == True
-    3. First iteration (index=1) ALWAYS uses cheaper model
+    3. First iteration (index=1) ALWAYS uses cheaper models
     4. Iterations beyond 3 fall back to cheaper models
     """
     # Normalize inputs
     task_type = task_type.lower().strip()
     complexity = complexity.lower().strip()
 
-    # Get base model from routing rules
-    task_rules = ROUTING_RULES.get(task_type, {"low": DEFAULT_MODEL, "high": DEFAULT_MODEL})
+    # Get registry
+    registry = _get_registry()
+
+    # Get base model alias from routing rules
+    task_rules = ROUTING_RULES.get(
+        task_type, {"low": DEFAULT_MODEL_ALIAS, "high": DEFAULT_MODEL_ALIAS}
+    )
 
     # Determine effective complexity
     effective_complexity = "high" if (complexity == "high" or is_very_important) else "low"
 
-    # Get candidate model
-    candidate_model = task_rules.get(effective_complexity, DEFAULT_MODEL)
+    # Get candidate model alias
+    candidate_alias = task_rules.get(effective_complexity, DEFAULT_MODEL_ALIAS)
 
-    # Apply GPT-5 constraint
-    # If the candidate model is GPT-5, check if we're allowed to use it
-    if "gpt-5-2025-08-07" in candidate_model:
+    # Resolve to ModelInfo
+    try:
+        candidate_model_info = registry.get_model(candidate_alias)
+    except ValueError as e:
+        print(f"[ModelRouter] Warning: Failed to resolve alias '{candidate_alias}': {e}")
+        # Fallback to default
+        candidate_model_info = registry.get_model(DEFAULT_MODEL_ALIAS)
+
+    # Apply high-end model constraint
+    # Check if this is a high-complexity alias (which maps to expensive models)
+    is_high_end_alias = candidate_alias in ["high_complexity", "reasoning", "premium"]
+
+    if is_high_end_alias:
         # Check interaction index constraint
-        if interaction_index not in GPT5_ALLOWED_INTERACTIONS:
-            # Not allowed - downgrade to gpt-5-mini
+        if interaction_index not in HIGH_END_ALLOWED_INTERACTIONS:
+            # Not allowed - downgrade to default
             print(
-                f"[ModelRouter] GPT-5 requested but interaction_index={interaction_index} "
-                f"(allowed: {GPT5_ALLOWED_INTERACTIONS}). Downgrading to gpt-5-mini."
+                f"[ModelRouter] High-end model requested but interaction_index={interaction_index} "
+                f"(allowed: {HIGH_END_ALLOWED_INTERACTIONS}). Downgrading to default."
             )
-            candidate_model = "gpt-5-mini-2025-08-07"
+            candidate_model_info = registry.get_model(DEFAULT_MODEL_ALIAS)
         elif effective_complexity == "low" and not is_very_important:
             # Allowed interaction but not important enough
             print(
-                "[ModelRouter] GPT-5 requested but complexity=low and not important. "
-                "Downgrading to gpt-5-mini."
+                "[ModelRouter] High-end model requested but complexity=low and not important. "
+                "Downgrading to default."
             )
-            candidate_model = "gpt-5-mini-2025-08-07"
+            candidate_model_info = registry.get_model(DEFAULT_MODEL_ALIAS)
+
+    # Get final model ID
+    final_model_id = candidate_model_info.full_id
 
     # Log routing decision
     print(
         f"[ModelRouter] role={role}, task={task_type}, complexity={effective_complexity}, "
-        f"iteration={interaction_index}, important={is_very_important} -> {candidate_model}"
+        f"iteration={interaction_index}, important={is_very_important} -> "
+        f"{candidate_alias} ({final_model_id}) [${candidate_model_info.cost_per_1k_prompt:.4f}/1k]"
     )
 
-    return candidate_model
+    return final_model_id
 
 
 def estimate_complexity(
@@ -288,3 +327,22 @@ def is_stage_important(
     stage_name = stage.get("name", "")
 
     return stage_id in very_important_stages or stage_name in very_important_stages
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 1.7: Startup Check for Deprecated Models
+# ══════════════════════════════════════════════════════════════════════
+
+
+def check_model_deprecations() -> None:
+    """
+    Check for deprecated models at startup.
+
+    Should be called once at application startup to warn about deprecated models.
+    Uses ModelRegistry to check all configured aliases.
+    """
+    try:
+        registry = _get_registry()
+        registry.warn_if_deprecated()
+    except Exception as e:
+        print(f"[ModelRouter] Warning: Failed to check model deprecations: {e}")

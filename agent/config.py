@@ -57,7 +57,17 @@ class InteractiveCostMode(str, Enum):
 
 @dataclass
 class ModelDefaults:
-    """Default LLM models for each role."""
+    """
+    Default LLM models for each role.
+
+    ⚠️  DEPRECATED (Phase 1.7): This class is deprecated in favor of ModelRegistry.
+    Models are now configured in agent/models.json and resolved via model_registry.py.
+
+    For backward compatibility, these defaults are still used if model_registry is
+    unavailable, but they should not be relied upon for new code.
+
+    Migration: Use model_router.choose_model() which automatically uses the registry.
+    """
 
     manager: str = "gpt-5-mini-2025-08-07"
     supervisor: str = "gpt-5-nano"
@@ -67,7 +77,11 @@ class ModelDefaults:
 
     @classmethod
     def from_env(cls) -> ModelDefaults:
-        """Load model defaults from environment variables."""
+        """
+        Load model defaults from environment variables.
+
+        ⚠️  DEPRECATED: Use ModelRegistry instead (agent/models.json).
+        """
         return cls(
             manager=os.getenv("DEFAULT_MANAGER_MODEL", cls.manager),
             supervisor=os.getenv("DEFAULT_SUPERVISOR_MODEL", cls.supervisor),
@@ -198,7 +212,8 @@ class Config:
     simulation: SimulationMode = SimulationMode.OFF
 
     # LLM settings
-    models: ModelDefaults = field(default_factory=ModelDefaults)
+    models: ModelDefaults = field(default_factory=ModelDefaults)  # DEPRECATED: Use model_registry_path
+    model_registry_path: Optional[str] = None  # PHASE 1.7: Path to models.json (None = default location)
     very_important_stages: List[str] = field(default_factory=list)
 
     # Cost controls

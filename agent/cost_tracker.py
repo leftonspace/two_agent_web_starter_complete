@@ -1,17 +1,32 @@
 # cost_tracker.py
+"""
+PHASE 1.7: Integrated with ModelRegistry for dynamic pricing.
+
+Cost tracking now queries models.json for up-to-date pricing information
+instead of relying on hard-coded prices.
+"""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+# PHASE 1.7: Import model registry for dynamic pricing
+try:
+    from model_registry import get_registry
+    REGISTRY_AVAILABLE = True
+except ImportError:
+    REGISTRY_AVAILABLE = False
 
 # Where to store the default runtime history when log_file is None
 HISTORY_FILE = Path("cost_history.json")
 
-# USD per token, based on your pricing snippet
-# (prices are per 1M tokens, so we divide by 1_000_000)
+# DEPRECATED: Hard-coded pricing (Phase 1.7)
+# These are kept as fallback only. ModelRegistry provides current pricing.
+# USD per token (prices are per 1M tokens, so we divide by 1_000_000)
 PRICES_USD_PER_TOKEN: Dict[str, Dict[str, float]] = {
     "gpt-5": {
         "input": 1.250 / 1_000_000,
@@ -34,6 +49,68 @@ PRICES_USD_PER_TOKEN: Dict[str, Dict[str, float]] = {
 FALLBACK_MODEL = "gpt-5-mini"  # if we don't know a model name, use this as a safe-ish default
 
 
+def _get_pricing_from_registry(model_id: str) -> Optional[Dict[str, float]]:
+    """
+    Get pricing from ModelRegistry for a given model ID.
+
+    Args:
+        model_id: Full model ID (e.g., "gpt-5-2025-08-07")
+
+    Returns:
+        Dict with 'input' and 'output' keys (cost per token), or None if not found
+    """
+    if not REGISTRY_AVAILABLE:
+        return None
+
+    try:
+        registry = get_registry()
+
+        # Try to find model in registry by full ID
+        for model_info in registry.list_models():
+            if model_info.full_id == model_id or model_info.model_id in model_id:
+                # Convert per-1k pricing to per-token pricing
+                return {
+                    "input": model_info.cost_per_1k_prompt / 1000,
+                    "output": model_info.cost_per_1k_completion / 1000,
+                }
+
+        return None
+    except Exception:
+        # If registry fails, return None and fall back to hard-coded prices
+        return None
+
+
+def _get_pricing_fallback(model_key: str) -> Dict[str, float]:
+    """
+    Get pricing with fallback logic.
+
+    Tries registry first, then hard-coded prices, then fallback model.
+
+    Args:
+        model_key: Model identifier
+
+    Returns:
+        Dict with 'input' and 'output' pricing (per token)
+    """
+    # Try registry first
+    registry_pricing = _get_pricing_from_registry(model_key)
+    if registry_pricing:
+        return registry_pricing
+
+    # Fall back to hard-coded prices
+    # Try exact match first
+    if model_key in PRICES_USD_PER_TOKEN:
+        return PRICES_USD_PER_TOKEN[model_key]
+
+    # Try partial match (e.g., "gpt-5-2025-08-07" -> "gpt-5")
+    for key_prefix in ["gpt-5-pro", "gpt-5-mini", "gpt-5-nano", "gpt-5"]:
+        if key_prefix in model_key:
+            return PRICES_USD_PER_TOKEN.get(key_prefix, PRICES_USD_PER_TOKEN[FALLBACK_MODEL])
+
+    # Ultimate fallback
+    return PRICES_USD_PER_TOKEN[FALLBACK_MODEL]
+
+
 @dataclass
 class CallRecord:
     role: str
@@ -51,7 +128,9 @@ class CostState:
 
     def add_call(self, role: str, model: str, prompt_tokens: int, completion_tokens: int) -> None:
         model_key = model or FALLBACK_MODEL
-        price_cfg = PRICES_USD_PER_TOKEN.get(model_key, PRICES_USD_PER_TOKEN[FALLBACK_MODEL])
+
+        # PHASE 1.7: Use registry-based pricing with fallback
+        price_cfg = _get_pricing_fallback(model_key)
 
         input_cost = prompt_tokens * price_cfg["input"]
         output_cost = completion_tokens * price_cfg["output"]
@@ -191,16 +270,8 @@ def check_cost_cap(
 
     # Estimate cost of next call
     # Use a conservative estimate: assume all tokens are output tokens (more expensive)
-    model_key = model
-    # Match model prefix to pricing table
-    for price_key in PRICES_USD_PER_TOKEN.keys():
-        if price_key in model:
-            model_key = price_key
-            break
-    else:
-        model_key = FALLBACK_MODEL
-
-    price_cfg = PRICES_USD_PER_TOKEN.get(model_key, PRICES_USD_PER_TOKEN[FALLBACK_MODEL])
+    # PHASE 1.7: Use registry-based pricing with fallback
+    price_cfg = _get_pricing_fallback(model or FALLBACK_MODEL)
     # Conservative: assume all tokens are output (more expensive)
     estimated_call_cost = estimated_tokens * price_cfg["output"]
 

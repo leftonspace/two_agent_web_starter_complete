@@ -486,6 +486,158 @@ class SelfRefiner:
 
         return impact
 
+    # ══════════════════════════════════════════════════════════════════
+    # PHASE 5.2: Persistence and Apply Mode
+    # ══════════════════════════════════════════════════════════════════
+
+    def persist_proposals(self, improvements: Optional[List[Improvement]] = None) -> Path:
+        """
+        Write refinement proposals to proposals/ directory as Markdown.
+
+        Args:
+            improvements: List of improvements to persist. If None, generates new suggestions.
+
+        Returns:
+            Path to written proposal file
+        """
+        if improvements is None:
+            improvements = self.suggest_improvements()
+
+        # Get proposals directory
+        try:
+            import paths as paths_module
+            proposals_dir = paths_module.get_root() / "proposals"
+        except ImportError:
+            proposals_dir = Path(__file__).parent.parent / "proposals"
+
+        proposals_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create proposal file with timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        proposal_file = proposals_dir / f"{timestamp}_self_refine.md"
+
+        # Generate markdown content
+        lines = [
+            f"# Self-Refinement Proposals - {timestamp}",
+            "",
+            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Lookback Period: {self.lookback_days} days",
+            "",
+            "## Performance Overview",
+            "",
+        ]
+
+        if self.performance_metrics:
+            metrics = self.performance_metrics
+            lines.extend([
+                f"- Total Missions: {metrics.total_missions}",
+                f"- Success Rate: {metrics.success_rate * 100:.1f}%",
+                f"- Average Cost: ${metrics.average_cost_usd:.4f}",
+                f"- Average Iterations: {metrics.average_iterations:.1f}",
+                f"- Cost Trend: {metrics.cost_trend}",
+                f"- Success Trend: {metrics.success_trend}",
+                "",
+            ])
+
+        # Group improvements by priority
+        high_priority = [i for i in improvements if i.priority == "high"]
+        medium_priority = [i for i in improvements if i.priority == "medium"]
+        low_priority = [i for i in improvements if i.priority == "low"]
+
+        for priority_level, priority_improvements in [
+            ("High Priority", high_priority),
+            ("Medium Priority", medium_priority),
+            ("Low Priority", low_priority),
+        ]:
+            if not priority_improvements:
+                continue
+
+            lines.extend([
+                f"## {priority_level} Improvements",
+                "",
+            ])
+
+            for i, improvement in enumerate(priority_improvements, 1):
+                lines.extend([
+                    f"### {i}. {improvement.area.value.replace('_', ' ').title()}",
+                    "",
+                    f"**Suggestion:** {improvement.suggestion}",
+                    "",
+                    "**Reasoning:**",
+                ])
+                for reason in improvement.reasoning:
+                    lines.append(f"- {reason}")
+
+                lines.extend([
+                    "",
+                    f"**Expected Impact:** {improvement.expected_impact}",
+                    f"**Implementation Effort:** {improvement.implementation_effort}",
+                    "",
+                ])
+
+                if improvement.metrics:
+                    lines.append("**Metrics:**")
+                    for key, value in improvement.metrics.items():
+                        lines.append(f"- {key}: {value}")
+                    lines.append("")
+
+        lines.extend([
+            "---",
+            "",
+            "## Review Process",
+            "",
+            "1. Review each proposal carefully",
+            "2. Verify metrics and reasoning",
+            "3. Test changes in a temporary branch",
+            "4. Approve for implementation if tests pass",
+            "5. Document changes in change log",
+            "",
+            "## Application Status",
+            "",
+            "- [ ] Reviewed by maintainer",
+            "- [ ] Tests passed",
+            "- [ ] Approved for implementation",
+            "- [ ] Applied to production",
+            "",
+        ])
+
+        # Write to file
+        with proposal_file.open("w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+
+        return proposal_file
+
+    def apply_approved_proposals(self, proposal_file: Path, dry_run: bool = True) -> Dict[str, Any]:
+        """
+        Apply approved proposals from a proposal file.
+
+        PHASE 5.2: This is a placeholder for future automated application.
+        Currently, proposals must be reviewed and applied manually.
+
+        Args:
+            proposal_file: Path to approved proposal file
+            dry_run: If True, only simulate application without making changes
+
+        Returns:
+            Dict with application results
+        """
+        if not proposal_file.exists():
+            return {
+                "success": False,
+                "error": f"Proposal file not found: {proposal_file}",
+            }
+
+        # For now, return a message that manual review is required
+        return {
+            "success": False,
+            "message": "Automated application not yet implemented. Please review and apply proposals manually.",
+            "proposal_file": str(proposal_file),
+            "recommendation": (
+                "Review the proposal file, run tests in a temporary branch, "
+                "and apply approved changes through normal development workflow."
+            ),
+        }
+
 
 # ══════════════════════════════════════════════════════════════════════
 # CLI Entry Point

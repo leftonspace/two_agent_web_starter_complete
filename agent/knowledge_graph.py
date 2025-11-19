@@ -682,6 +682,159 @@ class KnowledgeGraph:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# PHASE 2.1b: Enhanced Query Functions
+# ══════════════════════════════════════════════════════════════════════
+
+    def get_files_for_mission(self, mission_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all files worked on by a specific mission.
+
+        Args:
+            mission_id: Mission identifier
+
+        Returns:
+            List of file entity dicts with relationship metadata
+        """
+        # Find the mission entity
+        mission_entity = self.find_entity("mission", mission_id)
+        if not mission_entity:
+            return []
+
+        # Find all files related via "worked_on" relationship
+        related = self.find_related(
+            mission_entity["id"],
+            relationship_type="worked_on",
+            direction="outgoing"
+        )
+
+        return [
+            {
+                "file": entity,
+                "relationship": rel_info,
+            }
+            for entity, rel_info in related
+            if entity["type"] == "file"
+        ]
+
+    def get_missions_for_file(self, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Get all missions that touched a specific file.
+
+        Args:
+            file_path: File path to query
+
+        Returns:
+            List of mission entity dicts with relationship metadata
+        """
+        # Find the file entity
+        file_entity = self.find_entity("file", file_path)
+        if not file_entity:
+            return []
+
+        # Find all missions related via "worked_on" relationship
+        related = self.find_related(
+            file_entity["id"],
+            relationship_type="worked_on",
+            direction="incoming"
+        )
+
+        return [
+            {
+                "mission": entity,
+                "relationship": rel_info,
+            }
+            for entity, rel_info in related
+            if entity["type"] == "mission"
+        ]
+
+    def get_bug_relationships(self, mission_id: str) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get all bug/fix relationships for a mission.
+
+        Args:
+            mission_id: Mission identifier
+
+        Returns:
+            Dict with "caused_bugs" and "fixed_bugs" lists
+        """
+        # Find the mission entity
+        mission_entity = self.find_entity("mission", mission_id)
+        if not mission_entity:
+            return {"caused_bugs": [], "fixed_bugs": []}
+
+        # Find bugs caused
+        caused = self.find_related(
+            mission_entity["id"],
+            relationship_type="caused_bug",
+            direction="outgoing"
+        )
+
+        # Find bugs fixed
+        fixed = self.find_related(
+            mission_entity["id"],
+            relationship_type="fixed_bug",
+            direction="outgoing"
+        )
+
+        return {
+            "caused_bugs": [
+                {"entity": entity, "relationship": rel_info}
+                for entity, rel_info in caused
+            ],
+            "fixed_bugs": [
+                {"entity": entity, "relationship": rel_info}
+                for entity, rel_info in fixed
+            ],
+        }
+
+    def get_risky_files(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get files with highest bug counts or failure associations.
+
+        Args:
+            limit: Maximum number of files to return
+
+        Returns:
+            List of file dicts with risk scores
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Count bugs associated with each file via missions
+            cursor.execute("""
+                SELECT
+                    f.id,
+                    f.name as file_path,
+                    COUNT(DISTINCT r_bug.id) as bug_count,
+                    COUNT(DISTINCT r_work.id) as mission_count,
+                    COUNT(DISTINCT CASE WHEN m.status = 'failed' THEN m.mission_id END) as failed_mission_count
+                FROM entities f
+                LEFT JOIN relationships r_work ON f.id = r_work.to_id AND r_work.type = 'worked_on'
+                LEFT JOIN entities mission_entity ON r_work.from_id = mission_entity.id AND mission_entity.type = 'mission'
+                LEFT JOIN mission_history m ON mission_entity.name = m.mission_id
+                LEFT JOIN relationships r_bug ON mission_entity.id = r_bug.from_id AND r_bug.type = 'caused_bug'
+                WHERE f.type = 'file'
+                GROUP BY f.id, f.name
+                HAVING mission_count > 0
+                ORDER BY bug_count DESC, failed_mission_count DESC, mission_count DESC
+                LIMIT ?
+            """, (limit,))
+
+            rows = cursor.fetchall()
+            return [
+                {
+                    "file_path": row["file_path"],
+                    "bug_count": row["bug_count"],
+                    "mission_count": row["mission_count"],
+                    "failed_mission_count": row["failed_mission_count"],
+                    "risk_score": row["bug_count"] * 10 + row["failed_mission_count"] * 5,
+                }
+                for row in rows
+            ]
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Convenience Functions
 # ══════════════════════════════════════════════════════════════════════
 

@@ -349,6 +349,61 @@ def get_latest_stats() -> Optional[Dict[str, Any]]:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# PHASE 2.2: Risk Analysis
+# ══════════════════════════════════════════════════════════════════════
+
+
+def get_risky_files(project_path: Optional[Path] = None, limit: int = 5) -> List[Tuple[str, float]]:
+    """
+    Get files with highest risk scores based on bug history and failure rates.
+
+    Args:
+        project_path: Project directory (unused, for API compatibility)
+        limit: Maximum number of risky files to return
+
+    Returns:
+        List of (file_path, risk_score) tuples sorted by risk (highest first)
+    """
+    if not KG_AVAILABLE:
+        return []
+
+    try:
+        kg = KnowledgeGraph()
+        risky_files = kg.get_risky_files(limit=limit)
+
+        return [
+            (file_info["file_path"], file_info["risk_score"])
+            for file_info in risky_files
+            if file_info["risk_score"] > 0
+        ]
+    except Exception as e:
+        print(f"Warning: Failed to get risky files from knowledge graph: {e}")
+        return []
+
+
+def format_risk_summary(risky_files: List[Tuple[str, float]]) -> str:
+    """
+    Format risky files into a human-readable summary for manager prompts.
+
+    Args:
+        risky_files: List of (file_path, risk_score) tuples
+
+    Returns:
+        Formatted string summary
+    """
+    if not risky_files:
+        return "No historical risk data available for this project."
+
+    lines = ["⚠️ High-Risk Files (based on historical bugs and failures):"]
+    for file_path, risk_score in risky_files:
+        lines.append(f"  • {file_path} (risk score: {risk_score:.0f})")
+
+    lines.append("\nℹ️ Exercise extra caution when modifying these files.")
+
+    return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Statistics Analysis
 # ══════════════════════════════════════════════════════════════════════
 

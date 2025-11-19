@@ -287,6 +287,10 @@ def run_mission(mission_file_path: Path) -> Dict[str, Any]:
     if "rounds_completed" in result:
         mission_result["rounds_completed"] = result["rounds_completed"]
 
+    # PHASE 2.1a: Extract files modified from orchestrator result
+    files_modified = result.get("files_modified", [])
+    mission_result["files_modified"] = files_modified
+
     # Write mission log
     log_path = write_mission_log(mission_result)
     print(f"\n📁 Mission log written to: {log_path}")
@@ -304,7 +308,7 @@ def run_mission(mission_file_path: Path) -> Dict[str, Any]:
                 cost_usd=cost_summary.get("total_usd", 0.0),
                 iterations=mission_result.get("rounds_completed", mission_config["max_rounds"]),
                 duration_seconds=duration_seconds,
-                files_modified=0,  # TODO: Track from orchestrator result
+                files_modified=len(files_modified),  # PHASE 2.1a: Track file count from orchestrator
                 metadata={
                     "task": task,
                     "config": mission_result["config"],
@@ -322,6 +326,7 @@ def run_mission(mission_file_path: Path) -> Dict[str, Any]:
                     "task": task,
                     "status": "success" if success else "failed",
                     "cost_usd": cost_summary.get("total_usd", 0.0),
+                    "files_modified": len(files_modified),
                 }
             )
 
@@ -334,7 +339,29 @@ def run_mission(mission_file_path: Path) -> Dict[str, Any]:
                 {"task": task}
             )
 
+            # PHASE 2.1a: Create FILE nodes and WORKED_ON edges
+            for file_path in files_modified:
+                file_entity_id = kg.add_entity(
+                    "file",
+                    file_path,
+                    {
+                        "path": file_path,
+                        "mission_id": mission_id,
+                    }
+                )
+                kg.add_relationship(
+                    mission_entity_id,
+                    file_entity_id,
+                    "worked_on",
+                    {
+                        "domain": domain.value,
+                        "status": "success" if success else "failed",
+                    }
+                )
+
             print(f"📊 Mission logged to knowledge graph")
+            if files_modified:
+                print(f"📄 Tracked {len(files_modified)} modified files")
 
             # Collect and save project stats
             stats = project_stats.collect_stats()

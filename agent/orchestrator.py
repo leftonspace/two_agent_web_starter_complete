@@ -537,6 +537,9 @@ def main(
     interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
     use_git: bool = bool(cfg.get("use_git", False))
 
+    # PHASE 1.4: Git secret scanning configuration
+    git_secret_scanning_enabled: bool = bool(cfg.get("git_secret_scanning_enabled", True))
+
     # STAGE 1: Safety configuration
     safety_config = cfg.get("safety", {})
     run_safety_before_final: bool = bool(safety_config.get("run_safety_before_final", True))
@@ -552,6 +555,7 @@ def main(
     print(f"cost_warning_usd: {cost_warning_usd}")
     print(f"interactive_cost_mode: {interactive_cost_mode}")
     print(f"use_git: {use_git}")
+    print(f"git_secret_scanning_enabled: {git_secret_scanning_enabled}")
     print(f"run_safety_before_final: {run_safety_before_final}")
     print(f"allow_extra_iteration_on_failure: {allow_extra_iteration_on_failure}")
 
@@ -1450,7 +1454,10 @@ def main(
                 f"3loop iteration {iteration}: "
                 f"status={status}, all_passed={test_results.get('all_passed')}"
             )
-            commit_all(out_dir, commit_message)
+            # PHASE 1.4: Pass secret scanning configuration
+            commit_success = commit_all(out_dir, commit_message, git_secret_scanning_enabled)
+            if not commit_success:
+                print(f"[Git] Warning: Commit failed for iteration {iteration}")
 
         # RUN LOG: record this iteration (legacy dict-based)
         log_iteration_dict(

@@ -47,6 +47,7 @@ sites/fixtures/
 # Data directory (runtime data)
 data/*.db
 data/*.json
+data/*.jsonl
 data/cache/
 
 # Mission and artifact runtime files

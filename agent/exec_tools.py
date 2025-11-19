@@ -34,7 +34,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 # ══════════════════════════════════════════════════════════════════════
 # Tool Implementation
 # ══════════════════════════════════════════════════════════════════════
@@ -558,7 +557,7 @@ def _run_shell_internal(
             "output": "",
             "error": f"Command timed out after {timeout} seconds"
         }
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return {
             "status": "failed",
             "exit_code": 127,

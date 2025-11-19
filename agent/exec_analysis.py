@@ -14,8 +14,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
-from typing import List, Dict, Any
-
+from typing import Any, Dict, List
 
 # Severity levels for static analysis issues
 # These map to the safety check failure criteria in exec_safety.py

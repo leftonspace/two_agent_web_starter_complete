@@ -10,17 +10,15 @@ Tests basic functionality of:
 - core_logging Phase 3 extensions
 """
 
-import pytest
-from pathlib import Path
-import json
 import sys
+from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 def test_workflow_manager_import():
     """Test that workflow_manager can be imported."""
-    from workflow_manager import WorkflowManager, Stage, Roadmap, create_workflow
+    from workflow_manager import Roadmap, Stage, WorkflowManager
     assert WorkflowManager is not None
     assert Stage is not None
     assert Roadmap is not None
@@ -58,7 +56,7 @@ def test_workflow_manager_basic():
 
 def test_memory_store_import():
     """Test that memory_store can be imported."""
-    from memory_store import MemoryStore, StageMemory, Decision, Finding
+    from memory_store import MemoryStore, StageMemory
     assert MemoryStore is not None
     assert StageMemory is not None
 
@@ -100,7 +98,7 @@ def test_memory_store_basic():
 
 def test_inter_agent_bus_import():
     """Test that inter_agent_bus can be imported."""
-    from inter_agent_bus import InterAgentBus, MessageType, Message, get_bus
+    from inter_agent_bus import InterAgentBus, MessageType, get_bus
     assert InterAgentBus is not None
     assert MessageType is not None
     assert get_bus is not None
@@ -144,7 +142,7 @@ def test_inter_agent_bus_basic():
 
 def test_stage_summaries_import():
     """Test that stage_summaries can be imported."""
-    from stage_summaries import StageSummaryTracker, StageSummary, Issue, FixCycle
+    from stage_summaries import StageSummary, StageSummaryTracker
     assert StageSummaryTracker is not None
     assert StageSummary is not None
 

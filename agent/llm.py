@@ -318,7 +318,7 @@ def chat_json(
     # The stub now includes llm_failure=True to help orchestrator detect issues.
     if data.get("llm_failure") or data.get("timeout"):
         reason = data.get('reason', 'unknown')
-        print(f"[LLM] ⚠️  DETECTED LLM FAILURE STUB from _post()")
+        print("[LLM] ⚠️  DETECTED LLM FAILURE STUB from _post()")
         print(f"[LLM] Role: {role}, Model: {chosen_model}, Reason: {reason}")
 
         # STAGE 3.3: Try fallback model if configured and not already tried

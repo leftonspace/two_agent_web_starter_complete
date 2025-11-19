@@ -2,11 +2,11 @@
   "run_id": "test_run_002",
   "stage_id": "stage1",
   "stage_name": "Test Stage",
-  "created_at": 1763501115.5151224,
-  "updated_at": 1763501115.515809,
+  "created_at": 1763525202.3620546,
+  "updated_at": 1763525202.3641074,
   "decisions": [
     {
-      "timestamp": 1763501115.5154843,
+      "timestamp": 1763525202.3629134,
       "agent": "manager",
       "decision_type": "merge",
       "description": "Merge two stages",
@@ -15,7 +15,7 @@
   ],
   "findings": [
     {
-      "timestamp": 1763501115.5157902,
+      "timestamp": 1763525202.3640869,
       "severity": "error",
       "category": "functionality",
       "description": "Button doesn't work",

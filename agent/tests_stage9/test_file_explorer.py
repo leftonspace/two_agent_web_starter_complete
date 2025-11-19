@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,7 +15,7 @@ import pytest
 agent_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(agent_dir))
 
-import file_explorer
+import file_explorer  # noqa: E402
 
 
 @pytest.fixture

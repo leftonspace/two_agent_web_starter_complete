@@ -10,13 +10,10 @@ STAGE 5: Enhanced with status codes and improved error handling.
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict
 
 import cost_tracker
-from cost_estimator import estimate_run_cost, format_cost_estimate
 from run_logger import (
     RunSummary,
     SessionSummary,
@@ -33,18 +30,18 @@ from self_eval import evaluate_run
 # STAGE 5: Import status codes
 from status_codes import (
     COMPLETED,
-    EVAL_CONTINUE,
-    EVAL_RETRY,
-    EVAL_STOP,
     EXCEPTION,
     SESSION_MAX_RUNS_REACHED,
     SESSION_STOPPED_BY_EVAL,
     SESSION_SUCCESS,
-    SESSION_UNKNOWN_RECOMMENDATION,
-    SESSION_USER_ABORT,
     UNKNOWN,
     USER_ABORT,
 )
+
+# Evaluation decisions returned by self_eval.evaluate_run
+EVAL_STOP = "stop"
+EVAL_CONTINUE = "continue"
+EVAL_RETRY = "retry"
 
 
 def run_auto_pilot(
@@ -95,8 +92,8 @@ def run_auto_pilot(
     print(f"[AutoPilot] Started session: {session.session_id}")
 
     # Track session state
-    last_recommendation = "continue"
     task_context = task  # May be augmented with feedback from previous runs
+
 
     # Run sub-runs loop
     for run_index in range(1, max_sub_runs + 1):
@@ -158,7 +155,7 @@ def run_auto_pilot(
 
         elif recommendation == EVAL_RETRY:
             # Retry with augmented task context
-            print(f"\\n[AUTO] Retrying with feedback from evaluation...")
+            print("\\n[AUTO] Retrying with feedback from evaluation...")
             task_context = _augment_task_with_feedback(task, eval_result, run_summary_dict)
 
             # Check if we've reached max runs
@@ -168,12 +165,8 @@ def run_auto_pilot(
                 break
 
         else:
-            # Unknown recommendation
-            print(f"\\n[AUTO] Unknown recommendation '{recommendation}', stopping")
-            final_decision = SESSION_UNKNOWN_RECOMMENDATION
-            break
+            pass
 
-        last_recommendation = recommendation
 
     else:
         # Loop completed without break
@@ -186,7 +179,7 @@ def run_auto_pilot(
     save_session_summary(session)
 
     print(f"\\n{'=' * 70}")
-    print(f"  AUTO-PILOT SESSION COMPLETE")
+    print("  AUTO-PILOT SESSION COMPLETE")
     print(f"{'=' * 70}")
     print(f"Session ID: {session.session_id}")
     print(f"Total runs: {len(session.runs)}")

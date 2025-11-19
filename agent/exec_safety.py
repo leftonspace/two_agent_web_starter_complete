@@ -9,16 +9,15 @@ STAGE 5: Enhanced with status codes and safe I/O.
 
 from __future__ import annotations
 
-import json
 import time
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 from exec_analysis import analyze_project
 from exec_deps import scan_dependencies
 
 # STAGE 5: Import safe I/O and status codes
-from safe_io import safe_json_write, safe_mkdir, safe_timestamp
+from safe_io import safe_json_write, safe_mkdir
 from status_codes import SAFETY_FAILED_STATUS, SAFETY_PASSED
 
 
@@ -235,7 +234,7 @@ def _log_safety_run(result: Dict[str, Any], project_dir: str) -> None:
     if safe_json_write(result_file, result):
         print(f"[Safety] Logged results to {result_file}")
     else:
-        print(f"[Safety] Failed to write result.json (safe_json_write failed)")
+        print("[Safety] Failed to write result.json (safe_json_write failed)")
 
     # Write human-readable summary
     summary_file = logs_dir / "summary.txt"

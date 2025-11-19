@@ -13,15 +13,13 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 # STAGE 5: Import status codes and safe I/O
-from safe_io import safe_json_write, safe_timestamp, safe_mkdir
+from safe_io import safe_json_write, safe_mkdir, safe_timestamp
 from status_codes import UNKNOWN
-
 
 # ══════════════════════════════════════════════════════════════════════
 # STAGE 2: Dataclass-based Structured Logging
@@ -192,6 +190,15 @@ def finalize_run(
     if cost_summary is not None:
         run.cost_summary = cost_summary
     return run
+
+def finish_run(*args, **kwargs):
+    """
+    Backward-compatible alias for finalize_run().
+
+    Some modules (or tests) still import `finish_run`.
+    Delegate directly to `finalize_run` so both names work.
+    """
+    return finalize_run(*args, **kwargs)
 
 
 def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:

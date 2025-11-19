@@ -16,11 +16,9 @@ from __future__ import annotations
 import re
 import subprocess
 from dataclasses import asdict, dataclass, field
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
-
-from html.parser import HTMLParser
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # Configuration
@@ -680,10 +678,13 @@ def evaluate_quality_gates(
         status = "failed"
     elif warning_count > 0:
         status = "warning"
-    else:
+    # If there are no issues at all, treat this as a clean pass,
+    # even if earlier logic marked it as "warning".
+    if not issues:
         status = "passed"
 
     return status, issues
+
 
 
 def generate_summary(status: str, issues: List[QAIssue]) -> str:

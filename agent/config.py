@@ -199,6 +199,32 @@ class AuthConfig:
 
 
 @dataclass
+class ToolConfig:
+    """
+    PHASE 2.1: Tool plugin system configuration.
+
+    Controls tool plugin discovery, loading, and execution.
+    """
+
+    # Plugin discovery
+    plugin_dirs: List[str] = field(default_factory=list)  # Additional plugin directories
+    disabled_tools: List[str] = field(default_factory=list)  # Blacklist specific tools by name
+    enable_custom_plugins: bool = True  # Allow loading custom plugins from agent/tools/custom/
+
+    # Execution controls
+    tool_execution_timeout: int = 300  # Global maximum timeout for all tools (seconds)
+    log_tool_usage: bool = True  # Log all tool executions for audit trail
+    enforce_permissions: bool = True  # Enforce permission checking (False for development only)
+
+    # Resource limits
+    max_concurrent_tools: int = 5  # Maximum number of tools executing simultaneously
+    enable_cost_tracking: bool = True  # Track tool execution costs
+
+    # Feature flags
+    auto_reload_plugins: bool = False  # Automatically reload plugins when files change (dev mode)
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -236,6 +262,9 @@ class Config:
 
     # PHASE 1.1: Authentication
     auth: AuthConfig = field(default_factory=AuthConfig)
+
+    # PHASE 2.1: Tool plugins
+    tools: ToolConfig = field(default_factory=ToolConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

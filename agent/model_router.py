@@ -9,6 +9,9 @@ This module provides intelligent model selection based on:
 - Interaction index (iteration number)
 - Importance flags
 
+PHASE 3.2: Extended to support multiple providers (OpenAI, Anthropic, Local)
+with ModelConfig dataclass for flexible routing.
+
 KEY CONSTRAINT:
 GPT-5 is ONLY allowed on 2nd or 3rd interactions AND only when:
 - Complexity is "high" OR
@@ -19,7 +22,73 @@ First interactions ALWAYS use cheaper models (gpt-5-mini or gpt-5-nano).
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Optional, Union
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 3.2: Provider and Model Configuration
+# ══════════════════════════════════════════════════════════════════════
+
+
+class ModelProvider(Enum):
+    """Supported model providers."""
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    LOCAL = "local"
+
+
+@dataclass
+class ModelConfig:
+    """
+    Configuration for model selection including provider and parameters.
+
+    Attributes:
+        provider: Model provider (OpenAI, Anthropic, Local)
+        model_name: Model identifier (e.g., "gpt-5-2025-08-07", "claude-3-5-sonnet-20241022")
+        max_tokens: Maximum tokens for response (default: 4096)
+        temperature: Sampling temperature (default: 0.0 for deterministic)
+        cost_per_1k_tokens: Estimated cost per 1K tokens for budgeting
+    """
+    provider: ModelProvider
+    model_name: str
+    max_tokens: int = 4096
+    temperature: float = 0.0
+    cost_per_1k_tokens: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "provider": self.provider.value,
+            "model_name": self.model_name,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "cost_per_1k_tokens": self.cost_per_1k_tokens,
+        }
+
+
+def get_provider_for_model(model_name: str) -> ModelProvider:
+    """
+    Determine provider based on model name.
+
+    Args:
+        model_name: Model identifier
+
+    Returns:
+        ModelProvider enum
+    """
+    model_lower = model_name.lower()
+
+    if "gpt" in model_lower or "o1" in model_lower:
+        return ModelProvider.OPENAI
+    elif "claude" in model_lower:
+        return ModelProvider.ANTHROPIC
+    elif "local" in model_lower or "llama" in model_lower:
+        return ModelProvider.LOCAL
+    else:
+        # Default to OpenAI
+        return ModelProvider.OPENAI
 
 # ══════════════════════════════════════════════════════════════════════
 # Model Routing Rules

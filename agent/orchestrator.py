@@ -31,6 +31,13 @@ try:
 except ImportError:
     DOMAIN_ROUTER_AVAILABLE = False
 
+# PHASE 2.2: Import project_stats for risk analysis
+try:
+    import project_stats
+    PROJECT_STATS_AVAILABLE = True
+except ImportError:
+    PROJECT_STATS_AVAILABLE = False
+
 # PHASE 4: Import specialist system for expert agent routing
 try:
     import specialists
@@ -563,6 +570,20 @@ def main(
     else:
         print("[Domain] Domain router not available - using generic prompts")
 
+    # PHASE 2.2: Risk analysis integration - inject risky files into manager prompts
+    if PROJECT_STATS_AVAILABLE:
+        try:
+            risky_files = project_stats.get_risky_files(project_path=Path(out_dir), limit=5)
+            if risky_files:
+                risk_summary = project_stats.format_risk_summary(risky_files)
+                # Inject risk insights into both planning and review prompts
+                risk_prompt_addition = f"\n\n## Historical Risk Analysis\n\n{risk_summary}"
+                manager_plan_sys = manager_plan_sys + risk_prompt_addition
+                manager_review_sys = manager_review_sys + risk_prompt_addition
+                print(f"[Risk] Identified {len(risky_files)} high-risk files for manager awareness")
+        except Exception as e:
+            print(f"[Risk] Warning: Failed to get risk insights: {e}")
+
     # PHASE 4: Specialist system integration
     specialist_recommendation = None
     specialist_info = None
@@ -905,6 +926,9 @@ def main(
     # STAGE 5.2: Track cumulative file count for complexity estimation
     cumulative_files_written = 0
 
+    # PHASE 2.1a: Track all unique files modified across iterations for knowledge graph
+    all_files_modified = set()  # Track unique file paths
+
     # STAGE 3: Track current stage for workflow integration
     current_stage_idx = 0  # Index into phase_list
     current_stage_obj = None  # Current Stage object from workflow_mgr
@@ -1048,6 +1072,9 @@ def main(
 
             # STAGE 5.2: Update cumulative file count
             cumulative_files_written += len(written_files)
+
+            # PHASE 2.1a: Track unique files for knowledge graph
+            all_files_modified.update(written_files)
 
             # STAGE 2.2: Log file writes
             if written_files:
@@ -1742,6 +1769,7 @@ def main(
         "cost_summary": final_cost_summary,
         "core_run_id": core_run_id,
         "output_dir": str(out_dir),
+        "files_modified": list(all_files_modified),  # PHASE 2.1a: Return modified files for knowledge graph
     }
 
 

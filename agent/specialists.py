@@ -476,6 +476,67 @@ def list_all_specialists() -> List[SpecialistProfile]:
     return list(SPECIALIST_REGISTRY.values())
 
 
+def get_specialists_for_domain(domain: str) -> List[SpecialistProfile]:
+    """
+    Get applicable specialists for a specific domain.
+
+    PHASE 4.1: Returns specialists that are relevant for the given domain.
+
+    Args:
+        domain: Domain string (e.g., "coding", "finance", "research", "legal", "hr", "ops")
+
+    Returns:
+        List of SpecialistProfile instances applicable to the domain
+    """
+    domain_lower = domain.lower()
+
+    # Map domains to relevant specialists
+    domain_specialists = {
+        "coding": [
+            SpecialistType.FRONTEND,
+            SpecialistType.BACKEND,
+            SpecialistType.FULLSTACK,
+            SpecialistType.SECURITY,
+            SpecialistType.DEVOPS,
+            SpecialistType.QA,
+        ],
+        "web": [
+            SpecialistType.FRONTEND,
+            SpecialistType.BACKEND,
+            SpecialistType.FULLSTACK,
+            SpecialistType.QA,
+        ],
+        "data": [
+            SpecialistType.DATA,
+            SpecialistType.BACKEND,
+        ],
+        "security": [
+            SpecialistType.SECURITY,
+            SpecialistType.BACKEND,
+        ],
+        "devops": [
+            SpecialistType.DEVOPS,
+            SpecialistType.BACKEND,
+        ],
+        "testing": [
+            SpecialistType.QA,
+        ],
+        # Generic fallback for other domains
+        "finance": [SpecialistType.DATA],
+        "research": [SpecialistType.DATA],
+        "ops": [SpecialistType.DEVOPS],
+    }
+
+    # Get specialists for this domain
+    specialist_types = domain_specialists.get(domain_lower, [SpecialistType.GENERIC])
+
+    return [
+        SPECIALIST_REGISTRY[spec_type]
+        for spec_type in specialist_types
+        if spec_type in SPECIALIST_REGISTRY
+    ]
+
+
 # ══════════════════════════════════════════════════════════════════════
 # CLI Entry Point
 # ══════════════════════════════════════════════════════════════════════

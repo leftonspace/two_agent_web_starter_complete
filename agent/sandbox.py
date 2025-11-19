@@ -212,6 +212,162 @@ def run_in_sandbox(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# PHASE 3.1: Language-Specific Snippet Execution
+# ══════════════════════════════════════════════════════════════════════
+
+
+def run_python_snippet(
+    code: str,
+    working_dir: Optional[Path] = None,
+    timeout_seconds: int = 30,
+) -> Dict[str, Any]:
+    """
+    Execute Python code snippet in a sandboxed environment.
+
+    Args:
+        code: Python code to execute
+        working_dir: Working directory (default: temp directory)
+        timeout_seconds: Timeout in seconds (default: 30)
+
+    Returns:
+        Sandbox execution result dict
+
+    Example:
+        >>> result = run_python_snippet("print('Hello, World!')")
+        >>> print(result['stdout'])
+        Hello, World!
+    """
+    # Write code to a temporary file
+    with tempfile.NamedTemporaryFile(
+        mode='w',
+        suffix='.py',
+        delete=False,
+        encoding='utf-8',
+    ) as f:
+        f.write(code)
+        temp_file = Path(f.name)
+
+    try:
+        result = run_in_sandbox(
+            command=['python3', str(temp_file)],
+            working_dir=working_dir,
+            timeout_seconds=timeout_seconds,
+            memory_limit_mb=256,  # 256MB for snippets
+        )
+        return result
+    finally:
+        # Clean up temporary file
+        try:
+            temp_file.unlink()
+        except Exception:
+            pass
+
+
+def run_node_snippet(
+    code: str,
+    working_dir: Optional[Path] = None,
+    timeout_seconds: int = 30,
+) -> Dict[str, Any]:
+    """
+    Execute Node.js code snippet in a sandboxed environment.
+
+    Args:
+        code: JavaScript code to execute
+        working_dir: Working directory (default: temp directory)
+        timeout_seconds: Timeout in seconds (default: 30)
+
+    Returns:
+        Sandbox execution result dict
+
+    Example:
+        >>> result = run_node_snippet("console.log('Hello from Node')")
+        >>> print(result['stdout'])
+        Hello from Node
+    """
+    # Write code to a temporary file
+    with tempfile.NamedTemporaryFile(
+        mode='w',
+        suffix='.js',
+        delete=False,
+        encoding='utf-8',
+    ) as f:
+        f.write(code)
+        temp_file = Path(f.name)
+
+    try:
+        result = run_in_sandbox(
+            command=['node', str(temp_file)],
+            working_dir=working_dir,
+            timeout_seconds=timeout_seconds,
+            memory_limit_mb=256,  # 256MB for snippets
+        )
+        return result
+    finally:
+        # Clean up temporary file
+        try:
+            temp_file.unlink()
+        except Exception:
+            pass
+
+
+def run_script(
+    script_path: Path,
+    args: Optional[List[str]] = None,
+    working_dir: Optional[Path] = None,
+    timeout_seconds: int = 60,
+    interpreter: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Execute a script file in a sandboxed environment.
+
+    Args:
+        script_path: Path to the script file
+        args: Optional command-line arguments
+        working_dir: Working directory (default: script directory)
+        timeout_seconds: Timeout in seconds (default: 60)
+        interpreter: Optional interpreter (e.g., 'python3', 'node', 'bash')
+
+    Returns:
+        Sandbox execution result dict
+
+    Example:
+        >>> result = run_script(Path('test.py'), interpreter='python3')
+        >>> print(result['success'])
+        True
+    """
+    if not script_path.exists():
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": "",
+            "timeout": False,
+            "error": f"Script file does not exist: {script_path}",
+        }
+
+    # Determine working directory
+    if working_dir is None:
+        working_dir = script_path.parent
+
+    # Build command
+    if interpreter:
+        command = [interpreter, str(script_path)]
+    else:
+        command = [str(script_path)]
+
+    # Add arguments
+    if args:
+        command.extend(args)
+
+    return run_in_sandbox(
+        command=command,
+        working_dir=working_dir,
+        timeout_seconds=timeout_seconds,
+        memory_limit_mb=512,  # 512MB for scripts
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
 # High-Level Sandbox Functions
 # ══════════════════════════════════════════════════════════════════════
 

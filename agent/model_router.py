@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-
 # ══════════════════════════════════════════════════════════════════════
 # Model Routing Rules
 # ══════════════════════════════════════════════════════════════════════
@@ -119,8 +118,8 @@ def choose_model(
         elif effective_complexity == "low" and not is_very_important:
             # Allowed interaction but not important enough
             print(
-                f"[ModelRouter] GPT-5 requested but complexity=low and not important. "
-                f"Downgrading to gpt-5-mini."
+                "[ModelRouter] GPT-5 requested but complexity=low and not important. "
+                "Downgrading to gpt-5-mini."
             )
             candidate_model = "gpt-5-mini-2025-08-07"
 

@@ -5,16 +5,24 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# STAGE 2.2: Import core logging for main run events
+import core_logging
 import cost_tracker
+
+# STAGE 4: Import merge manager and multi-repo routing
+import merge_manager
 from exec_safety import run_safety_checks
+
+# STAGE 2.1: Import tool registry for metadata
+from exec_tools import get_tool_metadata
 from git_utils import commit_all, ensure_repo
 from llm import chat_json
+
+# STAGE 5: Import model router
+from model_router import estimate_complexity, is_stage_important
 from prompts import load_prompts
-from run_logger import (
-    finish_run_legacy as finish_run,
-    log_iteration_legacy as log_iteration_dict,
-    start_run_legacy as start_run,
-)
+from repo_router import resolve_repo_path
+
 # STAGE 2: Import new run logging API
 # NOTE: We maintain TWO parallel logging systems:
 # 1. Legacy logging (run_logger.py) - writes to agent/run_logs/<project>_<mode>.jsonl
@@ -27,21 +35,22 @@ from run_logger import (
 # DEPRECATION PLAN: The legacy logging API should eventually be phased out in favor
 # of core_logging once all consumers are migrated. For now, both are maintained to
 # avoid breaking existing scripts/dashboards that depend on the legacy format.
-from run_logger import RunSummary, log_iteration as log_iteration_new
+from run_logger import RunSummary
+from run_logger import (
+    finish_run_legacy as finish_run,
+)
+from run_logger import log_iteration as log_iteration_new
+from run_logger import (
+    log_iteration_legacy as log_iteration_dict,
+)
+from run_logger import (
+    start_run_legacy as start_run,
+)
 from site_tools import (
     analyze_site,
     load_existing_files,
     summarize_files_for_manager,
 )
-# STAGE 2.1: Import tool registry for metadata
-from exec_tools import get_tool_metadata
-# STAGE 2.2: Import core logging for main run events
-import core_logging
-# STAGE 4: Import merge manager and multi-repo routing
-import merge_manager
-from repo_router import resolve_repo_path
-# STAGE 5: Import model router
-from model_router import estimate_complexity, is_stage_important
 
 
 def _load_config() -> Dict[str, Any]:
@@ -50,6 +59,70 @@ def _load_config() -> Dict[str, Any]:
     if not cfg_path.exists():
         raise FileNotFoundError(f"project_config.json not found at {cfg_path}")
     return json.loads(cfg_path.read_text(encoding="utf-8"))
+
+
+def _validate_cost_config(cfg: Dict[str, Any]) -> None:
+    """
+    STAGE 5.2: Validate cost-related configuration settings.
+
+    Checks:
+    - max_cost_usd and cost_warning_usd are valid floats
+    - cost_warning_usd <= max_cost_usd
+    - llm_very_important_stages is a list
+    - Model names in environment variables are recognized
+
+    Args:
+        cfg: Project configuration dict
+
+    Raises:
+        ValueError: If configuration is invalid
+    """
+    # Validate cost caps
+    max_cost = cfg.get("max_cost_usd")
+    if max_cost is not None:
+        try:
+            max_cost_float = float(max_cost)
+            if max_cost_float < 0:
+                raise ValueError("max_cost_usd must be >= 0")
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"max_cost_usd must be a valid number, got: {max_cost}") from e
+
+    cost_warning = cfg.get("cost_warning_usd")
+    if cost_warning is not None:
+        try:
+            cost_warning_float = float(cost_warning)
+            if cost_warning_float < 0:
+                raise ValueError("cost_warning_usd must be >= 0")
+
+            # Check warning <= max if both are set
+            if max_cost is not None:
+                max_cost_float = float(max_cost)
+                if cost_warning_float > max_cost_float:
+                    print(
+                        f"[Config Warning] cost_warning_usd ({cost_warning_float}) > "
+                        f"max_cost_usd ({max_cost_float}). "
+                        "Warning will trigger before cost cap."
+                    )
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"cost_warning_usd must be a valid number, got: {cost_warning}") from e
+
+    # Validate llm_very_important_stages
+    very_important = cfg.get("llm_very_important_stages")
+    if very_important is not None and not isinstance(very_important, list):
+        raise ValueError(
+            f"llm_very_important_stages must be a list, got: {type(very_important).__name__}"
+        )
+
+    # Validate interactive_cost_mode
+    cost_mode = cfg.get("interactive_cost_mode", "off")
+    valid_modes = ["off", "once", "always"]
+    if cost_mode not in valid_modes:
+        print(
+            f"[Config Warning] interactive_cost_mode='{cost_mode}' not recognized. "
+            f"Valid values: {valid_modes}. Defaulting to 'off'."
+        )
+
+    print("[Config] Cost configuration validated successfully.")
 
 
 def _ensure_out_dir(cfg: Dict[str, Any]) -> Path:
@@ -205,6 +278,7 @@ def _choose_model_for_agent(
     stage: Optional[Dict[str, Any]] = None,
     config: Optional[Dict[str, Any]] = None,
     run_id: Optional[str] = None,
+    files_count: int = 0,
 ) -> str:
     """
     STAGE 5: Choose model using central model router with GPT-5 constraints.
@@ -223,6 +297,7 @@ def _choose_model_for_agent(
         stage: Current stage metadata
         config: Project configuration
         run_id: Current run ID for logging
+        files_count: Number of files modified so far (STAGE 5.2)
 
     Returns:
         Model identifier string
@@ -234,10 +309,11 @@ def _choose_model_for_agent(
     if last_tests and not last_tests.get("all_passed"):
         previous_failures += 1
 
+    # STAGE 5.2: Use actual file counts for complexity estimation
     complexity = estimate_complexity(
         stage=stage,
         previous_failures=previous_failures,
-        files_count=0,  # Could be enhanced to count actual files
+        files_count=files_count,
         config=config,
     )
 
@@ -315,6 +391,8 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     core_run_id = core_logging.new_run_id()
 
     cfg = _load_config()
+    # STAGE 5.2: Validate cost configuration
+    _validate_cost_config(cfg)
     out_dir = _ensure_out_dir(cfg)
 
     task: str = cfg["task"]
@@ -433,6 +511,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         interaction_index=1,
         run_id=core_run_id,
         config=cfg,
+        max_cost_usd=max_cost_usd,
     )
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
@@ -449,6 +528,15 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
 
     total_cost = cost_tracker.get_total_cost_usd()
     print(f"\n[Cost] After planning: ~${total_cost:.4f} USD")
+
+    # STAGE 5.2: Log cost checkpoint after planning
+    core_logging.log_cost_checkpoint(
+        core_run_id,
+        checkpoint="after_planning",
+        total_cost_usd=total_cost,
+        max_cost_usd=max_cost_usd,
+        cost_summary=cost_tracker.get_summary(),
+    )
 
     if max_cost_usd and total_cost > max_cost_usd:
         print("[Cost] Max cost exceeded during planning. Aborting run.")
@@ -494,6 +582,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         interaction_index=1,
         run_id=core_run_id,
         config=cfg,
+        max_cost_usd=max_cost_usd,
     )
     print("\n-- Supervisor Phases --")
     print(json.dumps(phases, indent=2, ensure_ascii=False))
@@ -528,6 +617,9 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     safety_failed_on_final = False  # Track if safety fails on last planned iteration
     extra_iteration_granted = False  # Prevent infinite loops
 
+    # STAGE 5.2: Track cumulative file count for complexity estimation
+    cumulative_files_written = 0
+
     # 3) Iterations: Supervisor → Employee (per phase) → Manager review
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
@@ -541,6 +633,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         )
 
         # STAGE 5: Use model router for employee
+        # STAGE 5.2: Pass cumulative file count for complexity estimation
         employee_model = _choose_model_for_agent(
             role="employee",
             task_type="code",
@@ -549,6 +642,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             last_tests=last_tests,
             config=cfg,
             run_id=core_run_id,
+            files_count=cumulative_files_written,
         )
         print(f"[ModelRouter] Employee will use model: {employee_model}")
 
@@ -601,6 +695,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 interaction_index=iteration,
                 run_id=core_run_id,
                 config=cfg,
+                max_cost_usd=max_cost_usd,
             )
 
             files_dict = emp.get("files", {})
@@ -622,12 +717,15 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 print(f"  wrote {dest}")
                 written_files.append(rel_path)
 
+            # STAGE 5.2: Update cumulative file count
+            cumulative_files_written += len(written_files)
+
             # STAGE 2.2: Log file writes
             if written_files:
                 core_logging.log_file_write(
                     core_run_id,
                     files=written_files,
-                    summary=f"Employee phase {phase_index} wrote {len(written_files)} files",
+                    summary=f"Employee phase {phase_index} wrote {len(written_files)} files (total: {cumulative_files_written})",
                     iteration=iteration,
                     phase_index=phase_index
                 )
@@ -706,6 +804,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             interaction_index=iteration,
             run_id=core_run_id,
             config=cfg,
+            max_cost_usd=max_cost_usd,
         )
         print("\n-- Manager Review --")
         print(json.dumps(review, indent=2, ensure_ascii=False))
@@ -923,6 +1022,17 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         total_cost = cost_tracker.get_total_cost_usd()
         print(f"\n[Cost] After iteration {iteration}: ~${total_cost:.4f} USD")
 
+        # STAGE 5.2: Log cost checkpoint after each iteration
+        core_logging.log_cost_checkpoint(
+            core_run_id,
+            checkpoint=f"iteration_{iteration}",
+            total_cost_usd=total_cost,
+            max_cost_usd=max_cost_usd,
+            cost_summary=cost_tracker.get_summary(),
+            iteration=iteration,
+            status=status,
+        )
+
         # Show warning once when crossing cost_warning_usd
         if cost_warning_usd and total_cost > cost_warning_usd and not cost_warning_shown:
             print(
@@ -977,6 +1087,17 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         task=task,
         status=final_status,
         extra={"max_rounds": max_rounds, "mode": "3loop"},
+    )
+
+    # STAGE 5.2: Final cost checkpoint
+    final_total_cost = cost_tracker.get_total_cost_usd()
+    core_logging.log_cost_checkpoint(
+        core_run_id,
+        checkpoint="final",
+        total_cost_usd=final_total_cost,
+        max_cost_usd=max_cost_usd,
+        cost_summary=final_cost_summary,
+        final_status=final_status,
     )
 
     # RUN LOG: finalize

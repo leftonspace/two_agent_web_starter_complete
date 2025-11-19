@@ -7,8 +7,8 @@ from typing import Any, Dict, Optional
 
 import requests
 
-import cost_tracker
 import core_logging
+import cost_tracker
 from model_router import choose_model as router_choose_model
 
 # OpenAI Chat Completions endpoint
@@ -104,6 +104,8 @@ def chat_json(
     is_very_important: bool = False,
     run_id: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
+    # STAGE 5.2: Cost cap enforcement
+    max_cost_usd: float = 0.0,
 ) -> Dict[str, Any]:
     """
     High-level helper that:
@@ -120,6 +122,10 @@ def chat_json(
     - If `model` is explicitly provided, use it (bypass router)
     - If `task_type` is provided, use intelligent routing
     - Otherwise, fall back to legacy role-based selection
+
+    STAGE 5.2 Cost Cap Enforcement:
+    - If `max_cost_usd` > 0, checks before making LLM call
+    - Returns error stub if cost would be exceeded
     """
     if model is None:
         # STAGE 5: Use intelligent routing if task_type provided
@@ -157,6 +163,36 @@ def chat_json(
                 chosen_model = DEFAULT_EMPLOYEE_MODEL
     else:
         chosen_model = model
+
+    # STAGE 5.2: Check cost cap before making the call
+    if max_cost_usd > 0:
+        # Estimate prompt size (rough heuristic: 4 chars per token)
+        effective_system = system if system is not None else (system_prompt or "")
+        prompt_chars = len(effective_system) + len(user_content)
+        estimated_tokens = (prompt_chars // 4) + 2000  # Add buffer for output
+
+        would_exceed, current_cost, cap_message = cost_tracker.check_cost_cap(
+            max_cost_usd=max_cost_usd,
+            estimated_tokens=estimated_tokens,
+            model=chosen_model,
+        )
+
+        if would_exceed:
+            print(f"[CostCap] {cap_message}")
+            print("[CostCap] Aborting LLM call to stay within budget.")
+
+            # Return a stub indicating cost cap was hit
+            return {
+                "plan": [],
+                "notes": f"LLM call skipped: cost cap would be exceeded. {cap_message}",
+                "status": "cost_cap_exceeded",
+                "files": {},
+                "acceptance_criteria": [],
+                "phases": [],
+                "cost_cap_hit": True,
+                "current_cost_usd": current_cost,
+                "max_cost_usd": max_cost_usd,
+            }
 
     # Choose which system message to use
     effective_system = system if system is not None else (system_prompt or "")

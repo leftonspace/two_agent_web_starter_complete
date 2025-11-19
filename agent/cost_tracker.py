@@ -164,6 +164,66 @@ def get_total_cost_usd() -> float:
         return 0.0
 
 
+def check_cost_cap(
+    max_cost_usd: float,
+    estimated_tokens: int = 5000,
+    model: str = "gpt-5-mini",
+) -> tuple[bool, float, str]:
+    """
+    STAGE 5.2: Check if making another LLM call would exceed the cost cap.
+
+    Args:
+        max_cost_usd: Maximum allowed cost in USD
+        estimated_tokens: Rough estimate of tokens for next call (input + output)
+        model: Model that will be used for the call
+
+    Returns:
+        Tuple of (would_exceed, current_cost, message)
+        - would_exceed: True if the call would likely exceed the cap
+        - current_cost: Current total cost in USD
+        - message: Human-readable explanation
+    """
+    if max_cost_usd <= 0:
+        # No cap set
+        return (False, 0.0, "No cost cap configured")
+
+    current_cost = get_total_cost_usd()
+
+    # Estimate cost of next call
+    # Use a conservative estimate: assume all tokens are output tokens (more expensive)
+    model_key = model
+    # Match model prefix to pricing table
+    for price_key in PRICES_USD_PER_TOKEN.keys():
+        if price_key in model:
+            model_key = price_key
+            break
+    else:
+        model_key = FALLBACK_MODEL
+
+    price_cfg = PRICES_USD_PER_TOKEN.get(model_key, PRICES_USD_PER_TOKEN[FALLBACK_MODEL])
+    # Conservative: assume all tokens are output (more expensive)
+    estimated_call_cost = estimated_tokens * price_cfg["output"]
+
+    projected_cost = current_cost + estimated_call_cost
+
+    if projected_cost > max_cost_usd:
+        message = (
+            f"Cost cap would be exceeded: current=${current_cost:.4f}, "
+            f"estimated next call=${estimated_call_cost:.4f}, "
+            f"projected total=${projected_cost:.4f}, "
+            f"cap=${max_cost_usd:.4f}"
+        )
+        return (True, current_cost, message)
+
+    remaining = max_cost_usd - current_cost
+    message = (
+        f"Within budget: current=${current_cost:.4f}, "
+        f"remaining=${remaining:.4f}, "
+        f"cap=${max_cost_usd:.4f}"
+    )
+    return (False, current_cost, message)
+
+
 def load_history() -> list[dict[str, Any]]:
     """Load the shared history from HISTORY_FILE. Best-effort and safe on errors."""
     if not HISTORY_FILE.exists():

@@ -7,6 +7,9 @@ jinja2>=3.1.0
 uvicorn[standard]>=0.24.0
 python-multipart>=0.0.6  # For form data handling
 
+# PHASE 1.1: Authentication dependencies
+bcrypt>=4.0.0  # Password hashing for API keys
+
 # Testing dependencies
 pytest>=7.4.0
 pytest-cov>=4.1.0

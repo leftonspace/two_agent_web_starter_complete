@@ -18,7 +18,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -35,6 +35,20 @@ import qa
 import analytics
 import brain
 
+# PHASE 1.1: Authentication
+from agent.webapp.auth import (
+    User,
+    get_current_user,
+    require_admin,
+    require_auth,
+    require_developer,
+)
+from agent.webapp.auth_routes import (
+    auth_router,
+    api_keys_router,
+    initialize_auth_system,
+)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Dev Team Dashboard",
@@ -50,6 +64,16 @@ templates = Jinja2Templates(directory=str(templates_dir))
 # Mount static files (CSS, JS) if directory exists
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# PHASE 1.1: Include authentication routers
+app.include_router(auth_router)
+app.include_router(api_keys_router)
+
+# Initialize auth system on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize authentication system."""
+    initialize_auth_system()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -84,6 +108,7 @@ async def start_run(
     cost_warning_usd: float = Form(0.0),
     use_visual_review: bool = Form(False),
     use_git: bool = Form(False),
+    current_user: User = Depends(require_developer),  # PHASE 1.1: Require developer role
 ):
     """
     Start a new orchestrator run in the background.
@@ -186,7 +211,7 @@ async def view_job(request: Request, job_id: str):
 
 
 @app.post("/jobs/{job_id}/rerun")
-async def rerun_job(job_id: str):
+async def rerun_job(job_id: str, current_user: User = Depends(require_developer)):
     """
     Rerun a job with the same configuration.
 
@@ -420,7 +445,7 @@ async def api_get_job_logs(job_id: str, tail: Optional[int] = None):
 
 
 @app.post("/api/jobs/{job_id}/cancel")
-async def api_cancel_job(job_id: str):
+async def api_cancel_job(job_id: str, current_user: User = Depends(require_developer)):
     """
     API endpoint to cancel a running job.
 
@@ -453,7 +478,7 @@ async def api_cancel_job(job_id: str):
 
 
 @app.post("/api/jobs/{job_id}/qa")
-async def api_run_job_qa(job_id: str):
+async def api_run_job_qa(job_id: str, current_user: User = Depends(require_developer)):
     """
     Run QA checks on an existing job's project.
 
@@ -1115,7 +1140,7 @@ async def api_get_recommendations(project_id: str):
 
 
 @app.post("/api/auto-tune/toggle")
-async def api_toggle_auto_tune(enabled: bool = Form(...)):
+async def api_toggle_auto_tune(enabled: bool = Form(...), current_user: User = Depends(require_admin)):
     """
     Toggle auto-tune on/off globally.
 

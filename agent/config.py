@@ -160,6 +160,31 @@ class SandboxConfig:
 
 
 @dataclass
+class AuthConfig:
+    """
+    PHASE 1.1: Authentication and authorization configuration.
+
+    Controls web dashboard authentication for both API keys and sessions.
+    """
+
+    enabled: bool = True  # Enable authentication (set False for development)
+    session_ttl_hours: int = 24  # Session expiration time
+    api_key_ttl_days: int = 90  # Default API key expiration (0 = no expiration)
+    require_https: bool = True  # Enforce HTTPS in production
+    allow_registration: bool = False  # Allow self-registration (disabled by default)
+
+    # Security settings
+    bcrypt_rounds: int = 12  # Bcrypt work factor for password hashing
+    session_cookie_name: str = "session_id"
+    session_cookie_secure: bool = True  # Require HTTPS for cookies
+    session_cookie_httponly: bool = True  # Prevent JavaScript access
+    session_cookie_samesite: str = "lax"  # CSRF protection
+
+    # Admin key generation on first run
+    create_default_admin_key: bool = True
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -193,6 +218,9 @@ class Config:
 
     # PHASE 3.2: Sandbox execution
     sandbox: SandboxConfig = field(default_factory=SandboxConfig)
+
+    # PHASE 1.1: Authentication
+    auth: AuthConfig = field(default_factory=AuthConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"
@@ -297,6 +325,16 @@ class Config:
             use_snapshots=bool(data.get("use_snapshots", True)),
         )
 
+        auth_data = data.get("auth", {})
+        auth = AuthConfig(
+            enabled=bool(auth_data.get("enabled", True)),
+            session_ttl_hours=int(auth_data.get("session_ttl_hours", 24)),
+            api_key_ttl_days=int(auth_data.get("api_key_ttl_days", 90)),
+            require_https=bool(auth_data.get("require_https", True)),
+            allow_registration=bool(auth_data.get("allow_registration", False)),
+            create_default_admin_key=bool(auth_data.get("create_default_admin_key", True)),
+        )
+
         # Create config
         config = cls(
             mode=ExecutionMode(data.get("mode", "3loop")),
@@ -307,6 +345,7 @@ class Config:
             git=git,
             qa=qa,
             runtime=runtime,
+            auth=auth,
             project_name=data.get("project_name", "Unknown Project"),
             project_subdir=data.get("project_subdir", "output"),
             task=data.get("task", ""),

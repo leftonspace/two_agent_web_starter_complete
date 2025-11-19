@@ -405,3 +405,442 @@ Stage 7 adds a clean, functional web dashboard while preserving all existing CLI
 - 📊 Run history and detailed logs
 - 💰 Cost tracking and breakdowns
 - ✅ Comprehensive test coverage
+
+---
+
+## Phase 1.1: Authentication & Security
+
+**Added:** November 2025  
+**Status:** Implemented
+
+The web dashboard now includes comprehensive authentication and authorization to secure access to the orchestrator system.
+
+### Overview
+
+Authentication provides:
+- **API Key authentication** for programmatic access
+- **Session-based authentication** for web UI users
+- **Role-based access control** (admin, developer, viewer)
+- **API key management** (generation, rotation, revocation)
+- **CSRF protection** for state-changing operations
+
+### User Roles
+
+Three user roles with different permission levels:
+
+| Role | Permissions |
+|------|-------------|
+| **Admin** | Full access: manage API keys, users, system configuration, start jobs, view analytics |
+| **Developer** | Start jobs, cancel jobs, run QA, view analytics, modify projects |
+| **Viewer** | Read-only: view jobs, analytics, logs (cannot start or modify) |
+
+Role hierarchy: **Admin > Developer > Viewer**
+
+### Authentication Methods
+
+#### 1. API Key Authentication
+
+For programmatic access (scripts, CI/CD, external tools):
+
+```bash
+# Use X-API-Key header
+curl -H "X-API-Key: sk_your_api_key_here" http://localhost:8000/api/jobs
+
+# Example: Start a run via API
+curl -X POST http://localhost:8000/run \
+  -H "X-API-Key: sk_your_api_key_here" \
+  -F "project_subdir=my_project" \
+  -F "mode=3loop" \
+  -F "task=Build landing page" \
+  -F "max_rounds=3"
+```
+
+#### 2. Session-Based Authentication
+
+For web UI access:
+
+1. Navigate to `http://localhost:8000/auth/login`
+2. Enter your username and API key
+3. Get a session cookie (expires after 24 hours by default)
+4. Use the web UI normally
+
+### Configuration
+
+Add auth configuration to `project_config.json`:
+
+```json
+{
+  "auth": {
+    "enabled": true,
+    "session_ttl_hours": 24,
+    "api_key_ttl_days": 90,
+    "require_https": true,
+    "allow_registration": false,
+    "create_default_admin_key": true
+  }
+}
+```
+
+**Configuration Options:**
+
+- `enabled` (bool): Enable/disable authentication (default: true)
+- `session_ttl_hours` (int): Session expiration time in hours (default: 24)
+- `api_key_ttl_days` (int): Default API key expiration in days (default: 90, 0 = no expiration)
+- `require_https` (bool): Enforce HTTPS for cookies in production (default: true)
+- `allow_registration` (bool): Allow self-registration (default: false)
+- `create_default_admin_key` (bool): Generate admin key on first run (default: true)
+
+**Development Mode:**
+
+To disable authentication for development:
+
+```json
+{
+  "auth": {
+    "enabled": false
+  }
+}
+```
+
+⚠️ **Warning:** Only disable auth in development environments!
+
+### First-Time Setup
+
+When you first start the web dashboard with authentication enabled:
+
+1. **Default admin key is generated automatically:**
+
+```bash
+python -m uvicorn agent.webapp.app:app --reload
+```
+
+Output:
+```
+============================================================
+🔐 DEFAULT ADMIN API KEY GENERATED
+============================================================
+API Key: sk_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890
+User ID: admin
+Role: admin
+
+⚠️  SAVE THIS KEY NOW - IT WILL NOT BE SHOWN AGAIN!
+============================================================
+```
+
+2. **Save this API key securely** (password manager, secrets vault)
+3. **Use it to log in** or make API requests
+
+### API Key Management
+
+#### Generate New Keys (Admin Only)
+
+**Via Web UI:**
+1. Navigate to `http://localhost:8000/api/keys/`
+2. Fill out the form:
+   - User ID: `john_doe`
+   - Username: `John Doe`
+   - Role: `developer`
+   - TTL Days: `90`
+   - Description: `John's API key`
+3. Click "Generate Key"
+4. **Copy the key immediately** (shown only once!)
+
+**Via API:**
+
+```bash
+curl -X POST http://localhost:8000/api/keys/generate \
+  -H "X-API-Key: sk_your_admin_key" \
+  -F "user_id=john_doe" \
+  -F "username=John Doe" \
+  -F "role=developer" \
+  -F "ttl_days=90" \
+  -F "description=John's API key"
+```
+
+#### List Keys
+
+```bash
+curl -H "X-API-Key: sk_your_admin_key" \
+  http://localhost:8000/api/keys/list
+```
+
+#### Revoke Key
+
+```bash
+curl -X POST http://localhost:8000/api/keys/{key_id}/revoke \
+  -H "X-API-Key: sk_your_admin_key"
+```
+
+#### Delete Key
+
+```bash
+curl -X DELETE http://localhost:8000/api/keys/{key_id} \
+  -H "X-API-Key: sk_your_admin_key"
+```
+
+### Protected Endpoints
+
+Routes requiring authentication:
+
+| Endpoint | Required Role | Description |
+|----------|--------------|-------------|
+| `POST /run` | Developer | Start orchestrator run |
+| `POST /jobs/{id}/rerun` | Developer | Rerun a job |
+| `POST /api/jobs/{id}/cancel` | Developer | Cancel running job |
+| `POST /api/jobs/{id}/qa` | Developer | Run QA checks |
+| `POST /api/auto-tune/toggle` | Admin | Toggle auto-tune |
+| `GET /api/keys/` | Admin | View API keys management |
+| `POST /api/keys/generate` | Admin | Generate new API key |
+| `POST /api/keys/{id}/revoke` | Admin | Revoke API key |
+| `DELETE /api/keys/{id}` | Admin | Delete API key |
+
+Public endpoints (no auth required):
+- `GET /` - Home page
+- `GET /auth/login` - Login page
+- `POST /auth/login` - Login action
+- `GET /health` - Health check
+
+### Security Features
+
+#### 1. Bcrypt Password Hashing
+
+- API keys are hashed with bcrypt before storage
+- Never stored in plain text
+- Secure work factor: 12 rounds (configurable)
+
+#### 2. CSRF Protection
+
+- All state-changing operations (POST/PUT/DELETE) require CSRF token
+- CSRF tokens are session-specific
+- Tokens automatically included in forms
+
+#### 3. Session Security
+
+- Secure cookies (HTTPS-only in production)
+- HttpOnly cookies (JavaScript cannot access)
+- SameSite=lax (CSRF protection)
+- Configurable expiration (default: 24 hours)
+
+#### 4. API Key Best Practices
+
+- Keys use `sk_` prefix (similar to OpenAI format)
+- Cryptographically secure random generation
+- Expiration dates enforced
+- Last-used timestamp tracked for auditing
+
+### Database
+
+API keys are stored in SQLite database: `data/api_keys.db`
+
+**Schema:**
+
+```sql
+CREATE TABLE api_keys (
+    key_id TEXT PRIMARY KEY,
+    key_hash TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    username TEXT NOT NULL,
+    role TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,
+    last_used TEXT,
+    revoked INTEGER DEFAULT 0,
+    description TEXT
+)
+```
+
+**Backup:**
+
+```bash
+# Backup API keys database
+cp data/api_keys.db data/api_keys.backup.db
+
+# Restore from backup
+cp data/api_keys.backup.db data/api_keys.db
+```
+
+### Testing
+
+Run authentication tests:
+
+```bash
+# Run all auth tests
+pytest agent/tests_stage7/test_auth.py -v
+
+# Run specific test
+pytest agent/tests_stage7/test_auth.py::test_api_key_authentication -v
+
+# Run with coverage
+pytest agent/tests_stage7/test_auth.py --cov=agent.webapp.auth --cov-report=html
+```
+
+**Test Coverage:**
+- API key generation and verification
+- Session creation and expiration
+- Role-based access control
+- Login/logout flow
+- API key management endpoints
+- 25+ test cases
+
+### Troubleshooting
+
+#### "Authentication required" error
+
+**Cause:** No API key provided or invalid key
+
+**Solution:**
+```bash
+# Check if auth is enabled in config
+cat project_config.json | grep -A 5 '"auth"'
+
+# Verify your API key works
+curl -H "X-API-Key: sk_your_key" http://localhost:8000/auth/status
+```
+
+#### Default admin key not shown
+
+**Cause:** Key already exists from previous run
+
+**Solution:**
+```bash
+# List existing keys
+python -c "
+from agent.webapp.api_keys import get_api_key_manager
+manager = get_api_key_manager()
+keys = manager.list_keys()
+for key in keys:
+    print(f'{key[\"key_id\"]}: {key[\"username\"]} ({key[\"role\"]})')
+"
+```
+
+#### Cannot access /api/keys
+
+**Cause:** Not using admin API key
+
+**Solution:** Only admin role can manage API keys. Use admin key or have an admin generate a key for you.
+
+#### Session expired
+
+**Cause:** Session TTL exceeded (default: 24 hours)
+
+**Solution:** Log in again at `/auth/login`
+
+### Migration from Unauthenticated
+
+If upgrading from a version without authentication:
+
+1. **Backup your data:**
+   ```bash
+   cp -r data/ data.backup/
+   ```
+
+2. **Start the server** - default admin key will be generated
+
+3. **Save the admin key** displayed in console
+
+4. **Update automation/scripts** to include API key header:
+   ```bash
+   # Old (no auth)
+   curl http://localhost:8000/api/jobs
+
+   # New (with auth)
+   curl -H "X-API-Key: sk_your_key" http://localhost:8000/api/jobs
+   ```
+
+5. **Generate keys for team members:**
+   - Admins get `admin` role
+   - Developers get `developer` role
+   - Viewers get `viewer` role
+
+### Security Checklist
+
+Before deploying to production:
+
+- [ ] Change default admin key
+- [ ] Enable `require_https: true`
+- [ ] Set `allow_registration: false`
+- [ ] Use environment variables for sensitive config
+- [ ] Regularly rotate API keys
+- [ ] Monitor `last_used` timestamps
+- [ ] Review and revoke unused keys
+- [ ] Enable HTTPS on your server
+- [ ] Set appropriate session TTL for your security requirements
+- [ ] Backup `data/api_keys.db` regularly
+
+### Best Practices
+
+1. **Key Management:**
+   - Rotate keys every 90 days
+   - Use different keys for different services
+   - Revoke keys immediately when team members leave
+   - Never commit keys to version control
+
+2. **Role Assignment:**
+   - Follow principle of least privilege
+   - Start with viewer role, escalate as needed
+   - Admin role only for key managers
+
+3. **Session Management:**
+   - Logout when using shared computers
+   - Clear browser cache on public computers
+   - Use shorter TTL for sensitive environments
+
+4. **Monitoring:**
+   - Review `last_used` timestamps regularly
+   - Alert on admin key usage
+   - Log authentication failures
+
+### API Reference
+
+#### Authentication Status
+
+```bash
+GET /auth/status
+```
+
+**Response:**
+```json
+{
+  "authenticated": true,
+  "user_id": "john_doe",
+  "username": "John Doe",
+  "role": "developer"
+}
+```
+
+#### Login
+
+```bash
+POST /auth/login
+Content-Type: application/x-www-form-urlencoded
+
+username=john_doe&api_key=sk_your_key_here
+```
+
+**Response:** Redirect to `/` with session cookie
+
+#### Logout
+
+```bash
+POST /auth/logout
+```
+
+**Response:** Redirect to `/auth/login` with cookie cleared
+
+---
+
+## Summary
+
+Phase 1.1 adds enterprise-grade authentication to the web dashboard, enabling secure multi-user access with role-based permissions. The system is backward-compatible and can be disabled for development environments.
+
+**Key Features:**
+- ✅ API key authentication
+- ✅ Session-based web UI auth
+- ✅ Role-based access control (admin/developer/viewer)
+- ✅ CSRF protection
+- ✅ Bcrypt password hashing
+- ✅ Secure session management
+- ✅ API key lifecycle management
+- ✅ Comprehensive test coverage (25+ tests)
+
+**Next Steps:** See `docs/IMPLEMENTATION_PROMPTS_PHASES_1_5.md` for remaining Phase 1 security improvements.

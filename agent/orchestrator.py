@@ -53,6 +53,29 @@ def _load_config() -> Dict[str, Any]:
 
 
 def _ensure_out_dir(cfg: Dict[str, Any]) -> Path:
+    """
+    Determine output directory for the project.
+
+    STAGE 4.3: For multi-repo projects, returns the first repo's path.
+    For single-repo projects, uses project_subdir.
+
+    Args:
+        cfg: Project configuration
+
+    Returns:
+        Path to output directory
+    """
+    # STAGE 4.3: Check for multi-repo mode
+    repos = cfg.get("repos", [])
+    if repos and isinstance(repos, list) and len(repos) > 0:
+        # Multi-repo mode: use first repo as default
+        first_repo_path = repos[0].get("path")
+        if first_repo_path:
+            out_dir = Path(first_repo_path).resolve()
+            out_dir.mkdir(parents=True, exist_ok=True)
+            return out_dir
+
+    # Single-repo mode (legacy)
     root = Path(__file__).resolve().parent.parent  # .. from agent to root
     sites_dir = root / "sites"
     out_dir = sites_dir / cfg["project_subdir"]
@@ -173,35 +196,65 @@ def _build_safety_feedback(safety_result: Dict[str, Any]) -> List[str]:
     return feedback
 
 
-def _choose_employee_model(
+def _choose_model_for_agent(
+    role: str,
+    task_type: str,
     iteration: int,
-    last_status: Optional[str],
-    last_tests: Optional[Dict[str, Any]],
+    last_status: Optional[str] = None,
+    last_tests: Optional[Dict[str, Any]] = None,
+    stage: Optional[Dict[str, Any]] = None,
+    config: Optional[Dict[str, Any]] = None,
+    run_id: Optional[str] = None,
 ) -> str:
     """
-    Decide which model the Employee should use.
+    STAGE 5: Choose model using central model router with GPT-5 constraints.
 
-    Constraint:
-    - Iteration 1: always gpt-5-mini (cheap first pass).
-    - Iteration 2 or 3:
-        * If previous status was 'needs_changes' OR tests failed → gpt-5.
-        * Otherwise → gpt-5-mini.
-    - Iteration > 3: default to gpt-5-mini.
+    Uses model_router.choose_model() to enforce:
+    - GPT-5 only on 2nd or 3rd iterations
+    - GPT-5 only when complexity is high or task is very important
+    - Cost-aware model selection
+
+    Args:
+        role: Agent role (manager, employee, supervisor)
+        task_type: Type of task (planning, code, review)
+        iteration: Current iteration number (1-indexed)
+        last_status: Previous iteration status
+        last_tests: Previous test results
+        stage: Current stage metadata
+        config: Project configuration
+        run_id: Current run ID for logging
+
+    Returns:
+        Model identifier string
     """
-    if iteration <= 1:
-        return "gpt-5-mini"
+    # Estimate complexity based on previous failures and stage metadata
+    previous_failures = 0
+    if last_status == "needs_changes":
+        previous_failures += 1
+    if last_tests and not last_tests.get("all_passed"):
+        previous_failures += 1
 
-    if iteration in (2, 3):
-        tests_failed = False
-        if last_tests is not None:
-            tests_failed = not bool(last_tests.get("all_passed"))
+    complexity = estimate_complexity(
+        stage=stage,
+        previous_failures=previous_failures,
+        files_count=0,  # Could be enhanced to count actual files
+        config=config,
+    )
 
-        if (last_status == "needs_changes") or tests_failed:
-            return "gpt-5"
-        else:
-            return "gpt-5-mini"
+    # Check if stage is marked as very important
+    is_important = is_stage_important(stage=stage, config=config) if stage else False
 
-    return "gpt-5-mini"
+    # Use model router to select model
+    from model_router import choose_model
+
+    return choose_model(
+        task_type=task_type,
+        complexity=complexity,
+        role=role,
+        interaction_index=iteration,
+        is_very_important=is_important,
+        config=config,
+    )
 
 
 def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:
@@ -351,16 +404,36 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     print("\n====== MANAGER PLANNING ======")
     print(f"[CoreLog] Run ID: {core_run_id}")
 
+    # STAGE 5: Use model router for manager planning
+    manager_model = _choose_model_for_agent(
+        role="manager",
+        task_type="planning",
+        iteration=1,  # Planning is pre-iteration
+        config=cfg,
+        run_id=core_run_id,
+    )
+    print(f"[ModelRouter] Manager planning will use: {manager_model}")
+
     # STAGE 2.2: Log LLM call
     core_logging.log_llm_call(
         core_run_id,
         role="manager",
-        model="gpt-5",  # Default model for planning
+        model=manager_model,
         prompt_length=len(manager_plan_sys) + len(task),
         phase="planning"
     )
 
-    plan = chat_json("manager", manager_plan_sys, task)
+    plan = chat_json(
+        "manager",
+        manager_plan_sys,
+        task,
+        model=manager_model,
+        task_type="planning",
+        complexity="low",
+        interaction_index=1,
+        run_id=core_run_id,
+        config=cfg,
+    )
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
 
@@ -392,11 +465,21 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         "acceptance_criteria": plan.get("acceptance_criteria", []),
     }
 
+    # STAGE 5: Use model router for supervisor
+    supervisor_model = _choose_model_for_agent(
+        role="supervisor",
+        task_type="planning",
+        iteration=1,  # Phasing is pre-iteration
+        config=cfg,
+        run_id=core_run_id,
+    )
+    print(f"[ModelRouter] Supervisor phasing will use: {supervisor_model}")
+
     # STAGE 2.2: Log LLM call
     core_logging.log_llm_call(
         core_run_id,
         role="supervisor",
-        model="gpt-5",  # Default model
+        model=supervisor_model,
         prompt_length=len(supervisor_sys) + len(json.dumps(sup_payload)),
         phase="supervisor_phasing"
     )
@@ -405,6 +488,12 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         "supervisor",
         supervisor_sys,
         json.dumps(sup_payload, ensure_ascii=False),
+        model=supervisor_model,
+        task_type="planning",
+        complexity="low",
+        interaction_index=1,
+        run_id=core_run_id,
+        config=cfg,
     )
     print("\n-- Supervisor Phases --")
     print(json.dumps(phases, indent=2, ensure_ascii=False))
@@ -451,8 +540,17 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             max_rounds=max_rounds
         )
 
-        employee_model = _choose_employee_model(iteration, last_status, last_tests)
-        print(f"[ModelSelect] Employee will use model: {employee_model}")
+        # STAGE 5: Use model router for employee
+        employee_model = _choose_model_for_agent(
+            role="employee",
+            task_type="code",
+            iteration=iteration,
+            last_status=last_status,
+            last_tests=last_tests,
+            config=cfg,
+            run_id=core_run_id,
+        )
+        print(f"[ModelRouter] Employee will use model: {employee_model}")
 
         existing_files = load_existing_files(out_dir)
         if existing_files:
@@ -499,6 +597,10 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 employee_sys_phase,
                 json.dumps(phase_payload, ensure_ascii=False),
                 model=employee_model,
+                task_type="code",
+                interaction_index=iteration,
+                run_id=core_run_id,
+                config=cfg,
             )
 
             files_dict = emp.get("files", {})
@@ -507,10 +609,14 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                     f"Employee response 'files' must be an object/dict, got {type(files_dict)}"
                 )
 
+            # STAGE 4.3: Determine target repo for this phase
+            phase_repo_path = resolve_repo_path(cfg, stage=phase)
+            print(f"\n[MultiRepo] Target repo: {phase_repo_path}")
+
             print("\n[Orchestrator] Writing files to disk...")
             written_files = []
             for rel_path, content in files_dict.items():
-                dest = out_dir / rel_path
+                dest = phase_repo_path / rel_path
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_text(content, encoding="utf-8")
                 print(f"  wrote {dest}")
@@ -569,11 +675,23 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             "iteration": iteration,
         }
 
+        # STAGE 5: Use model router for manager review
+        manager_review_model = _choose_model_for_agent(
+            role="manager",
+            task_type="review",
+            iteration=iteration,
+            last_status=last_status,
+            last_tests=last_tests,
+            config=cfg,
+            run_id=core_run_id,
+        )
+        print(f"[ModelRouter] Manager review will use: {manager_review_model}")
+
         # STAGE 2.2: Log LLM call
         core_logging.log_llm_call(
             core_run_id,
             role="manager",
-            model="gpt-5",  # Default model for review
+            model=manager_review_model,
             prompt_length=len(manager_review_sys) + len(json.dumps(mgr_payload)),
             iteration=iteration,
             phase="review"
@@ -583,6 +701,11 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             "manager",
             manager_review_sys,
             json.dumps(mgr_payload, ensure_ascii=False),
+            model=manager_review_model,
+            task_type="review",
+            interaction_index=iteration,
+            run_id=core_run_id,
+            config=cfg,
         )
         print("\n-- Manager Review --")
         print(json.dumps(review, indent=2, ensure_ascii=False))
@@ -710,19 +833,29 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         # STAGE 4: Merge manager diff summary (after successful iteration)
         if status == "approved" or (status != "needs_changes" and iteration_safety_status != "failed"):
             try:
-                # Summarize git diff with LLM
-                diff_summary = merge_manager.summarize_diff_with_llm(
-                    run_id=core_run_id,
-                    repo_path=out_dir,
-                    context={
-                        "iteration": iteration,
-                        "status": status,
-                        "safety_status": iteration_safety_status,
-                    }
-                )
-                print(f"\n[MergeManager] Diff summary: {diff_summary.get('summary', 'N/A')}")
-                if diff_summary.get("risks"):
-                    print(f"[MergeManager] Risks identified: {', '.join(diff_summary['risks'])}")
+                # STAGE 4.3: Summarize diffs for all repos
+                from repo_router import get_all_repo_paths
+
+                repo_paths = get_all_repo_paths(cfg)
+                if not repo_paths:
+                    repo_paths = [out_dir]  # Fallback to default
+
+                for repo_path in repo_paths:
+                    # Summarize git diff with LLM
+                    diff_summary = merge_manager.summarize_diff_with_llm(
+                        run_id=core_run_id,
+                        repo_path=repo_path,
+                        context={
+                            "iteration": iteration,
+                            "status": status,
+                            "safety_status": iteration_safety_status,
+                            "repo_path": str(repo_path),
+                        }
+                    )
+                    if diff_summary.get("summary") != "No changes detected":
+                        print(f"\n[MergeManager] Diff summary for {repo_path.name}: {diff_summary.get('summary', 'N/A')}")
+                        if diff_summary.get("risks"):
+                            print(f"[MergeManager] Risks identified: {', '.join(diff_summary['risks'])}")
             except Exception as e:
                 print(f"[MergeManager] Failed to summarize diff: {e}")
 
@@ -853,42 +986,64 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     auto_git_commit = cfg.get("auto_git_commit", False)
     if auto_git_commit and git_ready:
         try:
-            print("\n[SemanticCommit] Generating semantic commit message...")
-            core_logging.log_event(core_run_id, "git_commit_attempt", {
-                "mode": "semantic",
-                "final_status": final_status,
-            })
+            print("\n[SemanticCommit] Generating semantic commit messages for all repos...")
 
-            commit_info = merge_manager.summarize_session(
-                run_id=core_run_id,
-                repo_path=out_dir,
-                task=task,
-            )
+            # STAGE 4.3: Get all repos to commit
+            from repo_router import get_all_repo_paths
 
-            title = commit_info.get("title", f"Auto-commit: {core_run_id[:8]}")
-            body = commit_info.get("body", "Changes made during orchestrator run.")
+            repo_paths = get_all_repo_paths(cfg)
+            if not repo_paths:
+                repo_paths = [out_dir]  # Fallback to default
 
-            print(f"[SemanticCommit] Title: {title}")
-            print(f"[SemanticCommit] Body preview: {body[:100]}...")
+            auto_commit_repos = cfg.get("auto_git_commit_repos", ["default"])
 
-            # Create commit
-            commit_success = merge_manager.make_commit(
-                repo_path=out_dir,
-                title=title,
-                body=body,
-            )
+            for repo_path in repo_paths:
+                # Check if this repo should be auto-committed
+                repo_name = repo_path.name
+                if "default" not in auto_commit_repos and repo_name not in auto_commit_repos:
+                    print(f"[SemanticCommit] Skipping {repo_name} (not in auto_git_commit_repos)")
+                    continue
 
-            if commit_success:
-                core_logging.log_event(core_run_id, "git_commit_success", {
-                    "title": title,
+                print(f"\n[SemanticCommit] Processing {repo_name}...")
+
+                core_logging.log_event(core_run_id, "git_commit_attempt", {
                     "mode": "semantic",
+                    "final_status": final_status,
+                    "repo_path": str(repo_path),
                 })
-                print("[SemanticCommit] ✅ Commit created successfully")
-            else:
-                core_logging.log_event(core_run_id, "git_commit_skipped", {
-                    "reason": "No changes or commit failed",
-                })
-                print("[SemanticCommit] ⚠️  No commit created (no changes or failed)")
+
+                commit_info = merge_manager.summarize_session(
+                    run_id=core_run_id,
+                    repo_path=repo_path,
+                    task=task,
+                )
+
+                title = commit_info.get("title", f"Auto-commit: {core_run_id[:8]}")
+                body = commit_info.get("body", "Changes made during orchestrator run.")
+
+                print(f"[SemanticCommit] {repo_name} - Title: {title}")
+                print(f"[SemanticCommit] {repo_name} - Body preview: {body[:100]}...")
+
+                # Create commit
+                commit_success = merge_manager.make_commit(
+                    repo_path=repo_path,
+                    title=title,
+                    body=body,
+                )
+
+                if commit_success:
+                    core_logging.log_event(core_run_id, "git_commit_success", {
+                        "title": title,
+                        "mode": "semantic",
+                        "repo_path": str(repo_path),
+                    })
+                    print(f"[SemanticCommit] ✅ {repo_name} - Commit created successfully")
+                else:
+                    core_logging.log_event(core_run_id, "git_commit_skipped", {
+                        "reason": "No changes or commit failed",
+                        "repo_path": str(repo_path),
+                    })
+                    print(f"[SemanticCommit] ⚠️  {repo_name} - No commit created (no changes or failed)")
 
         except Exception as e:
             core_logging.log_event(core_run_id, "git_commit_failed", {

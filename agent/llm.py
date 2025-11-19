@@ -11,24 +11,85 @@ import core_logging
 import cost_tracker
 from model_router import choose_model as router_choose_model
 
+# PHASE 0.3: Import config module for centralized defaults
+try:
+    import config as config_module
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+
 # OpenAI Chat Completions endpoint
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
-# Default model labels – can be overridden via env vars.
-DEFAULT_MANAGER_MODEL = os.getenv("DEFAULT_MANAGER_MODEL", "gpt-5-mini-2025-08-07")
-DEFAULT_SUPERVISOR_MODEL = os.getenv("DEFAULT_SUPERVISOR_MODEL", "gpt-5-nano")
-DEFAULT_EMPLOYEE_MODEL = os.getenv("DEFAULT_EMPLOYEE_MODEL", "gpt-5-2025-08-07")
+
+def _get_default_models() -> Dict[str, str]:
+    """
+    PHASE 0.3: Get default models from config.py if available, else from environment variables.
+
+    Returns:
+        Dict with keys: manager, supervisor, employee
+    """
+    if CONFIG_AVAILABLE:
+        cfg = config_module.get_config()
+        return {
+            "manager": cfg.models.manager,
+            "supervisor": cfg.models.supervisor,
+            "employee": cfg.models.employee,
+        }
+    else:
+        # Legacy: Read from environment variables
+        return {
+            "manager": os.getenv("DEFAULT_MANAGER_MODEL", "gpt-5-mini-2025-08-07"),
+            "supervisor": os.getenv("DEFAULT_SUPERVISOR_MODEL", "gpt-5-nano"),
+            "employee": os.getenv("DEFAULT_EMPLOYEE_MODEL", "gpt-5-2025-08-07"),
+        }
+
+
+# Cache default models at module load
+_DEFAULT_MODELS = _get_default_models()
+DEFAULT_MANAGER_MODEL = _DEFAULT_MODELS["manager"]
+DEFAULT_SUPERVISOR_MODEL = _DEFAULT_MODELS["supervisor"]
+DEFAULT_EMPLOYEE_MODEL = _DEFAULT_MODELS["employee"]
 
 
 def _post(payload: dict) -> dict:
     """
     Low-level helper to call the OpenAI Chat Completions endpoint.
 
+    - PHASE 3 (future): Checks for simulation mode and returns stub if enabled
     - Retries up to 3 times.
     - On success: returns the full JSON response.
     - On repeated failure: returns a *stub* dict with `timeout=True`
       instead of raising, so the caller can handle it gracefully.
     """
+    # PHASE 3 (infrastructure): Check for simulation mode
+    if CONFIG_AVAILABLE:
+        cfg = config_module.get_config()
+        if cfg.simulation.value != "off":
+            # Simulation mode enabled - return stub response without API call
+            print(f"[LLM] Simulation mode ({cfg.simulation.value}) - returning stub response")
+            return {
+                "choices": [{
+                    "message": {
+                        "content": json.dumps({
+                            "plan": ["Simulated plan step 1", "Simulated plan step 2"],
+                            "acceptance_criteria": ["Simulated criterion 1"],
+                            "phases": [{"name": "Simulated phase", "categories": ["layout_structure"]}],
+                            "files": {"index.html": "<html><body>Simulated content</body></html>"},
+                            "status": "approved",
+                            "feedback": [],
+                            "notes": "This is a simulated response for testing",
+                        })
+                    }
+                }],
+                "usage": {
+                    "prompt_tokens": 100,
+                    "completion_tokens": 50,
+                    "total_tokens": 150,
+                },
+                "simulated": True,
+            }
+
     # Ensure OPENAI_URL is always in scope (defensive coding)
     api_url = OPENAI_URL
 

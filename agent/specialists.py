@@ -27,6 +27,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+# PHASE 1.3: Import prompt security for injection defense (V3)
+import prompt_security
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Specialist Types
@@ -96,12 +99,28 @@ class SpecialistProfile:
         """
         Get the system prompt for this specialist.
 
+        PHASE 1.3: Sanitize task and system_prompt_additions to prevent injection (V3)
+
         Args:
             task: Task description
 
         Returns:
             System prompt string
         """
+        # PHASE 1.3: Sanitize task input to prevent prompt injection (V3)
+        sanitized_task = prompt_security.sanitize_user_input(
+            task,
+            context="specialist_task"
+        )
+
+        # PHASE 1.3: Sanitize system_prompt_additions as defense-in-depth
+        # (Currently hardcoded, but protects if made user-configurable in future)
+        sanitized_additions = prompt_security.sanitize_user_input(
+            self.system_prompt_additions,
+            context="specialist_system_prompt_additions"
+        )
+
+        # Build structured prompt with sanitized inputs
         base = f"""You are a {self.name} with deep expertise in {', '.join(self.expertise[:3])}.
 
 Your specialized knowledge includes:
@@ -116,9 +135,11 @@ When approaching tasks, you:
 3. Leverage your specialized tools effectively
 4. Provide expert-level solutions
 
-Current task: {task}
+<task_description>
+{sanitized_task}
+</task_description>
 
-{self.system_prompt_additions}"""
+{sanitized_additions}"""
 
         return base
 

@@ -9,6 +9,9 @@ from typing import Any, Dict, List, Optional
 import core_logging
 import cost_tracker
 
+# PHASE 1.3: Import prompt security for injection defense
+import prompt_security
+
 # PHASE 1.4: Import artifacts for mission logging
 try:
     import artifacts
@@ -492,6 +495,39 @@ def main(
     out_dir = _ensure_out_dir(cfg)
 
     task: str = cfg["task"]
+
+    # PHASE 1.3: Sanitize and validate task input to prevent prompt injection (V1)
+    original_task = task
+    task, detected_patterns, was_blocked = prompt_security.check_and_sanitize_task(
+        task,
+        context="orchestrator_main",
+        session_id=core_run_id,
+        strict_mode=False,  # Allow with sanitization rather than blocking
+    )
+
+    if detected_patterns:
+        print(f"[Security] Detected injection patterns: {', '.join(detected_patterns)}")
+        if was_blocked:
+            print("[Security] CRITICAL: Task blocked due to high-severity injection attempt")
+            print(f"[Security] Original task: {original_task[:200]}...")
+            # Log security event
+            core_logging.log_event(core_run_id, "security_task_blocked", {
+                "original_task": original_task,
+                "detected_patterns": detected_patterns,
+            })
+            return {
+                "status": "blocked_security",
+                "reason": "Task blocked due to prompt injection attempt",
+                "detected_patterns": detected_patterns,
+            }
+        else:
+            print(f"[Security] Task sanitized (patterns detected but not blocked)")
+            core_logging.log_event(core_run_id, "security_task_sanitized", {
+                "detected_patterns": detected_patterns,
+                "original_length": len(original_task),
+                "sanitized_length": len(task),
+            })
+
     max_rounds: int = int(cfg.get("max_rounds", 1))
     use_visual_review: bool = bool(cfg.get("use_visual_review", False))
     prompts_file: str = cfg.get("prompts_file", "prompts_default.json")

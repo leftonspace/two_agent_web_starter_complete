@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import cost_tracker
+
+# PHASE 1.3: Import prompt security for injection defense
+import prompt_security
+
 from git_utils import commit_all, ensure_repo
 from llm import chat_json
 from prompts import load_prompts
@@ -119,6 +123,25 @@ def main() -> None:
     out_dir = _ensure_out_dir(cfg)
 
     task: str = cfg["task"]
+
+    # PHASE 1.3: Sanitize and validate task input to prevent prompt injection (V1)
+    original_task = task
+    task, detected_patterns, was_blocked = prompt_security.check_and_sanitize_task(
+        task,
+        context="orchestrator_2loop",
+        strict_mode=False,  # Allow with sanitization rather than blocking
+    )
+
+    if detected_patterns:
+        print(f"[Security] Detected injection patterns: {', '.join(detected_patterns)}")
+        if was_blocked:
+            print("[Security] CRITICAL: Task blocked due to high-severity injection attempt")
+            print(f"[Security] Original task: {original_task[:200]}...")
+            print("[Security] Aborting 2-loop orchestrator due to security violation")
+            return
+        else:
+            print(f"[Security] Task sanitized (patterns detected but not blocked)")
+
     max_rounds: int = int(cfg.get("max_rounds", 1))
     use_visual_review: bool = bool(cfg.get("use_visual_review", False))
     prompts_file: str = cfg.get("prompts_file", "prompts_default.json")

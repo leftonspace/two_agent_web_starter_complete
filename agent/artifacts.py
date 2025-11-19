@@ -26,6 +26,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# PHASE 1.2: Import log sanitizer to prevent sensitive data leakage
+import log_sanitizer
+
 # Local imports
 from agent import paths
 
@@ -100,8 +103,12 @@ def log_artifact(
 
     # Append to JSONL file
     artifacts_file = get_artifacts_file_path(mission_id)
+
+    # PHASE 1.2: Sanitize entry before persistence to prevent sensitive data leakage
+    sanitized_entry = log_sanitizer.sanitize_log_data(entry)
+
     with artifacts_file.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        f.write(json.dumps(sanitized_entry, ensure_ascii=False) + "\n")
 
 
 def log_plan(

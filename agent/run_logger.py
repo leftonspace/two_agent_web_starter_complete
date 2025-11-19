@@ -22,6 +22,9 @@ from typing import Any, Dict, List, Optional
 from safe_io import safe_json_write, safe_timestamp, safe_mkdir
 from status_codes import UNKNOWN
 
+# PHASE 1.2: Import log sanitizer to prevent sensitive data leakage
+import log_sanitizer
+
 
 # ══════════════════════════════════════════════════════════════════════
 # STAGE 2: Dataclass-based Structured Logging
@@ -223,7 +226,10 @@ def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:
     json_file = run_dir / "run_summary.json"
     run_dict = asdict(run)
 
-    if safe_json_write(json_file, run_dict):
+    # PHASE 1.2: Sanitize run data before persistence to prevent sensitive data leakage
+    sanitized_run_dict = log_sanitizer.sanitize_log_data(run_dict)
+
+    if safe_json_write(json_file, sanitized_run_dict):
         print(f"[RUN] Saved run summary to {json_file}")
         return str(json_file)
     else:
@@ -339,7 +345,10 @@ def save_session_summary(session: SessionSummary, base_dir: str = "run_logs") ->
     json_file = session_dir / "session_summary.json"
     session_dict = asdict(session)
 
-    if safe_json_write(json_file, session_dict):
+    # PHASE 1.2: Sanitize session data before persistence
+    sanitized_session_dict = log_sanitizer.sanitize_log_data(session_dict)
+
+    if safe_json_write(json_file, sanitized_session_dict):
         print(f"[AUTO] Saved session summary to {json_file}")
         return str(json_file)
     else:
@@ -418,8 +427,11 @@ def finish_run_legacy(
         mode = run_record.get("mode", "unknown_mode")
         log_file = logs_dir / f"{project}_{mode}.jsonl"
 
+        # PHASE 1.2: Sanitize run_record before persistence
+        sanitized_record = log_sanitizer.sanitize_log_data(run_record)
+
         with log_file.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(run_record, ensure_ascii=False) + "\n")
+            f.write(json.dumps(sanitized_record, ensure_ascii=False) + "\n")
 
         print(f"[RunLog] Appended entry to {log_file}")
     except Exception as e:

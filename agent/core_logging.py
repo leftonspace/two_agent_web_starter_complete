@@ -40,6 +40,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+# PHASE 1.2: Import log sanitizer to prevent sensitive data leakage
+import log_sanitizer
+
 # ══════════════════════════════════════════════════════════════════════
 # Configuration
 # ══════════════════════════════════════════════════════════════════════
@@ -150,6 +153,7 @@ def log_event(run_id: str, event_type: str, payload: Dict[str, Any]) -> None:
     - Appends a JSON line
     - Does NOT crash the program if logging fails (prints warning to stderr)
     - Includes schema_version for future compatibility
+    - PHASE 1.2: Sanitizes payload to prevent sensitive data leakage (vulnerability S1)
 
     Args:
         run_id: Unique identifier for this run
@@ -163,12 +167,15 @@ def log_event(run_id: str, event_type: str, payload: Dict[str, Any]) -> None:
             "config": {...}
         })
     """
+    # PHASE 1.2: Sanitize payload before persistence to prevent API key leakage
+    sanitized_payload = log_sanitizer.sanitize_log_data(payload)
+
     # Create log event with schema version
     event = LogEvent(
         run_id=run_id,
         timestamp=time.time(),
         event_type=event_type,
-        payload=payload,
+        payload=sanitized_payload,
         schema_version=LOG_SCHEMA_VERSION
     )
 

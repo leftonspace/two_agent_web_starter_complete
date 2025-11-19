@@ -22,6 +22,9 @@ agent_dir = Path(__file__).resolve().parent
 if str(agent_dir) not in sys.path:
     sys.path.insert(0, str(agent_dir))
 
+# PHASE 1.2: Import log sanitizer to prevent sensitive data leakage
+import log_sanitizer
+
 from runner import run_project
 from safe_io import safe_json_write, safe_timestamp
 from status_codes import COMPLETED, EXCEPTION, USER_ABORT
@@ -109,11 +112,14 @@ class JobManager:
         """Save jobs to state file (atomic write)."""
         data = {"jobs": [asdict(job) for job in self.jobs.values()]}
 
+        # PHASE 1.2: Sanitize job data before persistence
+        sanitized_data = log_sanitizer.sanitize_log_data(data)
+
         # Atomic write: write to temp file, then rename
         temp_file = self.state_file.with_suffix(".tmp")
         try:
             with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+                json.dump(sanitized_data, f, indent=2, ensure_ascii=False)
             temp_file.replace(self.state_file)
         except Exception as e:
             logging.error(f"[Jobs] Failed to save jobs state: {e}")
@@ -315,7 +321,9 @@ class JobManager:
         try:
             # Log job start
             logging.info(f"[Jobs] Starting job {job_id}")
-            logging.info(f"[Jobs] Config: {json.dumps(job.config, indent=2)}")
+            # PHASE 1.2: Sanitize config before logging
+            sanitized_config = log_sanitizer.sanitize_log_data(job.config)
+            logging.info(f"[Jobs] Config: {json.dumps(sanitized_config, indent=2)}")
 
             # Check cancellation before starting
             if job.cancelled:

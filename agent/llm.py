@@ -9,6 +9,7 @@ import requests
 
 import core_logging
 import cost_tracker
+import log_sanitizer  # PHASE 1.2: Sanitize error messages
 from model_router import choose_model as router_choose_model
 
 # PHASE 0.3: Import config module for centralized defaults
@@ -114,27 +115,33 @@ def _post(payload: dict) -> dict:
             )
 
             # If the API returns an HTTP error, show the body so we can debug.
+            # PHASE 1.2: Sanitize error body to prevent API key leakage
             if resp.status_code != 200:
                 print("=== OpenAI error body ===")
-                print(resp.text)
+                sanitized_error = log_sanitizer.sanitize_error_message(resp.text)
+                print(sanitized_error)
                 resp.raise_for_status()
 
             return resp.json()
 
         except Exception as exc:  # noqa: BLE001
             last_error = exc
+            # PHASE 1.2: Sanitize exception message to prevent sensitive data leakage
+            sanitized_exc_msg = log_sanitizer.sanitize_error_message(str(exc))
             print(
-                f"[LLM] HTTP/connection error on attempt {attempt}/3: {exc}. "
+                f"[LLM] HTTP/connection error on attempt {attempt}/3: {sanitized_exc_msg}. "
                 "Retrying..." if attempt < 3 else "[LLM] Giving up after 3 failed attempts."
             )
 
     # If we get here, all retries failed. Return a stub object with the
     # shape our orchestrator expects, so it won't crash.
     reason = str(last_error) if last_error is not None else "Unknown error"
+    # PHASE 1.2: Sanitize reason to prevent sensitive data in return values
+    sanitized_reason = log_sanitizer.sanitize_error_message(reason)
 
     return {
         "timeout": True,
-        "reason": reason,
+        "reason": sanitized_reason,
         "plan": [],
         "acceptance_criteria": [],
         "phases": [],

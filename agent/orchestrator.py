@@ -211,6 +211,23 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
     print(f"use_git: {use_git}")
     print(f"run_safety_before_final: {run_safety_before_final}")
 
+    # STAGE 3.3: Validate API connectivity before starting work
+    print("\n[API] Validating OpenAI API connectivity...")
+    from llm import validate_api_connectivity
+    is_valid, error_message = validate_api_connectivity()
+
+    if not is_valid:
+        print(f"\n❌ API VALIDATION FAILED: {error_message}")
+        print("\nPossible solutions:")
+        print("  1. Check your OPENAI_API_KEY environment variable")
+        print("  2. Verify network connectivity to api.openai.com")
+        print("  3. Check OpenAI service status at status.openai.com")
+        print("  4. Try using mode='3loop_legacy' for offline testing")
+        print("\nAborting run due to API connectivity issues.")
+        raise RuntimeError(f"API validation failed: {error_message}")
+
+    print("[API] ✅ OpenAI API is accessible\n")
+
     # Snapshots
     snapshots_root = out_dir / ".history"
     snapshots_root.mkdir(parents=True, exist_ok=True)
@@ -279,6 +296,14 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
     )
 
     plan = chat_json("manager", manager_plan_sys, task)
+
+    # STAGE 3.3: Check for LLM failure during planning
+    if plan.get("llm_failure") or plan.get("status") == "llm_failure":
+        reason = plan.get("reason", "Unknown LLM error")
+        print(f"\n❌ MANAGER PLANNING FAILED: {reason}")
+        print("Cannot proceed without a valid plan from the manager.")
+        raise RuntimeError(f"Manager LLM call failed during planning: {reason}")
+
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
 
@@ -326,6 +351,14 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
         supervisor_sys,
         json.dumps(sup_payload, ensure_ascii=False),
     )
+
+    # STAGE 3.3: Check for LLM failure during phasing
+    if phases.get("llm_failure") or phases.get("status") == "llm_failure":
+        reason = phases.get("reason", "Unknown LLM error")
+        print(f"\n❌ SUPERVISOR PHASING FAILED: {reason}")
+        print("Cannot proceed without supervisor phases.")
+        raise RuntimeError(f"Supervisor LLM call failed during phasing: {reason}")
+
     print("\n-- Supervisor Phases --")
     print(json.dumps(phases, indent=2, ensure_ascii=False))
 
@@ -502,6 +535,36 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
                 model="gpt-5",
             )
 
+            # STAGE 3.3: Check for LLM failure
+            if emp.get("llm_failure") or emp.get("status") == "llm_failure":
+                reason = emp.get("reason", "Unknown LLM error")
+                print(f"\n❌ EMPLOYEE LLM CALL FAILED: {reason}")
+                print("[Stage3] Cannot continue this stage - marking as failed")
+
+                # Log the failure
+                core_logging.log_event(
+                    core_run_id,
+                    "llm_failure",
+                    stage_id=next_stage.id,
+                    stage_name=next_stage.name,
+                    role="employee",
+                    reason=reason
+                )
+
+                # Mark stage as failed and break out of audit loop
+                memory.set_final_status(next_stage.id, "llm_failure")
+                tracker.complete_stage(next_stage.id, "llm_failure", reason)
+                core_logging.log_stage_completed(
+                    core_run_id,
+                    next_stage.id,
+                    next_stage.name,
+                    status="llm_failure",
+                    reason=reason
+                )
+
+                # Don't complete or reopen - just move to next stage
+                break  # Exit audit loop
+
             files_dict = emp.get("files", {})
             if not isinstance(files_dict, dict):
                 raise RuntimeError(f"Employee response 'files' must be dict, got {type(files_dict)}")
@@ -566,6 +629,36 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
                 supervisor_sys,
                 json.dumps(supervisor_audit_payload, ensure_ascii=False),
             )
+
+            # STAGE 3.3: Check for LLM failure
+            if audit_result.get("llm_failure") or audit_result.get("status") == "llm_failure":
+                reason = audit_result.get("reason", "Unknown LLM error")
+                print(f"\n❌ SUPERVISOR LLM CALL FAILED: {reason}")
+                print("[Stage3] Cannot audit this stage - marking as failed")
+
+                # Log the failure
+                core_logging.log_event(
+                    core_run_id,
+                    "llm_failure",
+                    stage_id=next_stage.id,
+                    stage_name=next_stage.name,
+                    role="supervisor",
+                    reason=reason
+                )
+
+                # Mark stage as failed and break out of audit loop
+                memory.set_final_status(next_stage.id, "llm_failure")
+                tracker.complete_stage(next_stage.id, "llm_failure", reason)
+                core_logging.log_stage_completed(
+                    core_run_id,
+                    next_stage.id,
+                    next_stage.name,
+                    status="llm_failure",
+                    reason=reason
+                )
+
+                # Don't complete or reopen - just move to next stage
+                break  # Exit audit loop
 
             findings = audit_result.get("findings", [])
             print(f"[Supervisor] Found {len(findings)} issues")

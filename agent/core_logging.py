@@ -96,6 +96,7 @@ EVENT_TYPES = {
     "roadmap_mutated": "Roadmap changed (merge, split, reorder, etc.)",
     "stage_reopened": "Previous stage reopened for rework",
     "auto_advance": "Auto-advanced to next stage (zero findings)",
+    "llm_failure": "LLM API call failed after all retries (Stage 3.3)",
 
     # Phase 3 events (agent communication)
     "agent_message": "Inter-agent message sent",

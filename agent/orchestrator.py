@@ -31,6 +31,24 @@ try:
 except ImportError:
     DOMAIN_ROUTER_AVAILABLE = False
 
+# PHASE 4: Import specialist system for expert agent routing
+try:
+    import specialists
+    import specialist_market
+    import company_ops
+    SPECIALISTS_AVAILABLE = True
+except ImportError:
+    SPECIALISTS_AVAILABLE = False
+
+# PHASE 5: Import overseer system for meta-orchestration
+try:
+    import overseer
+    import self_refinement
+    import feedback_analyzer
+    OVERSEER_AVAILABLE = True
+except ImportError:
+    OVERSEER_AVAILABLE = False
+
 # STAGE 4: Import merge manager and multi-repo routing
 import merge_manager
 from exec_safety import run_safety_checks
@@ -534,6 +552,91 @@ def main(
             print("[Domain] Falling back to generic prompts")
     else:
         print("[Domain] Domain router not available - using generic prompts")
+
+    # PHASE 4: Specialist system integration
+    specialist_recommendation = None
+    specialist_info = None
+    use_specialist = False
+
+    if SPECIALISTS_AVAILABLE:
+        try:
+            # Initialize specialist market
+            market = specialist_market.SpecialistMarket()
+
+            # Get budget for specialist recommendation
+            specialist_budget = max_cost_usd if max_cost_usd > 0 else None
+
+            # Get specialist recommendation
+            specialist_recommendation = market.recommend_specialist(
+                task=task,
+                budget_usd=specialist_budget,
+                prefer_performance=True,
+                min_confidence="low"
+            )
+
+            if specialist_recommendation:
+                specialist_profile = specialist_recommendation.specialist
+                use_specialist = True
+
+                print(f"\n[Specialist] Recommended: {specialist_profile.name}")
+                print(f"[Specialist] Type: {specialist_profile.specialist_type.value}")
+                print(f"[Specialist] Match Score: {specialist_recommendation.match_score:.2f}")
+                print(f"[Specialist] Performance Score: {specialist_recommendation.performance_score:.2f}")
+                print(f"[Specialist] Estimated Cost: ${specialist_recommendation.estimated_cost_usd:.2f}")
+                print(f"[Specialist] Confidence: {specialist_recommendation.confidence}")
+
+                # Get specialist-specific system prompt additions
+                specialist_prompt = specialist_profile.get_system_prompt(task)
+
+                # Append specialist expertise to agent prompts
+                specialist_section = f"\n\n=== SPECIALIST EXPERTISE ===\n{specialist_prompt}\n======================\n"
+                employee_sys_base = employee_sys_base + specialist_section
+
+                # Store specialist info for later logging
+                specialist_info = {
+                    "type": specialist_profile.specialist_type.value,
+                    "name": specialist_profile.name,
+                    "match_score": specialist_recommendation.match_score,
+                    "performance_score": specialist_recommendation.performance_score,
+                    "cost_multiplier": specialist_profile.cost_multiplier,
+                    "estimated_cost_usd": specialist_recommendation.estimated_cost_usd,
+                }
+            else:
+                print("[Specialist] No specialist recommendation available - using generic agent")
+
+        except Exception as e:
+            print(f"[Specialist] Warning: Failed to get specialist recommendation: {e}")
+            print("[Specialist] Falling back to generic agent")
+    else:
+        print("[Specialist] Specialist system not available - using generic agent")
+
+    # PHASE 5: Overseer strategic planning
+    overseer_strategy = None
+    if OVERSEER_AVAILABLE:
+        try:
+            overseer_instance = overseer.Overseer()
+
+            # Get strategic recommendations for this mission
+            overseer_strategy = overseer_instance.recommend_mission_strategy(
+                task=task,
+                budget_usd=max_cost_usd if max_cost_usd > 0 else None,
+                max_iterations=max_rounds
+            )
+
+            print(f"\n[Overseer] Strategic Analysis:")
+            print(f"[Overseer] Estimated Cost: ${overseer_strategy['estimated_cost_usd']:.2f}")
+            print(f"[Overseer] Estimated Iterations: {overseer_strategy['estimated_iterations']}")
+            print(f"[Overseer] Confidence: {overseer_strategy['confidence']}")
+
+            if overseer_strategy["recommendations"]:
+                print(f"[Overseer] Recommendations:")
+                for rec in overseer_strategy["recommendations"]:
+                    print(f"[Overseer]   - {rec}")
+
+        except Exception as e:
+            print(f"[Overseer] Warning: Failed to get strategic recommendations: {e}")
+    else:
+        print("[Overseer] Overseer system not available")
 
     # STAGE 2.1: Get tool metadata for injection into prompts
     tool_metadata = get_tool_metadata()
@@ -1401,6 +1504,58 @@ def main(
             print(f"\n[Mission] Artifact report generated: {report_path}")
         except Exception as e:
             print(f"[Mission] Warning: Failed to generate artifact report: {e}")
+
+    # PHASE 4: Record specialist performance
+    if SPECIALISTS_AVAILABLE and specialist_info and use_specialist:
+        try:
+            # Calculate actual mission duration (estimate for now)
+            actual_duration = 300.0  # 5 minutes default
+
+            # Record mission result in specialist market
+            market = specialist_market.SpecialistMarket()
+            market.record_mission_result(
+                specialist_type=specialist_info["type"],
+                success=(final_status == "approved"),
+                cost_usd=final_cost_summary.get("total_usd", 0.0),
+                duration_seconds=actual_duration
+            )
+
+            print(f"\n[Specialist] Performance recorded for {specialist_info['type']}")
+        except Exception as e:
+            print(f"[Specialist] Warning: Failed to record specialist performance: {e}")
+
+    # PHASE 5: Overseer post-mission analysis
+    if OVERSEER_AVAILABLE:
+        try:
+            overseer_instance = overseer.Overseer()
+
+            # Analyze mission outcome
+            mission_data = {
+                "status": "completed" if final_status == "approved" else "failed",
+                "cost_usd": final_cost_summary.get("total_usd", 0.0),
+                "iterations": max_rounds,
+                "max_iterations": max_rounds,
+                "budget_usd": max_cost_usd if max_cost_usd > 0 else None,
+            }
+
+            intervention = overseer_instance.analyze_mission_progress(mission_data)
+
+            if intervention.should_intervene:
+                print(f"\n[Overseer] Post-Mission Analysis:")
+                print(f"[Overseer] {intervention.recommendation}")
+
+            # Generate improvement suggestions
+            if OVERSEER_AVAILABLE:
+                refiner = self_refinement.SelfRefiner()
+                improvements = refiner.suggest_improvements()
+
+                if improvements and len(improvements) > 0:
+                    print(f"\n[Refinement] Suggested Improvements:")
+                    for imp in improvements[:3]:  # Show top 3
+                        print(f"[Refinement]   [{imp.priority.upper()}] {imp.area.value}: {imp.suggestion}")
+
+        except Exception as e:
+            print(f"[Overseer] Warning: Failed to perform post-mission analysis: {e}")
 
     # PHASE 1.5: Return result dict for programmatic access
     return {

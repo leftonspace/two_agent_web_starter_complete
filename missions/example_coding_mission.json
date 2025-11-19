@@ -1,0 +1,10 @@
+{
+  "mission_id": "example_coding_mission",
+  "task": "Create a simple landing page for a tech startup called 'CloudSync'. Include a hero section with a call-to-action, a features section highlighting 3 key benefits, and a footer with social links.",
+  "domain": "coding",
+  "mode": "3loop",
+  "max_rounds": 2,
+  "cost_cap_usd": 1.0,
+  "project_path": "cloudsync_landing",
+  "tags": ["example", "landing-page", "prototype"]
+}

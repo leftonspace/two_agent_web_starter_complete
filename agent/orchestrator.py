@@ -9,6 +9,13 @@ from typing import Any, Dict, List, Optional
 import core_logging
 import cost_tracker
 
+# PHASE 1.4: Import artifacts for mission logging
+try:
+    import artifacts
+    ARTIFACTS_AVAILABLE = True
+except ImportError:
+    ARTIFACTS_AVAILABLE = False
+
 # STAGE 4: Import merge manager and multi-repo routing
 import merge_manager
 from exec_safety import run_safety_checks
@@ -381,18 +388,28 @@ def _build_supervisor_sys(manager_plan_sys: str) -> str:
     )
 
 
-def main(run_summary: Optional[RunSummary] = None) -> None:
+def main(
+    run_summary: Optional[RunSummary] = None,
+    mission_id: Optional[str] = None,
+    cfg_override: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Main 3-loop orchestrator function.
 
     Args:
         run_summary: Optional RunSummary for STAGE 2 logging.
                      If provided, iterations will be logged automatically.
+        mission_id: Optional mission ID for PHASE 1.4 artifact logging.
+                    If provided, artifacts will be logged to artifacts/<mission_id>/.
+        cfg_override: Optional config dict override. If provided, uses this instead of loading from file.
+
+    Returns:
+        Dict with run results (status, rounds_completed, cost_summary, etc.)
     """
     # STAGE 2.2: Create run ID for core logging
     core_run_id = core_logging.new_run_id()
 
-    cfg = _load_config()
+    cfg = cfg_override if cfg_override is not None else _load_config()
     # STAGE 5.2: Validate cost configuration
     _validate_cost_config(cfg)
     out_dir = _ensure_out_dir(cfg)
@@ -518,6 +535,19 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
 
+    # PHASE 1.4: Log plan artifact if mission_id provided
+    if mission_id and ARTIFACTS_AVAILABLE:
+        try:
+            plan_content = json.dumps(plan, indent=2, ensure_ascii=False)
+            artifacts.log_plan(
+                mission_id=mission_id,
+                role="manager",
+                plan_content=plan_content,
+                stages=plan.get("plan", []),
+            )
+        except Exception as e:
+            print(f"[Mission] Warning: Failed to log plan artifact: {e}")
+
     # STAGE 2: Log manager planning phase
     if run_summary is not None:
         log_iteration_new(
@@ -626,6 +656,16 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
 
+        # PHASE 1.4: Log iteration start artifact
+        if mission_id and ARTIFACTS_AVAILABLE:
+            try:
+                artifacts.log_iteration_start(
+                    mission_id=mission_id,
+                    iteration_num=iteration,
+                )
+            except Exception as e:
+                print(f"[Mission] Warning: Failed to log iteration start: {e}")
+
         # STAGE 2.2: Log iteration begin
         core_logging.log_iteration_begin(
             core_run_id,
@@ -732,6 +772,19 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                     phase_index=phase_index
                 )
 
+            # PHASE 1.4: Log code artifact if mission_id provided (only on last phase of iteration)
+            if mission_id and ARTIFACTS_AVAILABLE and phase_index == len(phase_list):
+                try:
+                    code_summary = emp.get("summary", f"Phase {phase_index} completed - {len(written_files)} files written")
+                    artifacts.log_code(
+                        mission_id=mission_id,
+                        role="employee",
+                        code_summary=code_summary,
+                        files_modified=written_files,
+                    )
+                except Exception as e:
+                    print(f"[Mission] Warning: Failed to log code artifact: {e}")
+
             # refresh for next phase
             existing_files = load_existing_files(out_dir)
 
@@ -813,6 +866,21 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
 
         status = review.get("status", "needs_changes")
         feedback = review.get("feedback")
+
+        # PHASE 1.4: Log review artifact if mission_id provided
+        if mission_id and ARTIFACTS_AVAILABLE:
+            try:
+                review_content = json.dumps(review, indent=2, ensure_ascii=False)
+                approved = (status == "approved")
+                artifacts.log_review(
+                    mission_id=mission_id,
+                    role="manager",
+                    review_content=review_content,
+                    approved=approved,
+                    feedback=str(feedback) if feedback else None,
+                )
+            except Exception as e:
+                print(f"[Mission] Warning: Failed to log review artifact: {e}")
 
         last_status = status
         last_tests = test_results
@@ -1020,6 +1088,19 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             safety_status=iteration_safety_status
         )
 
+        # PHASE 1.4: Log iteration end artifact
+        if mission_id and ARTIFACTS_AVAILABLE:
+            try:
+                approved = (status == "approved")
+                artifacts.log_iteration_end(
+                    mission_id=mission_id,
+                    iteration_num=iteration,
+                    approved=approved,
+                    feedback=str(feedback) if feedback else None,
+                )
+            except Exception as e:
+                print(f"[Mission] Warning: Failed to log iteration end: {e}")
+
         # ─────────────────────────────────────────────────────────────
         # STAGE 3: Cost Control Enforcement
         # ─────────────────────────────────────────────────────────────
@@ -1036,6 +1117,17 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
             iteration=iteration,
             status=status,
         )
+
+        # PHASE 1.4: Log cost checkpoint artifact
+        if mission_id and ARTIFACTS_AVAILABLE:
+            try:
+                artifacts.log_cost_summary(
+                    mission_id=mission_id,
+                    checkpoint=f"iteration_{iteration}",
+                    cost_summary=cost_tracker.get_summary(),
+                )
+            except Exception as e:
+                print(f"[Mission] Warning: Failed to log cost checkpoint: {e}")
 
         # Show warning once when crossing cost_warning_usd
         if cost_warning_usd and total_cost > cost_warning_usd and not cost_warning_shown:
@@ -1193,6 +1285,65 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     )
 
     print(f"\n[CoreLog] Main run logs written to: run_logs_main/{core_run_id}.jsonl")
+
+    # PHASE 1.4: Log final result artifact if mission_id provided
+    if mission_id and ARTIFACTS_AVAILABLE:
+        try:
+            artifacts.log_final_result(
+                mission_id=mission_id,
+                status="success" if final_status == "approved" else "failed",
+                summary=f"Run completed with status: {final_status}",
+                total_iterations=max_rounds,
+                total_cost_usd=final_cost_summary.get("total_usd", 0.0),
+            )
+
+            # Generate HTML report
+            report_path = artifacts.generate_report(mission_id)
+            print(f"\n[Mission] Artifact report generated: {report_path}")
+        except Exception as e:
+            print(f"[Mission] Warning: Failed to generate artifact report: {e}")
+
+    # PHASE 1.5: Return result dict for programmatic access
+    return {
+        "status": "success" if final_status == "approved" else "failed",
+        "final_status": final_status,
+        "rounds_completed": max_rounds,
+        "cost_summary": final_cost_summary,
+        "core_run_id": core_run_id,
+        "output_dir": str(out_dir),
+    }
+
+
+def run(config: Dict[str, Any], mission_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    PHASE 1.5: Public entry point for running orchestrator with mission support.
+
+    This function provides a clean API for running the orchestrator programmatically,
+    with optional mission artifact logging.
+
+    Args:
+        config: Configuration dictionary (same structure as project_config.json)
+        mission_id: Optional mission ID for artifact logging
+
+    Returns:
+        Dict with run results (status, rounds_completed, cost_summary, etc.)
+
+    Example:
+        >>> from agent import orchestrator
+        >>> config = {
+        ...     "task": "Build a landing page",
+        ...     "project_subdir": "my_project",
+        ...     "max_rounds": 2,
+        ...     "max_cost_usd": 1.0,
+        ... }
+        >>> result = orchestrator.run(config, mission_id="my_mission")
+        >>> print(result["status"])  # "success" or "failed"
+    """
+    return main(
+        run_summary=None,
+        mission_id=mission_id,
+        cfg_override=config,
+    )
 
 
 if __name__ == "__main__":

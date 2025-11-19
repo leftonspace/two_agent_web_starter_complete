@@ -1,0 +1,458 @@
+"""
+PHASE 0.1: Centralized Configuration Module
+
+This module provides centralized configuration for the multi-agent orchestrator system.
+All configuration parameters, defaults, and validation logic are consolidated here.
+
+Configuration Sources (in priority order):
+1. Environment variables (highest priority)
+2. Local config overrides (config_local.py, if exists)
+3. Project config file (project_config.json)
+4. Built-in defaults (lowest priority)
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Enums
+# ══════════════════════════════════════════════════════════════════════
+
+
+class ExecutionMode(str, Enum):
+    """Orchestrator execution modes."""
+
+    TWO_LOOP = "2loop"  # Manager ↔ Employee
+    THREE_LOOP = "3loop"  # Manager ↔ Supervisor ↔ Employee
+    AUTO_PILOT = "autopilot"  # Self-evaluating loop
+
+
+class SimulationMode(str, Enum):
+    """Simulation modes for zero-cost testing."""
+
+    OFF = "off"  # Normal execution
+    PLAN_ONLY = "plan"  # Simulate planning only
+    ALL = "all"  # Simulate all LLM calls
+
+
+class InteractiveCostMode(str, Enum):
+    """Interactive cost confirmation modes."""
+
+    OFF = "off"  # No prompts
+    ONCE = "once"  # Prompt once at start
+    ALWAYS = "always"  # Prompt before each expensive operation
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Configuration Dataclasses
+# ══════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class ModelDefaults:
+    """Default LLM models for each role."""
+
+    manager: str = "gpt-5-mini-2025-08-07"
+    supervisor: str = "gpt-5-nano"
+    employee: str = "gpt-5-2025-08-07"
+    merge_manager: str = "gpt-5-mini"
+    qa_reviewer: str = "gpt-5-mini"
+
+    @classmethod
+    def from_env(cls) -> ModelDefaults:
+        """Load model defaults from environment variables."""
+        return cls(
+            manager=os.getenv("DEFAULT_MANAGER_MODEL", cls.manager),
+            supervisor=os.getenv("DEFAULT_SUPERVISOR_MODEL", cls.supervisor),
+            employee=os.getenv("DEFAULT_EMPLOYEE_MODEL", cls.employee),
+            merge_manager=os.getenv("DEFAULT_MERGE_MANAGER_MODEL", cls.merge_manager),
+            qa_reviewer=os.getenv("DEFAULT_QA_REVIEWER_MODEL", cls.qa_reviewer),
+        )
+
+
+@dataclass
+class CostLimits:
+    """Cost control configuration."""
+
+    max_cost_usd: float = 0.0  # 0 = no cap
+    warning_threshold_usd: float = 0.0  # 0 = no warning
+    interactive_mode: InteractiveCostMode = InteractiveCostMode.OFF
+
+    def validate(self) -> None:
+        """Validate cost limits configuration."""
+        if self.max_cost_usd < 0:
+            raise ValueError("max_cost_usd must be >= 0")
+        if self.warning_threshold_usd < 0:
+            raise ValueError("warning_threshold_usd must be >= 0")
+        if self.max_cost_usd > 0 and self.warning_threshold_usd > self.max_cost_usd:
+            print(
+                f"[Config Warning] warning_threshold_usd ({self.warning_threshold_usd}) > "
+                f"max_cost_usd ({self.max_cost_usd})"
+            )
+
+
+@dataclass
+class SafetyConfig:
+    """Safety check configuration."""
+
+    run_before_final: bool = True
+    allow_extra_iteration_on_failure: bool = True
+    max_static_errors: int = 0  # 0 = fail on any error
+    max_dependency_warnings: int = 5
+
+
+@dataclass
+class GitConfig:
+    """Git integration configuration."""
+
+    enabled: bool = False
+    auto_commit: bool = False
+    commit_mode: str = "semantic"  # "semantic" | "simple"
+    auto_commit_repos: List[str] = field(default_factory=lambda: ["default"])
+
+
+@dataclass
+class QAConfig:
+    """Quality assurance configuration."""
+
+    enabled: bool = True
+    require_title: bool = True
+    require_meta_description: bool = True
+    require_lang_attribute: bool = True
+    require_h1: bool = True
+    max_empty_links: int = 10
+    max_images_missing_alt: int = 0
+    max_duplicate_ids: int = 0
+    max_console_logs: int = 5
+    allow_large_files: bool = True
+    max_large_files: int = 5
+    large_file_threshold: int = 5000
+
+
+@dataclass
+class RuntimeConfig:
+    """Runtime behavior configuration."""
+
+    max_rounds: int = 3
+    use_visual_review: bool = False
+    use_snapshots: bool = True
+    timeout_seconds: int = 180
+    max_retries: int = 3
+
+
+@dataclass
+class Config:
+    """
+    Main configuration container.
+
+    This class aggregates all configuration subsystems and provides
+    validation and environment integration.
+    """
+
+    # Execution settings
+    mode: ExecutionMode = ExecutionMode.THREE_LOOP
+    simulation: SimulationMode = SimulationMode.OFF
+
+    # LLM settings
+    models: ModelDefaults = field(default_factory=ModelDefaults)
+    very_important_stages: List[str] = field(default_factory=list)
+
+    # Cost controls
+    costs: CostLimits = field(default_factory=CostLimits)
+
+    # Safety
+    safety: SafetyConfig = field(default_factory=SafetyConfig)
+
+    # Git
+    git: GitConfig = field(default_factory=GitConfig)
+
+    # QA
+    qa: QAConfig = field(default_factory=QAConfig)
+
+    # Runtime
+    runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
+
+    # Project-specific
+    project_name: str = "Unknown Project"
+    project_subdir: str = "output"
+    task: str = ""
+    prompts_file: str = "prompts_default.json"
+
+    # Multi-repo support
+    repos: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Analytics
+    analytics_enabled: bool = True
+    analytics_monthly_budget: float = 50.0
+
+    # Auto-tune
+    auto_tune_enabled: bool = False
+
+    def validate(self) -> None:
+        """
+        Validate all configuration settings.
+
+        Raises:
+            ValueError: If any configuration is invalid
+        """
+        # Validate cost limits
+        self.costs.validate()
+
+        # Validate max_rounds
+        if self.runtime.max_rounds < 1:
+            raise ValueError("max_rounds must be >= 1")
+
+        # Validate mode
+        if self.mode not in ExecutionMode:
+            raise ValueError(f"Invalid mode: {self.mode}")
+
+        # Validate very_important_stages
+        if not isinstance(self.very_important_stages, list):
+            raise ValueError("very_important_stages must be a list")
+
+        print("[Config] Configuration validated successfully.")
+
+    @classmethod
+    def from_file(cls, config_path: Path) -> Config:
+        """
+        Load configuration from a JSON file.
+
+        Args:
+            config_path: Path to project_config.json
+
+        Returns:
+            Config instance populated from file + environment
+        """
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+
+        with config_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Parse subsystems
+        models = ModelDefaults.from_env()  # Start with env vars
+
+        costs = CostLimits(
+            max_cost_usd=float(data.get("max_cost_usd", 0.0) or 0.0),
+            warning_threshold_usd=float(data.get("cost_warning_usd", 0.0) or 0.0),
+            interactive_mode=InteractiveCostMode(data.get("interactive_cost_mode", "off")),
+        )
+
+        safety_data = data.get("safety", {})
+        safety = SafetyConfig(
+            run_before_final=bool(safety_data.get("run_safety_before_final", True)),
+            allow_extra_iteration_on_failure=bool(
+                safety_data.get("allow_extra_iteration_on_failure", True)
+            ),
+        )
+
+        git = GitConfig(
+            enabled=bool(data.get("use_git", False)),
+            auto_commit=bool(data.get("auto_git_commit", False)),
+            commit_mode=data.get("auto_git_commit_mode", "semantic"),
+            auto_commit_repos=data.get("auto_git_commit_repos", ["default"]),
+        )
+
+        qa_data = data.get("qa", {})
+        qa = QAConfig(
+            enabled=bool(qa_data.get("enabled", True)),
+            require_title=bool(qa_data.get("require_title", True)),
+            require_meta_description=bool(qa_data.get("require_meta_description", True)),
+            require_lang_attribute=bool(qa_data.get("require_lang_attribute", True)),
+            require_h1=bool(qa_data.get("require_h1", True)),
+            max_empty_links=int(qa_data.get("max_empty_links", 10)),
+            max_images_missing_alt=int(qa_data.get("max_images_missing_alt", 0)),
+            max_duplicate_ids=int(qa_data.get("max_duplicate_ids", 0)),
+            max_console_logs=int(qa_data.get("max_console_logs", 5)),
+            allow_large_files=bool(qa_data.get("allow_large_files", True)),
+            max_large_files=int(qa_data.get("max_large_files", 5)),
+            large_file_threshold=int(qa_data.get("large_file_threshold", 5000)),
+        )
+
+        runtime = RuntimeConfig(
+            max_rounds=int(data.get("max_rounds", 3)),
+            use_visual_review=bool(data.get("use_visual_review", False)),
+            use_snapshots=bool(data.get("use_snapshots", True)),
+        )
+
+        # Create config
+        config = cls(
+            mode=ExecutionMode(data.get("mode", "3loop")),
+            models=models,
+            very_important_stages=data.get("llm_very_important_stages", []),
+            costs=costs,
+            safety=safety,
+            git=git,
+            qa=qa,
+            runtime=runtime,
+            project_name=data.get("project_name", "Unknown Project"),
+            project_subdir=data.get("project_subdir", "output"),
+            task=data.get("task", ""),
+            prompts_file=data.get("prompts_file", "prompts_default.json"),
+            repos=data.get("repos", []),
+            analytics_enabled=bool(data.get("analytics", {}).get("enabled", True)),
+            analytics_monthly_budget=float(
+                data.get("analytics", {}).get("monthly_budget", 50.0)
+            ),
+            auto_tune_enabled=bool(data.get("auto_tune", {}).get("enabled", False)),
+        )
+
+        # Apply local overrides if they exist
+        config._apply_local_overrides()
+
+        return config
+
+    def _apply_local_overrides(self) -> None:
+        """
+        Apply local configuration overrides from config_local.py if it exists.
+
+        This allows developers to override settings without modifying tracked files.
+        """
+        try:
+            # Try to import config_local (not tracked in git)
+            import config_local
+
+            if hasattr(config_local, "apply_overrides"):
+                config_local.apply_overrides(self)
+                print("[Config] Applied local overrides from config_local.py")
+        except ImportError:
+            # No local overrides - this is fine
+            pass
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary for backward compatibility."""
+        return {
+            "mode": self.mode.value,
+            "max_rounds": self.runtime.max_rounds,
+            "use_visual_review": self.runtime.use_visual_review,
+            "use_snapshots": self.runtime.use_snapshots,
+            "use_git": self.git.enabled,
+            "max_cost_usd": self.costs.max_cost_usd,
+            "cost_warning_usd": self.costs.warning_threshold_usd,
+            "interactive_cost_mode": self.costs.interactive_mode.value,
+            "llm_very_important_stages": self.very_important_stages,
+            "project_name": self.project_name,
+            "project_subdir": self.project_subdir,
+            "task": self.task,
+            "prompts_file": self.prompts_file,
+            "safety": {
+                "run_safety_before_final": self.safety.run_before_final,
+                "allow_extra_iteration_on_failure": self.safety.allow_extra_iteration_on_failure,
+            },
+            "auto_git_commit": self.git.auto_commit,
+            "auto_git_commit_mode": self.git.commit_mode,
+            "auto_git_commit_repos": self.git.auto_commit_repos,
+            "repos": self.repos,
+            "qa": {
+                "enabled": self.qa.enabled,
+                "require_title": self.qa.require_title,
+                "require_meta_description": self.qa.require_meta_description,
+                "require_lang_attribute": self.qa.require_lang_attribute,
+                "require_h1": self.qa.require_h1,
+                "max_empty_links": self.qa.max_empty_links,
+                "max_images_missing_alt": self.qa.max_images_missing_alt,
+                "max_duplicate_ids": self.qa.max_duplicate_ids,
+                "max_console_logs": self.qa.max_console_logs,
+                "allow_large_files": self.qa.allow_large_files,
+                "max_large_files": self.qa.max_large_files,
+                "large_file_threshold": self.qa.large_file_threshold,
+            },
+            "analytics": {
+                "enabled": self.analytics_enabled,
+                "monthly_budget": self.analytics_monthly_budget,
+            },
+            "auto_tune": {
+                "enabled": self.auto_tune_enabled,
+            },
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Global Configuration Instance
+# ══════════════════════════════════════════════════════════════════════
+
+# Singleton instance - loaded on first access
+_CONFIG: Optional[Config] = None
+
+
+def get_config() -> Config:
+    """
+    Get the global configuration instance.
+
+    Loads configuration on first call from the default location.
+
+    Returns:
+        Global Config instance
+    """
+    global _CONFIG
+    if _CONFIG is None:
+        # Default config path (can be overridden via environment)
+        config_path = Path(os.getenv("AGENT_CONFIG_PATH", "agent/project_config.json"))
+
+        # If path is relative, resolve it from repo root
+        if not config_path.is_absolute():
+            repo_root = Path(__file__).resolve().parent.parent
+            config_path = repo_root / config_path
+
+        _CONFIG = Config.from_file(config_path)
+        _CONFIG.validate()
+
+    return _CONFIG
+
+
+def reload_config() -> Config:
+    """
+    Force reload of configuration from disk.
+
+    Useful for testing or when config file has been modified.
+
+    Returns:
+        Newly loaded Config instance
+    """
+    global _CONFIG
+    _CONFIG = None
+    return get_config()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Convenience Functions
+# ══════════════════════════════════════════════════════════════════════
+
+
+def get_model_for_role(role: str) -> str:
+    """Get the default model for a given role."""
+    config = get_config()
+    role_lower = role.lower()
+
+    if role_lower == "manager":
+        return config.models.manager
+    elif role_lower == "supervisor":
+        return config.models.supervisor
+    elif role_lower == "employee":
+        return config.models.employee
+    elif role_lower == "merge_manager":
+        return config.models.merge_manager
+    elif role_lower in ("qa", "qa_reviewer"):
+        return config.models.qa_reviewer
+    else:
+        # Default to employee model
+        return config.models.employee
+
+
+def is_simulation_mode() -> bool:
+    """Check if any simulation mode is enabled."""
+    config = get_config()
+    return config.simulation != SimulationMode.OFF
+
+
+def get_max_cost_usd() -> float:
+    """Get the maximum cost cap in USD."""
+    config = get_config()
+    return config.costs.max_cost_usd

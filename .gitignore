@@ -54,3 +54,4 @@ data/cache/
 missions/logs/*.json
 artifacts/*/
 !artifacts/.gitkeep
+agent/run_workflows/*.json

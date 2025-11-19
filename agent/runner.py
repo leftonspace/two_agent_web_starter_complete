@@ -13,7 +13,12 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+# STAGE 12: Import brain module
+import brain
 import cost_tracker
+
+# STAGE 10: Import QA module
+import qa
 from cost_estimator import estimate_run_cost
 from run_logger import RunSummary, finalize_run, log_iteration, save_run_summary, start_run
 from status_codes import (
@@ -21,13 +26,9 @@ from status_codes import (
     EXCEPTION,
     ITER_EXCEPTION,
     ITER_INTERRUPTED,
-    USER_ABORT,
     UNKNOWN,
+    USER_ABORT,
 )
-# STAGE 10: Import QA module
-import qa
-# STAGE 12: Import brain module
-import brain
 
 
 def run_project(config: Dict[str, Any]) -> RunSummary:

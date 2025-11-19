@@ -16,10 +16,10 @@ import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -28,12 +28,11 @@ agent_dir = Path(__file__).resolve().parent.parent
 if str(agent_dir) not in sys.path:
     sys.path.insert(0, str(agent_dir))
 
-from jobs import get_job_manager
-from runner import get_run_details, list_projects, list_run_history, run_project, run_qa_only
-import file_explorer
-import qa
-import analytics
-import brain
+import analytics  # noqa: E402
+import brain  # noqa: E402
+import file_explorer  # noqa: E402
+from jobs import get_job_manager  # noqa: E402
+from runner import get_run_details, list_projects, list_run_history, run_qa_only  # noqa: E402
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -122,11 +121,11 @@ async def start_run(
         return RedirectResponse(url=f"/jobs/{job.id}", status_code=303)
 
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}") from e
 
 
 @app.get("/jobs", response_class=HTMLResponse)
@@ -504,7 +503,7 @@ async def api_run_job_qa(job_id: str):
         return qa_report.to_dict()
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"QA execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"QA execution failed: {str(e)}") from e
 
 
 @app.get("/api/jobs/{job_id}/qa")
@@ -985,7 +984,6 @@ async def api_analytics_export_json():
     from fastapi.responses import Response
 
     config = analytics.load_analytics_config()
-    data = analytics.get_analytics(config)
 
     # Convert data models back to objects for export
     runs = analytics.load_all_runs()
@@ -1154,7 +1152,7 @@ async def api_toggle_auto_tune(enabled: bool = Form(...)):
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update config: {str(e)}") from e
 
 
 @app.get("/api/strategies")

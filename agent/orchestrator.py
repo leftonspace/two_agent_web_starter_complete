@@ -16,6 +16,21 @@ try:
 except ImportError:
     ARTIFACTS_AVAILABLE = False
 
+# PHASE 0.3: Import new config and paths modules
+try:
+    import config as config_module
+    import paths as paths_module
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+
+# PHASE 1.1: Import domain router for domain-aware prompting
+try:
+    import domain_router
+    DOMAIN_ROUTER_AVAILABLE = True
+except ImportError:
+    DOMAIN_ROUTER_AVAILABLE = False
+
 # STAGE 4: Import merge manager and multi-repo routing
 import merge_manager
 from exec_safety import run_safety_checks
@@ -61,11 +76,27 @@ from site_tools import (
 
 
 def _load_config() -> Dict[str, Any]:
-    """Load project_config.json from the agent folder."""
-    cfg_path = Path(__file__).resolve().parent / "project_config.json"
-    if not cfg_path.exists():
-        raise FileNotFoundError(f"project_config.json not found at {cfg_path}")
-    return json.loads(cfg_path.read_text(encoding="utf-8"))
+    """
+    Load configuration.
+
+    PHASE 0.3: Uses config.get_config() if available, falls back to project_config.json.
+
+    Returns:
+        Configuration dictionary
+    """
+    if CONFIG_AVAILABLE:
+        # PHASE 0.3: Use new centralized config module
+        cfg_obj = config_module.get_config()
+        cfg_dict = cfg_obj.to_dict()
+        print("[Config] Loaded configuration from config.py")
+        return cfg_dict
+    else:
+        # Legacy: Load from project_config.json
+        cfg_path = Path(__file__).resolve().parent / "project_config.json"
+        if not cfg_path.exists():
+            raise FileNotFoundError(f"project_config.json not found at {cfg_path}")
+        print("[Config] Loaded configuration from project_config.json (legacy)")
+        return json.loads(cfg_path.read_text(encoding="utf-8"))
 
 
 def _validate_cost_config(cfg: Dict[str, Any]) -> None:
@@ -138,6 +169,7 @@ def _ensure_out_dir(cfg: Dict[str, Any]) -> Path:
     """
     Determine output directory for the project.
 
+    PHASE 0.3: Uses paths.resolve_project_path() if available.
     STAGE 4.3: For multi-repo projects, returns the first repo's path.
     For single-repo projects, uses project_subdir.
 
@@ -157,12 +189,22 @@ def _ensure_out_dir(cfg: Dict[str, Any]) -> Path:
             out_dir.mkdir(parents=True, exist_ok=True)
             return out_dir
 
-    # Single-repo mode (legacy)
-    root = Path(__file__).resolve().parent.parent  # .. from agent to root
-    sites_dir = root / "sites"
-    out_dir = sites_dir / cfg["project_subdir"]
-    out_dir.mkdir(parents=True, exist_ok=True)
-    return out_dir
+    # Single-repo mode
+    if CONFIG_AVAILABLE and paths_module:
+        # PHASE 0.3: Use paths module for directory resolution
+        project_subdir = cfg.get("project_subdir", "default_project")
+        out_dir = paths_module.resolve_project_path(project_subdir)
+        paths_module.ensure_dir(out_dir)
+        print(f"[Paths] Using paths.resolve_project_path(): {out_dir}")
+        return out_dir
+    else:
+        # Legacy: Construct path manually
+        root = Path(__file__).resolve().parent.parent  # .. from agent to root
+        sites_dir = root / "sites"
+        out_dir = sites_dir / cfg["project_subdir"]
+        out_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[Paths] Using legacy path resolution: {out_dir}")
+        return out_dir
 
 
 def _run_simple_tests(out_dir: Path, task: str) -> Dict[str, Any]:
@@ -462,8 +504,53 @@ def main(
 
     supervisor_sys = _build_supervisor_sys(manager_plan_sys)
 
+    # PHASE 1.1: Domain classification and domain-specific prompting
+    domain = None
+    domain_allowed_tools = None
+    if DOMAIN_ROUTER_AVAILABLE:
+        try:
+            # Classify task into domain
+            domain = domain_router.classify_task(task)
+            print(f"\n[Domain] Task classified as: {domain.value}")
+
+            # Get domain-specific prompt additions
+            domain_prompts = domain_router.get_domain_prompts(domain)
+            domain_allowed_tools = domain_router.get_domain_tools(domain)
+
+            print(f"[Domain] Using domain-specific prompts for {domain.value}")
+            print(f"[Domain] Allowed tools for {domain.value}: {len(domain_allowed_tools)} tools")
+
+            # Append domain-specific prompt additions to each role
+            if domain_prompts.get("manager"):
+                manager_plan_sys = manager_plan_sys + "\n\n" + domain_prompts["manager"]
+                manager_review_sys = manager_review_sys + "\n\n" + domain_prompts["manager"]
+            if domain_prompts.get("supervisor"):
+                supervisor_sys = supervisor_sys + "\n\n" + domain_prompts["supervisor"]
+            if domain_prompts.get("employee"):
+                employee_sys_base = employee_sys_base + "\n\n" + domain_prompts["employee"]
+
+        except Exception as e:
+            print(f"[Domain] Warning: Failed to classify domain: {e}")
+            print("[Domain] Falling back to generic prompts")
+    else:
+        print("[Domain] Domain router not available - using generic prompts")
+
     # STAGE 2.1: Get tool metadata for injection into prompts
     tool_metadata = get_tool_metadata()
+
+    # PHASE 1.1: Filter tools by domain if domain routing is active
+    if domain_allowed_tools is not None:
+        # Filter to only allowed tools for this domain
+        filtered_tools = [
+            tool for tool in tool_metadata
+            if tool.get("name") in domain_allowed_tools
+        ]
+        if filtered_tools:
+            tool_metadata = filtered_tools
+            print(f"[Domain] Filtered tools: {len(tool_metadata)} tools available")
+        else:
+            print(f"[Domain] Warning: No matching tools found, using all tools")
+
     tool_metadata_json = json.dumps(tool_metadata, indent=2, ensure_ascii=False)
 
     # STAGE 2.1: Inject tool metadata into agent prompts

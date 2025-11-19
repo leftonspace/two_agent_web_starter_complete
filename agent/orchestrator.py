@@ -837,14 +837,26 @@ def main(
             phase_repo_path = resolve_repo_path(cfg, stage=phase)
             print(f"\n[MultiRepo] Target repo: {phase_repo_path}")
 
-            print("\n[Orchestrator] Writing files to disk...")
-            written_files = []
-            for rel_path, content in files_dict.items():
-                dest = phase_repo_path / rel_path
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_text(content, encoding="utf-8")
-                print(f"  wrote {dest}")
-                written_files.append(rel_path)
+            # PHASE 3.4: Check simulation mode - skip writes if enabled
+            simulation_mode = False
+            if CONFIG_AVAILABLE:
+                cfg_obj = config_module.get_config()
+                simulation_mode = (cfg_obj.simulation.value != "off")
+
+            if simulation_mode:
+                print("\n[Simulation] Simulation mode enabled - skipping file writes")
+                written_files = list(files_dict.keys())
+                for rel_path in written_files:
+                    print(f"  [simulated] {rel_path}")
+            else:
+                print("\n[Orchestrator] Writing files to disk...")
+                written_files = []
+                for rel_path, content in files_dict.items():
+                    dest = phase_repo_path / rel_path
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_text(content, encoding="utf-8")
+                    print(f"  wrote {dest}")
+                    written_files.append(rel_path)
 
             # STAGE 5.2: Update cumulative file count
             cumulative_files_written += len(written_files)

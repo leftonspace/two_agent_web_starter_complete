@@ -148,6 +148,18 @@ class RuntimeConfig:
 
 
 @dataclass
+class SandboxConfig:
+    """PHASE 3.2: Sandbox execution configuration."""
+
+    enabled: bool = False  # Enable sandboxed execution
+    timeout_seconds: int = 120  # Default timeout for sandbox execution
+    memory_limit_mb: Optional[int] = None  # Memory limit (None = no limit)
+    network_isolation: bool = False  # Enable network isolation (Linux only)
+    use_docker: bool = False  # Use Docker for maximum isolation
+    docker_image: str = "python:3.11-slim"  # Docker image to use
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -178,6 +190,9 @@ class Config:
 
     # Runtime
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
+
+    # PHASE 3.2: Sandbox execution
+    sandbox: SandboxConfig = field(default_factory=SandboxConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

@@ -35,6 +35,13 @@ from typing import Any, Dict, List, Optional
 # Local imports
 from agent import config, cost_tracker, domain_router, paths
 
+# PHASE 2.3: Import knowledge graph for mission tracking
+try:
+    from agent import knowledge_graph, project_stats
+    KG_AVAILABLE = True
+except ImportError:
+    KG_AVAILABLE = False
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Mission Loading
@@ -283,6 +290,59 @@ def run_mission(mission_file_path: Path) -> Dict[str, Any]:
     # Write mission log
     log_path = write_mission_log(mission_result)
     print(f"\n📁 Mission log written to: {log_path}")
+
+    # PHASE 2.3: Log mission to knowledge graph
+    if KG_AVAILABLE:
+        try:
+            kg = knowledge_graph.KnowledgeGraph()
+
+            # Log mission to history
+            kg.log_mission(
+                mission_id=mission_id,
+                status="success" if success else "failed",
+                domain=domain.value,
+                cost_usd=cost_summary.get("total_usd", 0.0),
+                iterations=mission_result.get("rounds_completed", mission_config["max_rounds"]),
+                duration_seconds=duration_seconds,
+                files_modified=0,  # TODO: Track from orchestrator result
+                metadata={
+                    "task": task,
+                    "config": mission_result["config"],
+                    "tags": mission_data.get("tags", []),
+                    "error": error_message if error_message else None,
+                }
+            )
+
+            # Create mission entity
+            mission_entity_id = kg.add_entity(
+                "mission",
+                mission_id,
+                {
+                    "domain": domain.value,
+                    "task": task,
+                    "status": "success" if success else "failed",
+                    "cost_usd": cost_summary.get("total_usd", 0.0),
+                }
+            )
+
+            # Create domain entity and relate to mission
+            domain_entity_id = kg.add_entity("domain", domain.value, {})
+            kg.add_relationship(
+                mission_entity_id,
+                domain_entity_id,
+                "has_domain",
+                {"task": task}
+            )
+
+            print(f"📊 Mission logged to knowledge graph")
+
+            # Collect and save project stats
+            stats = project_stats.collect_stats()
+            project_stats.save_stats(stats)
+            print(f"📈 Project statistics updated")
+
+        except Exception as e:
+            print(f"⚠️  Warning: Failed to log to knowledge graph: {e}")
 
     print(f"\n{'='*70}")
     print(f"{'✅ MISSION COMPLETED SUCCESSFULLY' if success else '❌ MISSION FAILED'}")

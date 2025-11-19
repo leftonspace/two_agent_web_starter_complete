@@ -194,7 +194,7 @@ def chat_json(
     *,
     system: Optional[str] = None,
     model: Optional[str] = None,
-    temperature: float = 0.2,
+    temperature: Optional[float] = None,  # <-- changed: now Optional and default None
     expect_json: bool = True,
 ) -> Dict[str, Any]:
     """

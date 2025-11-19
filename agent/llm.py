@@ -8,6 +8,8 @@ from typing import Any, Dict, Optional
 import requests
 
 import cost_tracker
+import core_logging
+from model_router import choose_model as router_choose_model
 
 # OpenAI Chat Completions endpoint
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
@@ -95,24 +97,64 @@ def chat_json(
     model: Optional[str] = None,
     temperature: float = 0.2,
     expect_json: bool = True,
+    # STAGE 5: New parameters for model routing
+    task_type: Optional[str] = None,
+    complexity: Optional[str] = None,
+    interaction_index: int = 1,
+    is_very_important: bool = False,
+    run_id: Optional[str] = None,
+    config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     High-level helper that:
     - Selects a model (manager / supervisor / employee) if not provided.
+    - Uses intelligent routing (Stage 5) when task_type is provided.
     - Calls `_post` and records usage via `cost_tracker`.
     - Returns parsed JSON (default) or raw text if `expect_json=False`.
 
     `system_prompt` is the original parameter name.
     `system` is an alias used by some callers (e.g. code_review_bot).
     If both are provided, `system` wins.
+
+    STAGE 5 Model Routing:
+    - If `model` is explicitly provided, use it (bypass router)
+    - If `task_type` is provided, use intelligent routing
+    - Otherwise, fall back to legacy role-based selection
     """
     if model is None:
-        if role == "manager":
-            chosen_model = DEFAULT_MANAGER_MODEL
-        elif role == "supervisor":
-            chosen_model = DEFAULT_SUPERVISOR_MODEL
+        # STAGE 5: Use intelligent routing if task_type provided
+        if task_type is not None:
+            # Infer task_type from role if not provided
+            effective_task_type = task_type
+            effective_complexity = complexity or "low"
+
+            chosen_model = router_choose_model(
+                task_type=effective_task_type,
+                complexity=effective_complexity,
+                role=role,
+                interaction_index=interaction_index,
+                is_very_important=is_very_important,
+                config=config,
+            )
+
+            # Log model selection
+            if run_id:
+                core_logging.log_event(run_id, "model_selected", {
+                    "role": role,
+                    "task_type": effective_task_type,
+                    "complexity": effective_complexity,
+                    "interaction_index": interaction_index,
+                    "is_very_important": is_very_important,
+                    "model_chosen": chosen_model,
+                })
         else:
-            chosen_model = DEFAULT_EMPLOYEE_MODEL
+            # Legacy role-based selection
+            if role == "manager":
+                chosen_model = DEFAULT_MANAGER_MODEL
+            elif role == "supervisor":
+                chosen_model = DEFAULT_SUPERVISOR_MODEL
+            else:
+                chosen_model = DEFAULT_EMPLOYEE_MODEL
     else:
         chosen_model = model
 

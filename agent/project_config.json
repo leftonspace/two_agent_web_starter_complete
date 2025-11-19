@@ -60,5 +60,15 @@
     "run_safety_before_final": true,
     "allow_extra_iteration_on_failure": true,
     "description": "Safety check configuration. run_safety_before_final: run checks before approval. allow_extra_iteration_on_failure: if safety fails on final iteration, grant one extra iteration for fixes"
-  }
+  },
+
+  "auto_git_commit": false,
+  "auto_git_commit_mode": "semantic",
+  "auto_git_commit_repos": ["default"],
+
+  "llm_importance_flag": false,
+  "llm_default_complexity": "low",
+  "llm_very_important_stages": [],
+
+  "repos": []
 }

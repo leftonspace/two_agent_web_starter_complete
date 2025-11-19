@@ -111,7 +111,18 @@ EVENT_TYPES = {
     # Generic events (now used)
     "error": "Error occurred",
     "warning": "Warning logged",
-    "info": "Informational message"
+    "info": "Informational message",
+
+    # Stage 4 events (merge manager & git)
+    "merge_manager_diff_summary": "Git diff analyzed by merge manager",
+    "semantic_commit_summary": "Semantic commit message generated",
+    "git_commit_attempt": "Attempted to create git commit",
+    "git_commit_success": "Git commit created successfully",
+    "git_commit_skipped": "Git commit skipped (no changes or disabled)",
+    "git_commit_failed": "Git commit failed",
+
+    # Stage 5 events (model routing)
+    "model_selected": "Model selected by router for LLM call"
 }
 
 

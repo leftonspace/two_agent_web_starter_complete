@@ -37,6 +37,11 @@ from site_tools import (
 from exec_tools import get_tool_metadata
 # STAGE 2.2: Import core logging for main run events
 import core_logging
+# STAGE 4: Import merge manager and multi-repo routing
+import merge_manager
+from repo_router import resolve_repo_path
+# STAGE 5: Import model router
+from model_router import estimate_complexity, is_stage_important
 
 
 def _load_config() -> Dict[str, Any]:
@@ -702,6 +707,25 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
                 feedback = [f"Safety check crashed: {str(e)}"]
                 last_feedback = feedback
 
+        # STAGE 4: Merge manager diff summary (after successful iteration)
+        if status == "approved" or (status != "needs_changes" and iteration_safety_status != "failed"):
+            try:
+                # Summarize git diff with LLM
+                diff_summary = merge_manager.summarize_diff_with_llm(
+                    run_id=core_run_id,
+                    repo_path=out_dir,
+                    context={
+                        "iteration": iteration,
+                        "status": status,
+                        "safety_status": iteration_safety_status,
+                    }
+                )
+                print(f"\n[MergeManager] Diff summary: {diff_summary.get('summary', 'N/A')}")
+                if diff_summary.get("risks"):
+                    print(f"[MergeManager] Risks identified: {', '.join(diff_summary['risks'])}")
+            except Exception as e:
+                print(f"[MergeManager] Failed to summarize diff: {e}")
+
         # Git commit
         if git_ready:
             commit_message = (
@@ -824,6 +848,58 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
 
     # RUN LOG: finalize
     finish_run(run_record, final_status, final_cost_summary, out_dir)
+
+    # STAGE 4.2: Semantic git commit (if enabled and not already committed by individual iterations)
+    auto_git_commit = cfg.get("auto_git_commit", False)
+    if auto_git_commit and git_ready:
+        try:
+            print("\n[SemanticCommit] Generating semantic commit message...")
+            core_logging.log_event(core_run_id, "git_commit_attempt", {
+                "mode": "semantic",
+                "final_status": final_status,
+            })
+
+            commit_info = merge_manager.summarize_session(
+                run_id=core_run_id,
+                repo_path=out_dir,
+                task=task,
+            )
+
+            title = commit_info.get("title", f"Auto-commit: {core_run_id[:8]}")
+            body = commit_info.get("body", "Changes made during orchestrator run.")
+
+            print(f"[SemanticCommit] Title: {title}")
+            print(f"[SemanticCommit] Body preview: {body[:100]}...")
+
+            # Create commit
+            commit_success = merge_manager.make_commit(
+                repo_path=out_dir,
+                title=title,
+                body=body,
+            )
+
+            if commit_success:
+                core_logging.log_event(core_run_id, "git_commit_success", {
+                    "title": title,
+                    "mode": "semantic",
+                })
+                print("[SemanticCommit] ✅ Commit created successfully")
+            else:
+                core_logging.log_event(core_run_id, "git_commit_skipped", {
+                    "reason": "No changes or commit failed",
+                })
+                print("[SemanticCommit] ⚠️  No commit created (no changes or failed)")
+
+        except Exception as e:
+            core_logging.log_event(core_run_id, "git_commit_failed", {
+                "error": str(e),
+            })
+            print(f"[SemanticCommit] ❌ Failed to create semantic commit: {e}")
+    elif auto_git_commit and not git_ready:
+        core_logging.log_event(core_run_id, "git_commit_skipped", {
+            "reason": "Git not initialized",
+        })
+        print("[SemanticCommit] Skipped - git not initialized")
 
     # STAGE 2.2: Log final status
     core_logging.log_final_status(

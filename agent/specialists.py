@@ -44,6 +44,9 @@ class SpecialistType(str, Enum):
     QA = "qa"
     FULLSTACK = "fullstack"
     GENERIC = "generic"
+    # PHASE 4.1: Additional specialist types
+    CONTENT_WRITER = "content_writer"
+    RESEARCHER = "researcher"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -387,6 +390,82 @@ Focus on:
 """,
     ),
 
+    # PHASE 4.1: Additional specialists
+    SpecialistType.CONTENT_WRITER: SpecialistProfile(
+        name="Content Writer Specialist",
+        specialist_type=SpecialistType.CONTENT_WRITER,
+        expertise=[
+            "Technical writing",
+            "Documentation",
+            "User guides and tutorials",
+            "Marketing copy",
+            "SEO optimization",
+            "Content strategy",
+            "Style guide compliance",
+            "Accessibility in writing",
+        ],
+        tools=[
+            "markdown",
+            "grammarly",
+            "hemingway editor",
+            "google docs",
+        ],
+        keywords=[
+            "content", "writing", "documentation", "docs", "readme",
+            "tutorial", "guide", "copy", "blog", "article",
+            "technical writing", "user guide", "manual",
+        ],
+        cost_multiplier=1.2,
+        complexity_threshold="low",
+        system_prompt_additions="""
+Focus on:
+- Clear, concise communication
+- Audience-appropriate language
+- Consistent tone and style
+- Accessibility (plain language, readability)
+- SEO best practices where applicable
+""",
+    ),
+
+    SpecialistType.RESEARCHER: SpecialistProfile(
+        name="Research Specialist",
+        specialist_type=SpecialistType.RESEARCHER,
+        expertise=[
+            "Information gathering and synthesis",
+            "Data analysis and interpretation",
+            "Literature review",
+            "Competitive analysis",
+            "Market research",
+            "Academic research methods",
+            "Statistical analysis",
+            "Report writing",
+        ],
+        tools=[
+            "jupyter",
+            "pandas",
+            "matplotlib",
+            "google scholar",
+            "arxiv",
+        ],
+        keywords=[
+            "research", "analysis", "study", "investigation",
+            "survey", "data analysis", "literature review",
+            "competitive analysis", "market research",
+            "report", "findings", "insights",
+        ],
+        cost_multiplier=1.3,
+        complexity_threshold="medium",
+        system_prompt_additions="""
+Focus on:
+- Thorough information gathering
+- Critical evaluation of sources
+- Data-driven insights
+- Clear presentation of findings
+- Proper citation and attribution
+- Objective analysis
+""",
+    ),
+
     SpecialistType.GENERIC: SpecialistProfile(
         name="Generic Specialist",
         specialist_type=SpecialistType.GENERIC,
@@ -509,6 +588,7 @@ def get_specialists_for_domain(domain: str) -> List[SpecialistProfile]:
         "data": [
             SpecialistType.DATA,
             SpecialistType.BACKEND,
+            SpecialistType.RESEARCHER,
         ],
         "security": [
             SpecialistType.SECURITY,
@@ -521,10 +601,14 @@ def get_specialists_for_domain(domain: str) -> List[SpecialistProfile]:
         "testing": [
             SpecialistType.QA,
         ],
-        # Generic fallback for other domains
-        "finance": [SpecialistType.DATA],
-        "research": [SpecialistType.DATA],
+        # PHASE 4.1: Extended domain mappings
+        "finance": [SpecialistType.DATA, SpecialistType.RESEARCHER],
+        "research": [SpecialistType.RESEARCHER, SpecialistType.DATA],
+        "legal": [SpecialistType.RESEARCHER, SpecialistType.SECURITY, SpecialistType.CONTENT_WRITER],
+        "hr": [SpecialistType.CONTENT_WRITER],
         "ops": [SpecialistType.DEVOPS],
+        "documentation": [SpecialistType.CONTENT_WRITER],
+        "content": [SpecialistType.CONTENT_WRITER],
     }
 
     # Get specialists for this domain

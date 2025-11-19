@@ -464,8 +464,10 @@ def get_domain_tools(domain: Domain) -> List[str]:
         return core_tools + [
             "write_file",
             "run_command",
+            # PHASE 3.1: Sandbox tools for coding
             "sandbox_run_python",
             "sandbox_run_node",
+            "sandbox_run_script",
             "git_commit",
             "git_diff",
             "run_tests",
@@ -477,6 +479,8 @@ def get_domain_tools(domain: Domain) -> List[str]:
             "read_spreadsheet",
             "write_spreadsheet",
             "calculate",
+            # PHASE 3.1: Python sandbox for data analysis
+            "sandbox_run_python",
         ]
 
     elif domain == Domain.LEGAL:
@@ -508,6 +512,8 @@ def get_domain_tools(domain: Domain) -> List[str]:
             "web_search",
             "fetch_url",
             "summarize_document",
+            # PHASE 3.1: Python sandbox for analysis
+            "sandbox_run_python",
         ]
 
     else:  # Domain.GENERIC
@@ -548,3 +554,33 @@ def get_domain_info(task: str) -> Dict[str, any]:
         "prompts": get_domain_prompts(domain),
         "tools": get_domain_tools(domain),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 4.2: Workflow Integration
+# ══════════════════════════════════════════════════════════════════════
+
+
+def get_workflow_for_domain(domain: Domain):
+    """
+    Get the workflow module for a specific domain.
+
+    PHASE 4.2: Maps domains to their corresponding workflow implementations.
+
+    Args:
+        domain: The domain enum
+
+    Returns:
+        Workflow instance or None if no workflow defined
+
+    Example:
+        >>> workflow = get_workflow_for_domain(Domain.CODING)
+        >>> if workflow:
+        ...     result = workflow.run(mission_context)
+    """
+    try:
+        from agent.workflows import get_workflow_for_domain as get_workflow
+        return get_workflow(domain.value)
+    except ImportError:
+        # Workflows not available
+        return None

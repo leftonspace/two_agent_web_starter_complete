@@ -1,5 +1,6 @@
 """
 PHASE 1.1: Domain Classification System
+PHASE 2.5: Role-Based Department Profile Integration
 
 This module provides domain-agnostic routing for the multi-agent orchestrator.
 Tasks are classified into domains, and each domain has specialized prompts and tools.
@@ -8,6 +9,7 @@ Supported Domains:
 - CODING: Software development, web apps, APIs
 - FINANCE: Financial analysis, budgeting, forecasting
 - LEGAL: Contract review, compliance, documentation
+- HR: Human resources, hiring, employee relations
 - OPS: Operations, logistics, process optimization
 - MARKETING: Content creation, campaigns, copywriting
 - RESEARCH: Data analysis, literature review, fact-finding
@@ -17,7 +19,7 @@ Supported Domains:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 # ══════════════════════════════════════════════════════════════════════
 # Domain Enum
@@ -30,6 +32,7 @@ class Domain(str, Enum):
     CODING = "coding"
     FINANCE = "finance"
     LEGAL = "legal"
+    HR = "hr"
     OPS = "ops"
     MARKETING = "marketing"
     RESEARCH = "research"
@@ -119,6 +122,30 @@ DOMAIN_KEYWORDS: Dict[Domain, Set[str]] = {
         "license",
         "copyright",
         "trademark",
+    },
+    Domain.HR: {
+        "hr",
+        "human resources",
+        "hiring",
+        "recruitment",
+        "recruiting",
+        "candidate",
+        "interview",
+        "onboarding",
+        "employee",
+        "compensation",
+        "benefits",
+        "payroll",
+        "performance review",
+        "performance management",
+        "talent",
+        "workforce",
+        "job description",
+        "offer letter",
+        "termination",
+        "hris",
+        "ats",
+        "applicant tracking",
     },
     Domain.OPS: {
         "operations",
@@ -584,3 +611,109 @@ def get_workflow_for_domain(domain: Domain):
     except ImportError:
         # Workflows not available
         return None
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 2.5: Role Selection Integration
+# ══════════════════════════════════════════════════════════════════════
+
+
+def select_role_for_task(task: str, department: Optional[str] = None) -> Tuple[Optional[str], str]:
+    """
+    Select the best role for a task based on domain classification and expertise matching.
+
+    PHASE 2.5: Integrates role system with domain routing. If department is not specified,
+    it will be inferred from domain classification.
+
+    Args:
+        task: Task description
+        department: Optional department name (hr, finance, legal). If None, inferred from domain.
+
+    Returns:
+        Tuple of (role_id, department_name). Returns (None, department) if no role found.
+
+    Example:
+        >>> role_id, dept = select_role_for_task("Screen candidates for software engineer position")
+        >>> print(role_id)  # "hr_recruiter"
+        >>> print(dept)     # "hr"
+
+        >>> role_id, dept = select_role_for_task("Review employment contract", department="legal")
+        >>> print(role_id)  # "legal_counsel"
+    """
+    # If department not specified, infer from domain classification
+    if department is None:
+        domain = classify_task(task)
+        # Map domain to department
+        domain_to_dept = {
+            Domain.HR: "hr",
+            Domain.FINANCE: "finance",
+            Domain.LEGAL: "legal",
+        }
+        department = domain_to_dept.get(domain, "generic")
+
+    # Only use role system for departments that have role definitions
+    if department not in ["hr", "finance", "legal"]:
+        return None, department
+
+    # Import role registry (lazy import to avoid circular dependencies)
+    try:
+        from agent.roles import get_role_registry
+
+        registry = get_role_registry()
+        role_id = registry.select_role_for_task(task, department)
+
+        return role_id, department
+    except ImportError:
+        # Role system not available
+        return None, department
+    except Exception as e:
+        # Fallback gracefully if role selection fails
+        print(f"[RoleSelection] Warning: Failed to select role: {e}")
+        return None, department
+
+
+def get_role_and_domain_info(task: str, department: Optional[str] = None) -> Dict[str, any]:
+    """
+    Get comprehensive domain and role information for a task.
+
+    PHASE 2.5: Combines domain classification with role selection to provide
+    complete routing information.
+
+    Args:
+        task: Task description
+        department: Optional department override
+
+    Returns:
+        Dict with domain, role, prompts, tools, and role profile
+
+    Example:
+        >>> info = get_role_and_domain_info("Create offer letter for new hire")
+        >>> info['domain']
+        Domain.HR
+        >>> info['role_id']
+        'hr_hiring_manager'
+        >>> info['role_profile'].role_name
+        'Hiring Manager'
+    """
+    # Get domain info
+    domain_info = get_domain_info(task)
+
+    # Get role selection
+    role_id, dept = select_role_for_task(task, department)
+
+    # Get role profile if role selected
+    role_profile = None
+    if role_id:
+        try:
+            from agent.roles import get_role_registry
+            registry = get_role_registry()
+            role_profile = registry.get_role(role_id)
+        except ImportError:
+            pass
+
+    return {
+        **domain_info,
+        "department": dept,
+        "role_id": role_id,
+        "role_profile": role_profile,
+    }

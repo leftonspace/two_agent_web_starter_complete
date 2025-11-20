@@ -104,6 +104,7 @@ def _post(payload: dict) -> dict:
     }
 
     last_error: Exception | None = None
+    is_timeout = False
 
     for attempt in range(1, 4):
         try:
@@ -124,6 +125,16 @@ def _post(payload: dict) -> dict:
 
             return resp.json()
 
+        except requests.exceptions.Timeout as exc:
+            # PHASE 4.3 (R3): Track timeout explicitly for fallback logic
+            last_error = exc
+            is_timeout = True
+            sanitized_exc_msg = log_sanitizer.sanitize_error_message(str(exc))
+            print(
+                f"[LLM] Timeout on attempt {attempt}/3: {sanitized_exc_msg}. "
+                "Retrying..." if attempt < 3 else "[LLM] Giving up after 3 timeouts."
+            )
+
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             # PHASE 1.2: Sanitize exception message to prevent sensitive data leakage
@@ -141,6 +152,7 @@ def _post(payload: dict) -> dict:
 
     return {
         "timeout": True,
+        "is_timeout": is_timeout,  # PHASE 4.3 (R3): Flag for fallback logic
         "reason": sanitized_reason,
         "plan": [],
         "acceptance_criteria": [],
@@ -277,6 +289,41 @@ def chat_json(
     }
 
     data = _post(payload)
+
+    # PHASE 4.3 (R3): LLM Timeout Fallback to Cheaper Model
+    # If the primary model times out, try once with a cheaper/faster model
+    if data.get("timeout") and data.get("is_timeout"):
+        # Get fallback model from config or use hardcoded fallback
+        fallback_model = None
+        if CONFIG_AVAILABLE:
+            cfg = config_module.get_config()
+            fallback_model = cfg.models.llm_fallback_model if hasattr(cfg.models, 'llm_fallback_model') else None
+
+        # Default fallback: use cheaper model based on role
+        if not fallback_model:
+            if "gpt-5-pro" in chosen_model or "gpt-5-2025" in chosen_model or "gpt-5" in chosen_model:
+                fallback_model = "gpt-5-mini-2025-08-07"
+            elif "gpt-5-mini" in chosen_model:
+                fallback_model = "gpt-5-nano"
+            else:
+                fallback_model = None  # Already using cheapest model
+
+        if fallback_model and fallback_model != chosen_model:
+            print(f"[LLM] Timeout detected - retrying with fallback model: {fallback_model}")
+
+            # Log fallback attempt
+            if run_id:
+                core_logging.log_event(run_id, "llm_fallback", {
+                    "original_model": chosen_model,
+                    "fallback_model": fallback_model,
+                    "reason": "timeout",
+                })
+
+            # Retry with fallback model
+            fallback_payload = payload.copy()
+            fallback_payload["model"] = fallback_model
+            data = _post(fallback_payload)
+            chosen_model = fallback_model  # Update for cost tracking
 
     # Cost tracking – best-effort, non-fatal on failure.
     try:

@@ -57,6 +57,9 @@ class Workflow(ABC):
 
         Returns:
             Workflow result with QA findings, tool outputs, specialist feedback
+
+        PHASE 4.3 (R6): Workflow failures are tracked and can block execution
+        based on workflow_enforcement config setting.
         """
         results = {
             "workflow_name": self.__class__.__name__,
@@ -64,6 +67,8 @@ class Workflow(ABC):
             "steps_failed": [],
             "qa_findings": [],
             "specialist_feedback": [],
+            "has_failures": False,  # PHASE 4.3 (R6): Track if any steps failed
+            "enforcement_level": "warn",  # Default to warn mode
         }
 
         for step in self.steps:
@@ -74,11 +79,17 @@ class Workflow(ABC):
                     "action": step.action,
                     "result": step_result,
                 })
+
+                # PHASE 4.3 (R6): Track step failures
+                if step_result.get("status") in ["failed", "error"]:
+                    results["has_failures"] = True
+
             except Exception as e:
                 results["steps_failed"].append({
                     "step": step.name,
                     "error": str(e),
                 })
+                results["has_failures"] = True  # PHASE 4.3 (R6)
 
         return results
 

@@ -109,17 +109,25 @@ class JobManager:
             logging.warning(f"[Jobs] Failed to load jobs state: {e}")
 
     def _save_jobs(self) -> None:
-        """Save jobs to state file (atomic write)."""
+        """
+        Save jobs to state file (atomic write).
+
+        PHASE 4.3 (R7): Uses atomic write pattern (temp file + rename) to prevent
+        corruption if server crashes during write. The os.rename() operation is
+        atomic on POSIX systems, ensuring the state file is never partially written.
+        """
         data = {"jobs": [asdict(job) for job in self.jobs.values()]}
 
         # PHASE 1.2: Sanitize job data before persistence
         sanitized_data = log_sanitizer.sanitize_log_data(data)
 
-        # Atomic write: write to temp file, then rename
+        # PHASE 4.3 (R7): Atomic write - write to temp file, then rename
+        # This prevents corruption if process crashes mid-write
         temp_file = self.state_file.with_suffix(".tmp")
         try:
             with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(sanitized_data, f, indent=2, ensure_ascii=False)
+            # Atomic rename - either succeeds completely or not at all
             temp_file.replace(self.state_file)
         except Exception as e:
             logging.error(f"[Jobs] Failed to save jobs state: {e}")

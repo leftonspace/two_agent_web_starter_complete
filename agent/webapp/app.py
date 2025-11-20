@@ -1200,6 +1200,334 @@ async def api_get_strategies():
     }
 
 
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 3.1: Approval Workflows
+# ══════════════════════════════════════════════════════════════════════
+
+from approval_engine import ApprovalEngine, DecisionType
+from datetime import datetime, timedelta
+
+# Initialize approval engine
+approval_engine = ApprovalEngine()
+
+
+@app.get("/approvals", response_class=HTMLResponse)
+async def approvals_page(request: Request):
+    """
+    Approval dashboard page.
+
+    PHASE 3.1: Shows pending approvals and allows approve/reject/escalate actions.
+
+    Returns:
+        HTML approval dashboard
+    """
+    return templates.TemplateResponse(
+        "approvals.html",
+        {
+            "request": request,
+        },
+    )
+
+
+@app.get("/api/approvals")
+async def api_get_approvals(
+    domain: Optional[str] = None,
+    role: Optional[str] = None,
+    user_id: Optional[str] = None
+):
+    """
+    Get pending approvals.
+
+    PHASE 3.1: Returns list of pending approval requests filtered by domain/role/user.
+
+    Args:
+        domain: Filter by domain (hr, finance, legal, etc.)
+        role: Filter by approver role
+        user_id: Filter by specific user ID
+
+    Returns:
+        JSON with approvals list and statistics
+    """
+    try:
+        # Get pending approvals
+        approvals = approval_engine.get_pending_approvals(
+            user_id=user_id,
+            role=role,
+            domain=domain
+        )
+
+        # Calculate statistics
+        total_pending = len(approvals)
+        overdue = sum(1 for a in approvals if a.get('is_overdue', False))
+
+        # Get today's approved/rejected (from last 24 hours)
+        conn = approval_engine._get_connection()
+        cursor = conn.cursor()
+
+        yesterday = (datetime.utcnow() - timedelta(days=1)).isoformat()
+
+        cursor.execute("""
+            SELECT status, COUNT(*) as count
+            FROM approval_requests
+            WHERE completed_at > ?
+            GROUP BY status
+        """, (yesterday,))
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        stats = {
+            'pending': total_pending,
+            'overdue': overdue,
+            'approved_today': 0,
+            'rejected_today': 0
+        }
+
+        for row in rows:
+            if row['status'] == 'approved':
+                stats['approved_today'] = row['count']
+            elif row['status'] == 'rejected':
+                stats['rejected_today'] = row['count']
+
+        return {
+            'approvals': approvals,
+            'statistics': stats
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get approvals: {str(e)}")
+
+
+@app.post("/api/approvals/{request_id}/approve")
+async def api_approve_request(
+    request_id: str,
+    approver_user_id: str = Form(...),
+    approver_role: Optional[str] = Form(None),
+    comments: Optional[str] = Form(None)
+):
+    """
+    Approve an approval request.
+
+    PHASE 3.1: Processes an approval decision.
+
+    Args:
+        request_id: ID of the approval request
+        approver_user_id: ID of the user approving
+        approver_role: Role of the approver
+        comments: Optional comments
+
+    Returns:
+        JSON with updated request status
+    """
+    try:
+        updated_request = approval_engine.process_decision(
+            request_id=request_id,
+            approver_user_id=approver_user_id,
+            decision=DecisionType.APPROVE,
+            comments=comments,
+            approver_role=approver_role
+        )
+
+        return {
+            'success': True,
+            'request_id': request_id,
+            'status': updated_request.status.value,
+            'message': 'Request approved successfully'
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to approve request: {str(e)}")
+
+
+@app.post("/api/approvals/{request_id}/reject")
+async def api_reject_request(
+    request_id: str,
+    approver_user_id: str = Form(...),
+    approver_role: Optional[str] = Form(None),
+    comments: Optional[str] = Form(None)
+):
+    """
+    Reject an approval request.
+
+    PHASE 3.1: Processes a rejection decision.
+
+    Args:
+        request_id: ID of the approval request
+        approver_user_id: ID of the user rejecting
+        approver_role: Role of the approver
+        comments: Optional comments
+
+    Returns:
+        JSON with updated request status
+    """
+    try:
+        updated_request = approval_engine.process_decision(
+            request_id=request_id,
+            approver_user_id=approver_user_id,
+            decision=DecisionType.REJECT,
+            comments=comments,
+            approver_role=approver_role
+        )
+
+        return {
+            'success': True,
+            'request_id': request_id,
+            'status': updated_request.status.value,
+            'message': 'Request rejected'
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reject request: {str(e)}")
+
+
+@app.post("/api/approvals/{request_id}/escalate")
+async def api_escalate_request(
+    request_id: str,
+    approver_user_id: str = Form(...),
+    approver_role: Optional[str] = Form(None),
+    comments: Optional[str] = Form(None)
+):
+    """
+    Escalate an approval request.
+
+    PHASE 3.1: Escalates a request to the next level.
+
+    Args:
+        request_id: ID of the approval request
+        approver_user_id: ID of the user escalating
+        approver_role: Role of the approver
+        comments: Optional comments
+
+    Returns:
+        JSON with updated request status
+    """
+    try:
+        updated_request = approval_engine.process_decision(
+            request_id=request_id,
+            approver_user_id=approver_user_id,
+            decision=DecisionType.ESCALATE,
+            comments=comments,
+            approver_role=approver_role
+        )
+
+        return {
+            'success': True,
+            'request_id': request_id,
+            'status': updated_request.status.value,
+            'message': 'Request escalated'
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to escalate request: {str(e)}")
+
+
+@app.get("/api/approvals/{request_id}")
+async def api_get_approval_details(request_id: str):
+    """
+    Get detailed information about an approval request.
+
+    PHASE 3.1: Returns full request details including all decisions.
+
+    Args:
+        request_id: ID of the approval request
+
+    Returns:
+        JSON with request details
+    """
+    try:
+        request = approval_engine.get_request(request_id)
+
+        if not request:
+            raise HTTPException(status_code=404, detail=f"Request {request_id} not found")
+
+        workflow = approval_engine.get_workflow(request.workflow_id)
+
+        return {
+            'request_id': request.request_id,
+            'workflow_id': request.workflow_id,
+            'workflow_name': workflow.workflow_name if workflow else None,
+            'mission_id': request.mission_id,
+            'domain': request.domain,
+            'task_type': request.task_type,
+            'status': request.status.value,
+            'payload': request.payload,
+            'current_step_index': request.current_step_index,
+            'created_at': request.created_at,
+            'updated_at': request.updated_at,
+            'completed_at': request.completed_at,
+            'decisions': [
+                {
+                    'decision_id': d.decision_id,
+                    'step_id': d.step_id,
+                    'approver_user_id': d.approver_user_id,
+                    'approver_role': d.approver_role,
+                    'decision': d.decision.value,
+                    'comments': d.comments,
+                    'decided_at': d.decided_at
+                }
+                for d in request.decisions
+            ]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get request details: {str(e)}")
+
+
+@app.get("/api/workflows")
+async def api_get_workflows(domain: Optional[str] = None):
+    """
+    Get available approval workflows.
+
+    PHASE 3.1: Returns list of registered workflows.
+
+    Args:
+        domain: Filter by domain (hr, finance, legal, etc.)
+
+    Returns:
+        JSON with workflows list
+    """
+    try:
+        conn = approval_engine._get_connection()
+        cursor = conn.cursor()
+
+        query = "SELECT * FROM approval_workflows"
+        params = []
+
+        if domain:
+            query += " WHERE domain = ?"
+            params.append(domain)
+
+        query += " ORDER BY domain, task_type"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        conn.close()
+
+        workflows = []
+        for row in rows:
+            workflows.append({
+                'workflow_id': row['workflow_id'],
+                'domain': row['domain'],
+                'task_type': row['task_type'],
+                'workflow_name': row['workflow_name'],
+                'description': row['description'],
+                'created_at': row['created_at']
+            })
+
+        return {'workflows': workflows}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get workflows: {str(e)}")
+
+
 @app.get("/health")
 async def health_check():
     """

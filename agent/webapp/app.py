@@ -1528,6 +1528,291 @@ async def api_get_workflows(domain: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"Failed to get workflows: {str(e)}")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 3.2: System Integrations
+# ══════════════════════════════════════════════════════════════════════
+
+import sys
+from pathlib import Path as PathLib
+
+# Add integrations to path
+integrations_path = PathLib(__file__).parent.parent / "integrations"
+if str(integrations_path) not in sys.path:
+    sys.path.insert(0, str(integrations_path))
+
+from integrations.base import get_registry
+from integrations.hris.bamboohr import BambooHRConnector
+from integrations.database import DatabaseConnector
+
+# Initialize global registry
+integration_registry = get_registry()
+
+
+@app.get("/integrations", response_class=HTMLResponse)
+async def integrations_page(request: Request):
+    """
+    Integrations management page.
+
+    PHASE 3.2: Manage external system connections.
+
+    Returns:
+        HTML integrations management page
+    """
+    return templates.TemplateResponse(
+        "integrations.html",
+        {
+            "request": request,
+        },
+    )
+
+
+@app.get("/api/integrations")
+async def api_list_integrations():
+    """
+    List all registered integrations.
+
+    PHASE 3.2: Returns list of connectors with health status.
+
+    Returns:
+        JSON with integrations list
+    """
+    try:
+        health = integration_registry.get_health_summary()
+        return {
+            'integrations': health['connectors'],
+            'summary': {
+                'total': health['total_connectors'],
+                'connected': health['connected'],
+                'disconnected': health['disconnected'],
+                'error': health['error']
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list integrations: {str(e)}")
+
+
+@app.post("/api/integrations")
+async def api_add_integration(config: Dict = Form(...)):
+    """
+    Add a new integration.
+
+    PHASE 3.2: Create and register a new connector.
+
+    Args:
+        config: Integration configuration
+
+    Returns:
+        JSON with created connector info
+    """
+    try:
+        import uuid
+        connector_id = str(uuid.uuid4())
+        integration_type = config.get('type')
+
+        if integration_type == 'bamboohr':
+            connector = BambooHRConnector(
+                connector_id=connector_id,
+                subdomain=config['subdomain'],
+                api_key=config['api_key']
+            )
+
+        elif integration_type in ['postgresql', 'mysql', 'sqlite']:
+            connector = DatabaseConnector(
+                connector_id=connector_id,
+                engine=config.get('engine', integration_type),
+                config=config
+            )
+
+        else:
+            raise ValueError(f"Unsupported integration type: {integration_type}")
+
+        # Register connector
+        integration_registry.register(connector)
+
+        # Connect
+        await connector.connect()
+
+        return {
+            'success': True,
+            'connector_id': connector_id,
+            'name': connector.name,
+            'status': connector.status.value
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to add integration: {str(e)}")
+
+
+@app.get("/api/integrations/{connector_id}")
+async def api_get_integration(connector_id: str):
+    """
+    Get integration details.
+
+    PHASE 3.2: Returns detailed connector information.
+
+    Args:
+        connector_id: Connector ID
+
+    Returns:
+        JSON with connector details
+    """
+    try:
+        connector = integration_registry.get(connector_id)
+
+        if not connector:
+            raise HTTPException(status_code=404, detail=f"Integration {connector_id} not found")
+
+        health = connector.get_health()
+
+        return {
+            'connector_id': health['connector_id'],
+            'name': health['name'],
+            'type': connector.__class__.__name__,
+            'status': health['status'],
+            'authenticated': health['authenticated'],
+            'metrics': health['metrics'],
+            'rate_limiter': health['rate_limiter']
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get integration: {str(e)}")
+
+
+@app.post("/api/integrations/{connector_id}/connect")
+async def api_connect_integration(connector_id: str):
+    """
+    Connect an integration.
+
+    PHASE 3.2: Establish connection to external system.
+
+    Args:
+        connector_id: Connector ID
+
+    Returns:
+        JSON with connection status
+    """
+    try:
+        connector = integration_registry.get(connector_id)
+
+        if not connector:
+            raise HTTPException(status_code=404, detail=f"Integration {connector_id} not found")
+
+        success = await connector.connect()
+
+        return {
+            'success': success,
+            'status': connector.status.value,
+            'message': 'Connected successfully' if success else 'Connection failed'
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to connect: {str(e)}")
+
+
+@app.post("/api/integrations/{connector_id}/disconnect")
+async def api_disconnect_integration(connector_id: str):
+    """
+    Disconnect an integration.
+
+    PHASE 3.2: Close connection to external system.
+
+    Args:
+        connector_id: Connector ID
+
+    Returns:
+        JSON with disconnection status
+    """
+    try:
+        connector = integration_registry.get(connector_id)
+
+        if not connector:
+            raise HTTPException(status_code=404, detail=f"Integration {connector_id} not found")
+
+        await connector.disconnect()
+
+        return {
+            'success': True,
+            'status': connector.status.value,
+            'message': 'Disconnected successfully'
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to disconnect: {str(e)}")
+
+
+@app.get("/api/integrations/{connector_id}/test")
+async def api_test_integration(connector_id: str):
+    """
+    Test integration connection.
+
+    PHASE 3.2: Tests connection and returns latency/health info.
+
+    Args:
+        connector_id: Connector ID
+
+    Returns:
+        JSON with test results
+    """
+    try:
+        connector = integration_registry.get(connector_id)
+
+        if not connector:
+            raise HTTPException(status_code=404, detail=f"Integration {connector_id} not found")
+
+        # Ensure connected
+        if connector.status != ConnectionStatus.CONNECTED:
+            await connector.connect()
+
+        # Run test
+        result = await connector.test_connection()
+
+        return result
+
+    except Exception as e:
+        return {
+            'success': False,
+            'latency_ms': 0,
+            'message': str(e),
+            'details': {'error': str(e)}
+        }
+
+
+@app.delete("/api/integrations/{connector_id}")
+async def api_delete_integration(connector_id: str):
+    """
+    Delete an integration.
+
+    PHASE 3.2: Remove connector and cleanup.
+
+    Args:
+        connector_id: Connector ID
+
+    Returns:
+        JSON with deletion status
+    """
+    try:
+        connector = integration_registry.get(connector_id)
+
+        if not connector:
+            raise HTTPException(status_code=404, detail=f"Integration {connector_id} not found")
+
+        # Disconnect first
+        await connector.disconnect()
+
+        # Unregister
+        integration_registry.unregister(connector_id)
+
+        return {
+            'success': True,
+            'message': 'Integration deleted successfully'
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete integration: {str(e)}")
+
+
 @app.get("/health")
 async def health_check():
     """

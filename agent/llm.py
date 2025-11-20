@@ -12,6 +12,13 @@ import cost_tracker
 import log_sanitizer  # PHASE 1.2: Sanitize error messages
 from model_router import choose_model as router_choose_model
 
+# PHASE 5.2: LLM response caching for cost reduction
+try:
+    from llm_cache import get_llm_cache
+    LLM_CACHE_AVAILABLE = True
+except ImportError:
+    LLM_CACHE_AVAILABLE = False
+
 # PHASE 0.3: Import config module for centralized defaults
 try:
     import config as config_module
@@ -244,10 +251,52 @@ def chat_json(
     else:
         chosen_model = model
 
+    # Choose which system message to use
+    effective_system = system if system is not None else (system_prompt or "")
+
+    # PHASE 5.2: LLM Response Caching - Check cache before API call
+    cache_key = None
+    cached_response = None
+    estimated_cost = 0.0
+
+    if LLM_CACHE_AVAILABLE:
+        try:
+            cache = get_llm_cache()
+
+            # Generate cache key
+            cache_key = cache.generate_key(
+                role=role,
+                system_prompt=effective_system,
+                user_content=user_content,
+                model=chosen_model,
+                temperature=temperature,
+            )
+
+            # Estimate cost for cache hit tracking
+            prompt_chars = len(effective_system) + len(user_content)
+            estimated_tokens = (prompt_chars // 4) + 2000
+            price_cfg = cost_tracker._get_pricing_fallback(chosen_model)
+            estimated_cost = estimated_tokens * price_cfg["output"]  # Conservative estimate
+
+            # Check cache
+            cached_response = cache.get(cache_key, estimated_cost=estimated_cost)
+
+            if cached_response:
+                print(f"[LLMCache] Cache HIT - Saved ~${estimated_cost:.4f}")
+                if run_id:
+                    core_logging.log_event(run_id, "llm_cache_hit", {
+                        "role": role,
+                        "model": chosen_model,
+                        "cost_saved_usd": estimated_cost,
+                    })
+                return cached_response
+
+        except Exception as e:
+            print(f"[LLMCache] Cache lookup error (will proceed with API call): {e}")
+
     # STAGE 5.2: Check cost cap before making the call
     if max_cost_usd > 0:
         # Estimate prompt size (rough heuristic: 4 chars per token)
-        effective_system = system if system is not None else (system_prompt or "")
         prompt_chars = len(effective_system) + len(user_content)
         estimated_tokens = (prompt_chars // 4) + 2000  # Add buffer for output
 
@@ -273,9 +322,6 @@ def chat_json(
                 "current_cost_usd": current_cost,
                 "max_cost_usd": max_cost_usd,
             }
-
-    # Choose which system message to use
-    effective_system = system if system is not None else (system_prompt or "")
 
     messages = [
         {"role": "system", "content": effective_system},
@@ -376,7 +422,18 @@ def chat_json(
         return {"raw": content}
 
     try:
-        return json.loads(content)
+        parsed_response = json.loads(content)
+
+        # PHASE 5.2: Store successful response in cache
+        if LLM_CACHE_AVAILABLE and cache_key:
+            try:
+                cache = get_llm_cache()
+                cache.set(cache_key, parsed_response)
+            except Exception as e:
+                print(f"[LLMCache] Cache storage error: {e}")
+
+        return parsed_response
+
     except json.JSONDecodeError as e:  # pragma: no cover
         raise RuntimeError(
             "Model response was not valid JSON.\n"

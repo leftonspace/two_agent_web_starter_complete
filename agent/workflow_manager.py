@@ -634,9 +634,17 @@ class WorkflowManager:
         for stage in roadmap.stages:
             stages_by_status.setdefault(stage.status, []).append(stage.name)
 
+        # Count stages by status for convenience
+        pending_count = len(stages_by_status.get("pending", []))
+        completed_count = len(stages_by_status.get("completed", []))
+        active_count = len(stages_by_status.get("active", []))
+
         return {
             "version": roadmap.version,
             "total_stages": len(roadmap.stages),
+            "pending_count": pending_count,
+            "completed_count": completed_count,
+            "active_count": active_count,
             "active_stage": self.get_active_stage().name if self.get_active_stage() else None,
             "stages_by_status": stages_by_status,
             "mutation_history": [

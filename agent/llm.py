@@ -42,7 +42,7 @@ def _sanitize_json_escapes(content: str) -> str:
     1. Identifying invalid escape sequences (e.g., \@, \#, \!, etc.)
     2. Removing the backslash before characters that don't need escaping
 
-    Valid JSON escapes are: \" \\ \/ \b \f \n \r \t \uXXXX
+    Valid JSON escapes are: \" \\\\ \\/ \\b \\f \\n \\r \\t \\uXXXX
 
     Args:
         content: The raw LLM response content

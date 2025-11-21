@@ -19,11 +19,12 @@ def test_runner_imports():
     """Test that runner module imports successfully."""
     try:
         from runner import (
-            get_run_details,
-            list_projects,
-            list_run_history,
-            run_project,
+            get_run_details,  # noqa: F401
+            list_projects,  # noqa: F401
+            list_run_history,  # noqa: F401
+            run_project,  # noqa: F401
         )
+
 
         print("✓ runner.py imports successfully")
         return True

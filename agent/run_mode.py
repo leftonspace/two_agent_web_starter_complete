@@ -31,7 +31,6 @@ except ImportError:
 import cost_tracker
 from cost_estimator import estimate_run_cost, format_cost_estimate
 from run_logger import (
-    RunSummary,
     finalize_run,
     log_iteration,
     save_run_summary,
@@ -44,6 +43,7 @@ from status_codes import (
     EXCEPTION,
     ITER_EXCEPTION,
     ITER_INTERRUPTED,
+    UNKNOWN,
     USER_ABORT,
 )
 
@@ -139,7 +139,7 @@ def _run_auto_pilot_mode(cfg: dict, auto_pilot_cfg: dict) -> None:
         "interactive_cost_mode": cfg.get("interactive_cost_mode", "off"),
     }
 
-    print(f"[AutoPilot] Starting auto-pilot mode")
+    print("[AutoPilot] Starting auto-pilot mode")
     print(f"[AutoPilot] Project: {project_dir}")
     print(f"[AutoPilot] Max sub-runs: {max_sub_runs}")
     print(f"[AutoPilot] Max rounds per run: {max_rounds_per_run}")
@@ -243,7 +243,7 @@ def main() -> None:
 
     # Interactive approval if configured
     if interactive_cost_mode in ("once", "always"):
-        prompt_msg = f"\n[Cost Control] Proceed with this run? "
+        prompt_msg = "\n[Cost Control] Proceed with this run? "
         prompt_msg += f"Estimated cost: ${cost_estimate['estimated_total_usd']:.4f} USD"
         if max_cost_usd > 0:
             prompt_msg += f" (max allowed: ${max_cost_usd:.4f} USD)"
@@ -264,17 +264,17 @@ def main() -> None:
                 cost_summary=cost_tracker.get_summary(),
             )
             save_run_summary(run_summary)
-            print(f"[RUN] Run summary saved (aborted before execution)")
+            print("[RUN] Run summary saved (aborted before execution)")
             return
 
         print("[COST] User approved. Continuing...")
 
     # Warn if estimate exceeds cap (in "off" mode)
     elif max_cost_usd > 0 and cost_estimate["estimated_total_usd"] > max_cost_usd:
-        print(f"\n⚠️  [Cost Control] WARNING: Estimated cost exceeds max_cost_usd!")
+        print("\n⚠️  [Cost Control] WARNING: Estimated cost exceeds max_cost_usd!")
         print(f"    Estimate: ${cost_estimate['estimated_total_usd']:.4f}")
         print(f"    Max cap:  ${max_cost_usd:.4f}")
-        print(f"    Proceeding anyway (interactive_cost_mode is 'off')...")
+        print("    Proceeding anyway (interactive_cost_mode is 'off')...")
 
     # Reset cost tracking for this run
     cost_tracker.reset()
@@ -292,11 +292,19 @@ def main() -> None:
             # 2loop doesn't support run_summary yet
             main_2loop()
             final_status = COMPLETED
-        else:
-            # Default to 3-loop if anything else
-            from orchestrator import main as main_3loop
+        elif mode == "3loop_legacy":
+            # LEGACY: Original 3-loop orchestrator (pre-Phase 3)
+            from orchestrator_3loop_legacy import main as main_legacy
             # Pass run_summary to enable STAGE 2 logging
-            main_3loop(run_summary=run_summary)
+            main_legacy(run_summary=run_summary)
+            final_status = COMPLETED
+        else:
+            # Default: PHASE 3 Adaptive multi-agent orchestrator
+            # Supports dynamic roadmap, auto-advance, regression detection,
+            # horizontal messaging, and stage-level memory
+            from orchestrator import main as main_phase3
+            # Pass run_summary to enable STAGE 2 logging
+            main_phase3(run_summary=run_summary)
             final_status = COMPLETED
 
     except KeyboardInterrupt:

@@ -7,38 +7,57 @@ STAGE 9: Browse project files, snapshots, and compare versions.
 from __future__ import annotations
 
 import difflib
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
 
 # File size limit for viewing (5MB)
 MAX_FILE_SIZE = 5 * 1024 * 1024
 
 # Binary file extensions to skip
 BINARY_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg",
-    ".pdf", ".zip", ".tar", ".gz", ".7z",
-    ".exe", ".dll", ".so", ".dylib",
-    ".mp3", ".mp4", ".avi", ".mov",
-    ".woff", ".woff2", ".ttf", ".eot",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".ico",
+    ".svg",
+    ".pdf",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".7z",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".mp3",
+    ".mp4",
+    ".avi",
+    ".mov",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
 }
 
 
 @dataclass
 class FileNode:
     """Represents a file or directory in the file tree."""
+
     name: str
     path: str  # Relative path from project root
     is_dir: bool
     size: Optional[int] = None  # File size in bytes
-    children: Optional[List[FileNode]] = None  # For directories
+    children: Optional[List["FileNode"]] = None  # For directories
 
 
 @dataclass
 class Snapshot:
     """Represents a project snapshot."""
+
     id: str  # e.g., "iteration_1"
     iteration: int  # Iteration number
     path: str  # Full path to snapshot directory
@@ -80,25 +99,52 @@ def is_text_file(file_path: Path) -> bool:
 
     # Check for common text extensions
     text_extensions = {
-        ".txt", ".md", ".html", ".htm", ".css", ".js", ".json",
-        ".py", ".java", ".c", ".cpp", ".h", ".hpp",
-        ".xml", ".yml", ".yaml", ".toml", ".ini", ".cfg",
-        ".sh", ".bash", ".zsh", ".fish",
-        ".ts", ".tsx", ".jsx", ".vue", ".svelte",
-        ".sql", ".go", ".rs", ".rb", ".php",
+        ".txt",
+        ".md",
+        ".html",
+        ".htm",
+        ".css",
+        ".js",
+        ".json",
+        ".py",
+        ".java",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".xml",
+        ".yml",
+        ".yaml",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".fish",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".vue",
+        ".svelte",
+        ".sql",
+        ".go",
+        ".rs",
+        ".rb",
+        ".php",
     }
     if file_path.suffix.lower() in text_extensions:
         return True
 
     # For files without extension or unknown extensions, try reading a sample
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             sample = f.read(1024)
             # Check if sample contains null bytes (strong indicator of binary)
-            if b'\x00' in sample:
+            if b"\x00" in sample:
                 return False
             # Try to decode as UTF-8
-            sample.decode('utf-8')
+            sample.decode("utf-8")
             return True
     except (OSError, UnicodeDecodeError):
         return False
@@ -123,34 +169,38 @@ def get_project_tree(project_path: Path, relative_root: Optional[Path] = None) -
     if not is_safe_path(project_path, root):
         return []
 
-    nodes = []
+    nodes: List[Dict[str, Any]] = []
 
     try:
         items = sorted(root.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
 
         for item in items:
-            # Skip hidden files and directories (except .history for snapshots)
-            if item.name.startswith('.') and item.name != '.history':
+            # Skip hidden/internal files and directories like .history, .git, etc.
+            if item.name.startswith(".") or item.name in {"__pycache__", "node_modules"}:
                 continue
 
             # Get relative path from project root
             rel_path = item.relative_to(project_path)
 
             if item.is_dir():
-                nodes.append({
-                    "name": item.name,
-                    "path": str(rel_path),
-                    "is_dir": True,
-                    "children": None,  # Lazy load on expand
-                })
+                nodes.append(
+                    {
+                        "name": item.name,
+                        "path": str(rel_path),
+                        "is_dir": True,
+                        "children": None,  # Lazy load on expand
+                    }
+                )
             else:
                 size = item.stat().st_size if item.exists() else None
-                nodes.append({
-                    "name": item.name,
-                    "path": str(rel_path),
-                    "is_dir": False,
-                    "size": size,
-                })
+                nodes.append(
+                    {
+                        "name": item.name,
+                        "path": str(rel_path),
+                        "is_dir": False,
+                        "size": size,
+                    }
+                )
 
     except (OSError, PermissionError):
         pass
@@ -221,7 +271,7 @@ def get_file_content(project_path: Path, file_path: str) -> Dict[str, Any]:
 
     # Read file content
     try:
-        with open(full_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(full_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         return {
             "content": content,
@@ -229,7 +279,7 @@ def get_file_content(project_path: Path, file_path: str) -> Dict[str, Any]:
             "is_binary": False,
             "is_too_large": False,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return {
             "content": None,
             "error": f"Error reading file: {e}",
@@ -253,7 +303,7 @@ def list_snapshots(project_path: Path) -> List[Snapshot]:
     if not history_dir.exists() or not history_dir.is_dir():
         return []
 
-    snapshots = []
+    snapshots: List[Snapshot] = []
 
     try:
         for item in history_dir.iterdir():
@@ -270,12 +320,14 @@ def list_snapshots(project_path: Path) -> List[Snapshot]:
                     except OSError:
                         pass
 
-                    snapshots.append(Snapshot(
-                        id=item.name,
-                        iteration=iteration,
-                        path=str(item),
-                        created_at=created_at,
-                    ))
+                    snapshots.append(
+                        Snapshot(
+                            id=item.name,
+                            iteration=iteration,
+                            path=str(item),
+                            created_at=created_at,
+                        )
+                    )
                 except (ValueError, IndexError):
                     # Skip malformed directory names
                     continue
@@ -289,7 +341,12 @@ def list_snapshots(project_path: Path) -> List[Snapshot]:
     return snapshots
 
 
-def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before", file2_label: str = "after") -> Dict[str, Any]:
+def compute_diff(
+    file1_path: Path,
+    file2_path: Path,
+    file1_label: str = "before",
+    file2_label: str = "after",
+) -> Dict[str, Any]:
     """
     Compute unified diff between two files.
 
@@ -332,7 +389,7 @@ def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before"
                     "file2_missing": False,
                 }
 
-            with open(file2_path, 'r', encoding='utf-8', errors='replace') as f:
+            with open(file2_path, "r", encoding="utf-8", errors="replace") as f:
                 lines2 = f.readlines()
 
             diff = difflib.unified_diff(
@@ -340,17 +397,17 @@ def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before"
                 lines2,
                 fromfile=file1_label,
                 tofile=file2_label,
-                lineterm='',
+                lineterm="",
             )
 
             return {
-                "diff": '\n'.join(diff),
+                "diff": "\n".join(diff),
                 "error": None,
                 "is_binary": False,
                 "file1_missing": True,
                 "file2_missing": False,
             }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {
                 "diff": None,
                 "error": f"Error reading file: {e}",
@@ -371,7 +428,7 @@ def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before"
                     "file2_missing": True,
                 }
 
-            with open(file1_path, 'r', encoding='utf-8', errors='replace') as f:
+            with open(file1_path, "r", encoding="utf-8", errors="replace") as f:
                 lines1 = f.readlines()
 
             diff = difflib.unified_diff(
@@ -379,17 +436,17 @@ def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before"
                 [],
                 fromfile=file1_label,
                 tofile=file2_label,
-                lineterm='',
+                lineterm="",
             )
 
             return {
-                "diff": '\n'.join(diff),
+                "diff": "\n".join(diff),
                 "error": None,
                 "is_binary": False,
                 "file1_missing": False,
                 "file2_missing": True,
             }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {
                 "diff": None,
                 "error": f"Error reading file: {e}",
@@ -410,9 +467,9 @@ def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before"
 
     # Read both files and compute diff
     try:
-        with open(file1_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(file1_path, "r", encoding="utf-8", errors="replace") as f:
             lines1 = f.readlines()
-        with open(file2_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(file2_path, "r", encoding="utf-8", errors="replace") as f:
             lines2 = f.readlines()
 
         diff = difflib.unified_diff(
@@ -420,10 +477,10 @@ def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before"
             lines2,
             fromfile=file1_label,
             tofile=file2_label,
-            lineterm='',
+            lineterm="",
         )
 
-        diff_text = '\n'.join(diff)
+        diff_text = "\n".join(diff)
 
         if not diff_text:
             diff_text = "Files are identical"
@@ -436,7 +493,7 @@ def compute_diff(file1_path: Path, file2_path: Path, file1_label: str = "before"
             "file2_missing": False,
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return {
             "diff": None,
             "error": f"Error computing diff: {e}",

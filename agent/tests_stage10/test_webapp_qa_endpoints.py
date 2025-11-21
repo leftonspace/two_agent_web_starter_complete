@@ -7,7 +7,6 @@ on jobs and retrieving QA reports.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -31,8 +30,9 @@ def client():
 @pytest.fixture
 def mock_job():
     """Create a mock completed job."""
-    from jobs import Job
     from datetime import datetime
+
+    from jobs import Job
 
     return Job(
         id="test_job_123",

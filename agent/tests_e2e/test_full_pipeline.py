@@ -14,7 +14,6 @@ STAGE E2E: Tests the complete workflow:
 
 from __future__ import annotations
 
-import json
 import sys
 import time
 from pathlib import Path
@@ -124,7 +123,6 @@ def test_full_pipeline_e2e(e2e_client, temp_e2e_project):
     NOTE: This test uses extensive mocking to avoid heavy LLM calls,
     but tests the full API surface and integration points.
     """
-    from jobs import Job
     from datetime import datetime
 
     # Mock the heavy orchestrator work
@@ -233,7 +231,7 @@ def test_full_pipeline_e2e(e2e_client, temp_e2e_project):
 
         assert job_completed, f"Job did not complete within {max_polls * poll_interval}s"
         assert final_job_data["status"] == "completed", f"Job failed: {final_job_data.get('error')}"
-        print(f"  ✓ Job completed successfully")
+        print("  ✓ Job completed successfully")
 
         # STEP 3: Trigger QA for the completed job
         print("STEP 3: Running QA on completed job")
@@ -248,7 +246,7 @@ def test_full_pipeline_e2e(e2e_client, temp_e2e_project):
         response = e2e_client.get(f"/api/jobs/{job_id}")
         job_data = response.json()
         assert job_data.get("qa_status") == "passed", "QA status not stored in job"
-        print(f"  ✓ QA results stored in job")
+        print("  ✓ QA results stored in job")
 
         # STEP 4: Verify analytics endpoints show the run
         print("STEP 4: Checking analytics")
@@ -259,7 +257,7 @@ def test_full_pipeline_e2e(e2e_client, temp_e2e_project):
         jobs_list = response.json()
         assert isinstance(jobs_list, list)
         assert any(job["id"] == job_id for job in jobs_list), "Job not in jobs list"
-        print(f"  ✓ Job appears in jobs list")
+        print("  ✓ Job appears in jobs list")
 
         # Check if there's a stats/analytics endpoint (Stage 11)
         response = e2e_client.get("/api/stats/summary")
@@ -278,7 +276,7 @@ def test_full_pipeline_e2e(e2e_client, temp_e2e_project):
             tuning_status = response.json()
             print(f"  ✓ Tuning status endpoint responded: {tuning_status}")
         elif response.status_code == 404:
-            print(f"  ℹ Tuning endpoint not found (may not be implemented)")
+            print("  ℹ Tuning endpoint not found (may not be implemented)")
         else:
             print(f"  ℹ Tuning endpoint returned {response.status_code}")
 
@@ -287,8 +285,6 @@ def test_full_pipeline_e2e(e2e_client, temp_e2e_project):
 
 def test_e2e_job_failure_handling(e2e_client, temp_e2e_project):
     """Test E2E flow when a job fails during execution."""
-    from jobs import Job
-    from datetime import datetime
 
     mock_run_summary = MagicMock()
     mock_run_summary.run_id = "e2e_fail_run"
@@ -330,7 +326,7 @@ def test_e2e_job_failure_handling(e2e_client, temp_e2e_project):
 
         # Poll until job fails
         max_polls = 20
-        for i in range(max_polls):
+        for _ in range(max_polls):
             response = e2e_client.get(f"/api/jobs/{job_id}")
             job_data = response.json()
 

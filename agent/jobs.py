@@ -10,10 +10,8 @@ import json
 import logging
 import sys
 import threading
-import time
 import uuid
-from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -22,13 +20,8 @@ agent_dir = Path(__file__).resolve().parent
 if str(agent_dir) not in sys.path:
     sys.path.insert(0, str(agent_dir))
 
-# PHASE 1.2: Import log sanitizer to prevent sensitive data leakage
-import log_sanitizer
-
-from runner import run_project
-from safe_io import safe_json_write, safe_timestamp
-from status_codes import COMPLETED, EXCEPTION, USER_ABORT
-
+from runner import run_project  # noqa: E402
+from safe_io import safe_timestamp  # noqa: E402
 
 # Job statuses
 STATUS_QUEUED = "queued"
@@ -209,29 +202,17 @@ class JobManager:
         return jobs
 
     def update_job(self, job_id: str, **updates) -> Optional[Job]:
-        """
-        Update a job's fields.
-
-        Args:
-            job_id: Job identifier
-            **updates: Fields to update (status, logs_path, result_summary, etc.)
-
-        Returns:
-            Updated Job object or None if not found
-        """
-        job = self.jobs.get(job_id)
-        if not job:
+        job = self.get_job(job_id)
+        if job is None:
             return None
 
-        with self.lock:
-            # Update fields
-            for key, value in updates.items():
-                if hasattr(job, key):
-                    setattr(job, key, value)
+        for key, value in updates.items():
+            setattr(job, key, value)
 
-            job.updated_at = safe_timestamp()
-            self._save_jobs()
+        # Ensure updated_at is bumped on every update
+        job.updated_at = safe_timestamp()
 
+        self._save_job(job)
         return job
 
     def cancel_job(self, job_id: str) -> bool:

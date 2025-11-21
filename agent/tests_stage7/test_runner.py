@@ -47,7 +47,7 @@ def test_list_projects_empty(tmp_path, monkeypatch):
     monkeypatch.setattr("runner.Path", lambda *args: tmp_path if not args else Path(*args))
 
     sites_dir = tmp_path / "sites"
-    sites_dir.mkdir()
+    sites_dir.mkdir(exist_ok=True)
 
     # Should return empty list
     projects = list_projects()
@@ -56,10 +56,9 @@ def test_list_projects_empty(tmp_path, monkeypatch):
 
 def test_list_projects_with_projects(tmp_path, monkeypatch):
     """Test list_projects with multiple projects."""
-    from runner import list_projects
 
     sites_dir = tmp_path / "sites"
-    sites_dir.mkdir()
+    sites_dir.mkdir(exist_ok=True)
 
     # Create test projects
     (sites_dir / "project1").mkdir()
@@ -238,13 +237,12 @@ def test_run_project_nonexistent_project():
 def test_run_project_integration(mock_config, temp_project_dir, tmp_path, monkeypatch):
     """Test successful run_project execution with mocked orchestrator."""
     from runner import run_project
-    import run_logger
 
     # Setup temporary directory structure
     agent_root = tmp_path / "agent"
     agent_root.mkdir()
     sites_dir = tmp_path / "sites"
-    sites_dir.mkdir()
+    sites_dir.mkdir(exist_ok=True)
     project_dir = sites_dir / "test_project"
     project_dir.mkdir()
     (project_dir / "index.html").write_text("<html><body>Test</body></html>")

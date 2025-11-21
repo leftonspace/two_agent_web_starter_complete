@@ -18,12 +18,10 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List
 
 # Import core_logging to reuse event loading logic
 import core_logging
-
 
 # ══════════════════════════════════════════════════════════════════════
 # Summary Computation
@@ -290,7 +288,7 @@ def main():
         log_file = core_logging.LOGS_DIR / f"{args.run_id}.jsonl"
         if not log_file.exists():
             print(f"Error: Log file not found: {log_file}", file=sys.stderr)
-            print(f"\nAvailable run IDs:", file=sys.stderr)
+            print("\nAvailable run IDs:", file=sys.stderr)
             # List available run IDs
             if core_logging.LOGS_DIR.exists():
                 log_files = sorted(core_logging.LOGS_DIR.glob("*.jsonl"))

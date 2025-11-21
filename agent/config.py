@@ -69,11 +69,11 @@ class ModelDefaults:
     Migration: Use model_router.choose_model() which automatically uses the registry.
     """
 
-    manager: str = "gpt-5-mini-2025-08-07"
-    supervisor: str = "gpt-5-nano"
-    employee: str = "gpt-5-2025-08-07"
-    merge_manager: str = "gpt-5-mini"
-    qa_reviewer: str = "gpt-5-mini"
+    manager: str = "gpt-4o-mini"
+    supervisor: str = "gpt-4o-mini"
+    employee: str = "gpt-4o-mini"
+    merge_manager: str = "gpt-4o-mini"
+    qa_reviewer: str = "gpt-4o-mini"
 
     @classmethod
     def from_env(cls) -> ModelDefaults:

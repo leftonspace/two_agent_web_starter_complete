@@ -50,9 +50,9 @@ def _get_default_models() -> Dict[str, str]:
     else:
         # Legacy: Read from environment variables
         return {
-            "manager": os.getenv("DEFAULT_MANAGER_MODEL", "gpt-5-mini-2025-08-07"),
-            "supervisor": os.getenv("DEFAULT_SUPERVISOR_MODEL", "gpt-5-nano"),
-            "employee": os.getenv("DEFAULT_EMPLOYEE_MODEL", "gpt-5-2025-08-07"),
+            "manager": os.getenv("DEFAULT_MANAGER_MODEL", "gpt-4o-mini"),
+            "supervisor": os.getenv("DEFAULT_SUPERVISOR_MODEL", "gpt-4o-mini"),
+            "employee": os.getenv("DEFAULT_EMPLOYEE_MODEL", "gpt-4o-mini"),
         }
 
 
@@ -490,10 +490,10 @@ def chat_json(
 
         # Default fallback: use cheaper model based on role
         if not fallback_model:
-            if "gpt-5-pro" in chosen_model or "gpt-5-2025" in chosen_model or "gpt-5" in chosen_model:
-                fallback_model = "gpt-5-mini-2025-08-07"
-            elif "gpt-5-mini" in chosen_model:
-                fallback_model = "gpt-5-nano"
+            if "gpt-4o" in chosen_model and "mini" not in chosen_model:
+                fallback_model = "gpt-4o-mini"
+            elif "gpt-4" in chosen_model:
+                fallback_model = "gpt-3.5-turbo"
             else:
                 fallback_model = None  # Already using cheapest model
 

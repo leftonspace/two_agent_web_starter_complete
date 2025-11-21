@@ -341,6 +341,42 @@ class WorkflowConfig:
 
 
 @dataclass
+class MemoryConfig:
+    """
+    PHASE 7.3: Business memory configuration.
+
+    Configuration for persistent business knowledge learned from conversations.
+    """
+
+    # Core settings
+    enabled: bool = True  # Enable business memory system
+    memory_db_path: str = "data/business_memory.db"  # Path to SQLite database
+    auto_learn: bool = True  # Automatically learn facts from conversations
+
+    # Learning settings
+    extraction_model: str = "gpt-4o-mini"  # LLM for fact extraction (cheaper/faster)
+    min_confidence: float = 0.6  # Minimum confidence to store a fact (0.0-1.0)
+    context_messages: int = 5  # Number of recent messages to use for extraction context
+
+    # Privacy and GDPR
+    strict_privacy_mode: bool = True  # Enable strict privacy filtering
+    enable_data_export: bool = True  # Allow data export for GDPR compliance
+    enable_data_deletion: bool = True  # Allow data deletion (right to be forgotten)
+
+    # Data retention (days)
+    retention_company: int = 365  # Company info retention (1 year)
+    retention_team: int = 180  # Team member info retention (6 months)
+    retention_preferences: int = 365  # Preference retention (1 year)
+    retention_projects: int = 90  # Project info retention (3 months)
+    retention_general: int = 90  # General facts retention (3 months)
+
+    # Feature flags
+    enable_conflict_detection: bool = True  # Detect conflicts between facts
+    enable_context_injection: bool = True  # Inject memory context into queries
+    enable_manual_memory: bool = True  # Allow manual fact storage ("remember that...")
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -390,6 +426,9 @@ class Config:
 
     # PHASE 7.2: Workflow enforcement
     workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
+
+    # PHASE 7.3: Business memory
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

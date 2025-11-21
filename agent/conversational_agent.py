@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import core_logging
+from agent.business_memory.manager import BusinessMemory
 from agent_messaging import AgentMessage, AgentRole, get_message_bus
 from config import Config, get_config
 from exec_tools import get_tool_metadata
@@ -112,10 +113,18 @@ class ConversationalAgent:
         self.pending_agent_messages: List[AgentMessage] = []
         self.agent_message_queue: List[AgentMessage] = []  # Queue for streaming to web UI
 
+        # PHASE 7.3: Initialize business memory for persistent learning
+        memory_config = self.config.memory if hasattr(self.config, 'memory') else None
+        self.business_memory = BusinessMemory(
+            db_path=memory_config.memory_db_path if memory_config else "data/business_memory.db",
+            auto_learn=memory_config.auto_learn if memory_config else True
+        )
+
         core_logging.log_event("conversational_agent_initialized", {
             "session_id": self.session_id,
             "available_tools": len(self.available_tools),
-            "agent_messaging_enabled": True
+            "agent_messaging_enabled": True,
+            "business_memory_enabled": True
         })
 
     def _generate_session_id(self) -> str:
@@ -154,7 +163,7 @@ class ConversationalAgent:
 
     async def chat(self, user_message: str) -> str:
         """
-        Main conversational interface.
+        Main conversational interface with business memory.
 
         Args:
             user_message: Natural language input from user
@@ -166,16 +175,19 @@ class ConversationalAgent:
         self._add_message("user", user_message)
 
         try:
-            # Step 1: Parse intent
-            intent = await self._parse_intent(user_message)
+            # PHASE 7.3: Get relevant context from business memory
+            memory_context = await self.business_memory.get_context_for_query(user_message)
+
+            # Step 1: Parse intent with memory context
+            intent = await self._parse_intent(user_message, memory_context)
 
             # Step 2: Route based on intent type
             if intent.type == IntentType.SIMPLE_ACTION:
-                response = await self._handle_simple_action(intent, user_message)
+                response = await self._handle_simple_action(intent, user_message, memory_context)
             elif intent.type == IntentType.COMPLEX_TASK:
-                response = await self._handle_complex_task(intent, user_message)
+                response = await self._handle_complex_task(intent, user_message, memory_context)
             elif intent.type == IntentType.QUESTION:
-                response = await self._handle_question(user_message)
+                response = await self._handle_question(user_message, memory_context)
             elif intent.type == IntentType.CLARIFICATION:
                 response = await self._handle_clarification(intent)
             elif intent.type == IntentType.CONVERSATION:
@@ -185,6 +197,12 @@ class ConversationalAgent:
 
             # Add assistant response to history
             self._add_message("assistant", response)
+
+            # PHASE 7.3: Learn from this conversation
+            await self.business_memory.learn_from_conversation(
+                user_message,
+                self._get_recent_messages_for_learning()
+            )
 
             return response
 
@@ -201,15 +219,23 @@ class ConversationalAgent:
     # Intent Parsing
     # ══════════════════════════════════════════════════════════════════════
 
-    async def _parse_intent(self, message: str) -> Intent:
-        """Use LLM to understand user intent"""
+    async def _parse_intent(self, message: str, memory_context: Optional[Dict[str, Any]] = None) -> Intent:
+        """Use LLM to understand user intent with business memory context"""
         context = self._build_conversation_context(last_n=5)
+
+        # PHASE 7.3: Add business memory context if available
+        memory_info = ""
+        if memory_context:
+            memory_info = f"""
+BUSINESS CONTEXT (from memory):
+{json.dumps(memory_context, indent=2)}
+"""
 
         prompt = f"""Analyze user request to determine intent and plan execution.
 
 CONVERSATION CONTEXT:
 {context}
-
+{memory_info}
 CURRENT MESSAGE: "{message}"
 
 AVAILABLE TOOLS:
@@ -275,7 +301,7 @@ Return JSON:
     # Intent Handlers
     # ══════════════════════════════════════════════════════════════════════
 
-    async def _handle_simple_action(self, intent: Intent, user_message: str) -> str:
+    async def _handle_simple_action(self, intent: Intent, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
         """Handle simple actions with single tool call"""
         tool_name = intent.suggested_tool
 
@@ -287,12 +313,13 @@ Return JSON:
         if not tool_schema:
             return f"Tool '{tool_name}' not found."
 
-        # Extract parameters if not provided
+        # Extract parameters if not provided (with memory context)
         if not intent.parameters:
             intent.parameters = await self._extract_parameters(
                 tool_name,
                 tool_schema,
-                user_message
+                user_message,
+                memory_context
             )
 
         # Check for missing required parameters
@@ -320,7 +347,7 @@ Return JSON:
         except Exception as e:
             return f"Error executing {tool_name}: {str(e)}"
 
-    async def _handle_complex_task(self, intent: Intent, user_message: str) -> str:
+    async def _handle_complex_task(self, intent: Intent, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
         """Handle complex multi-step tasks"""
         # Create task execution tracker
         task = TaskExecution(
@@ -330,8 +357,8 @@ Return JSON:
         )
         self.active_tasks[task.task_id] = task
 
-        # Generate execution plan
-        plan = await self._create_execution_plan(user_message, intent)
+        # Generate execution plan (with memory context)
+        plan = await self._create_execution_plan(user_message, intent, memory_context)
 
         task.steps = plan["steps"]
         task.status = "executing"
@@ -351,15 +378,23 @@ Estimated time: {estimated_time // 60} minutes
 Task ID: {task.task_id}
 I'll work on this and update you. You can continue chatting or ask for status with '/task {task.task_id}'."""
 
-    async def _handle_question(self, user_message: str) -> str:
-        """Answer user questions"""
+    async def _handle_question(self, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
+        """Answer user questions with business memory context"""
         context = self._build_conversation_context(last_n=10)
+
+        # PHASE 7.3: Add business memory context
+        memory_info = ""
+        if memory_context:
+            memory_info = f"""
+BUSINESS CONTEXT (from memory):
+{json.dumps(memory_context, indent=2)}
+"""
 
         prompt = f"""You are a helpful AI assistant for System-1.2, a multi-agent orchestration platform.
 
 CONVERSATION HISTORY:
 {context}
-
+{memory_info}
 USER QUESTION: {user_message}
 
 Answer clearly and concisely. Keep under 200 words unless more detail needed.
@@ -367,7 +402,9 @@ If asked about System-1.2 capabilities, mention:
 - Multi-agent orchestration (manager, supervisor, employee loops)
 - Tool execution (format code, run tests, git operations)
 - Web dashboard and CLI interfaces
-- Conversational interface (this chat!)"""
+- Conversational interface (this chat!)
+
+Use the business context if relevant to answer the question accurately."""
 
         try:
             response = chat(
@@ -416,10 +453,19 @@ What would you like to do?"""
         self,
         tool_name: str,
         schema: Dict[str, Any],
-        message: str
+        message: str,
+        memory_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Use LLM to extract parameter values from message"""
+        """Use LLM to extract parameter values from message with business memory"""
         context = self._build_conversation_context(last_n=3)
+
+        # PHASE 7.3: Add business memory context
+        memory_info = ""
+        if memory_context:
+            memory_info = f"""
+BUSINESS CONTEXT (from memory):
+{json.dumps(memory_context, indent=2)}
+"""
 
         prompt = f"""Extract parameters for tool '{tool_name}' from user message.
 
@@ -428,12 +474,13 @@ TOOL SCHEMA:
 
 CONVERSATION CONTEXT:
 {context}
-
+{memory_info}
 USER MESSAGE: "{message}"
 
 Extract parameter values and return JSON matching the schema.
 For missing optional parameters, omit them or use null.
 For missing required parameters, use null (we'll ask user later).
+Use business context to fill in parameters where possible (e.g., team member emails, company info).
 
 Return only the parameters JSON object."""
 
@@ -477,18 +524,29 @@ Return only the parameters JSON object."""
     async def _create_execution_plan(
         self,
         task_description: str,
-        intent: Intent
+        intent: Intent,
+        memory_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Create multi-step execution plan for complex task"""
+        """Create multi-step execution plan for complex task with business memory"""
+        # PHASE 7.3: Add business memory context
+        memory_info = ""
+        if memory_context:
+            memory_info = f"""
+BUSINESS CONTEXT (from memory):
+{json.dumps(memory_context, indent=2)}
+"""
+
         prompt = f"""Create detailed execution plan for task: "{task_description}"
 
 AVAILABLE TOOLS:
 {json.dumps(self._get_tool_summary(), indent=2)}
-
+{memory_info}
 Break task into concrete steps. Each step should be either:
 - tool_call: Execute a specific tool
 - code_gen: Generate code/files
 - validation: Check results
+
+Use business context to inform the plan (e.g., know who to email, what tools to use).
 
 Return JSON:
 {{
@@ -590,12 +648,13 @@ Return JSON:
     # Helper Methods
     # ══════════════════════════════════════════════════════════════════════
 
-    def _add_message(self, role: str, content: str):
+    def _add_message(self, role: str, content: str, metadata: Optional[Dict[str, Any]] = None):
         """Add message to conversation history"""
         message = ConversationMessage(
             role=role,
             content=content,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
+            metadata=metadata or {}
         )
         self.conversation_history.append(message)
 
@@ -611,6 +670,25 @@ Return JSON:
             lines.append(f"{msg.role.upper()}: {msg.content}")
 
         return "\n".join(lines)
+
+    def _get_recent_messages_for_learning(self, last_n: int = 5) -> List[Dict[str, str]]:
+        """
+        Get recent messages formatted for business memory learning.
+
+        PHASE 7.3: Provides conversation context to fact extractor.
+
+        Returns:
+            List of message dicts with 'role' and 'content' keys
+        """
+        recent = self.conversation_history[-last_n:] if last_n > 0 else self.conversation_history
+
+        return [
+            {
+                "role": msg.role,
+                "content": msg.content
+            }
+            for msg in recent
+        ]
 
     def _get_tool_summary(self) -> List[Dict[str, str]]:
         """Get summary of available tools for prompts"""
@@ -690,6 +768,72 @@ Return JSON:
         """Clear conversation history"""
         self.conversation_history.clear()
         core_logging.log_event("conversation_cleared", {"session_id": self.session_id})
+
+    # ══════════════════════════════════════════════════════════════════════
+    # PHASE 7.3: Business Memory Management
+    # ══════════════════════════════════════════════════════════════════════
+
+    def get_business_facts(self) -> Dict[str, Any]:
+        """
+        Get summary of all stored business facts.
+
+        Returns:
+            Dictionary with company, team, preferences, and fact count
+        """
+        return self.business_memory.get_all_facts()
+
+    def get_team_members(self) -> List[Dict[str, Any]]:
+        """Get all stored team members"""
+        return self.business_memory.get_team_members()
+
+    def get_preferences(self) -> Dict[str, Any]:
+        """Get all stored preferences"""
+        return self.business_memory.get_preferences()
+
+    def get_company_info(self) -> Dict[str, Any]:
+        """Get stored company information"""
+        return self.business_memory.get_company_info()
+
+    async def remember_fact(self, fact_text: str):
+        """
+        Manually store a fact (user said "remember that...").
+
+        Args:
+            fact_text: Fact to remember
+        """
+        await self.business_memory.store_manual_fact(fact_text)
+        core_logging.log_event("manual_fact_stored", {"fact_preview": fact_text[:100]})
+
+    def forget_about(self, topic: str) -> int:
+        """
+        Delete facts about a topic.
+
+        Args:
+            topic: Topic to forget about
+
+        Returns:
+            Number of facts deleted
+        """
+        count = self.business_memory.delete_facts_about(topic)
+        core_logging.log_event("facts_deleted", {"topic": topic, "count": count})
+        return count
+
+    def export_business_data(self, format: str = "json") -> str:
+        """
+        Export all business memory data (GDPR compliance).
+
+        Args:
+            format: Export format ("json" or "csv")
+
+        Returns:
+            Exported data as string
+        """
+        return self.business_memory.export_data(format)
+
+    def clear_business_memory(self):
+        """Clear all stored business memory (GDPR right to be forgotten)"""
+        self.business_memory.clear_all()
+        core_logging.log_event("business_memory_cleared", {"session_id": self.session_id})
 
     # ══════════════════════════════════════════════════════════════════════
     # PHASE 7.2: Agent Message Handling

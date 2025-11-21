@@ -3,55 +3,110 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+.Python
 
-# Virtual envs
+# Virtual environments
 .venv/
 venv/
 env/
+ENV/
 .env
 .env.*
 
-# Tests & cache
+# Tests & coverage
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+.hypothesis/
 
 # IDE / OS
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
 
-# Logs & misc
+# Logs
 *.log
 *.tmp
-*.swp
 
 # Runtime logs
 run_logs/
 run_logs_exec/
 run_logs_main/
+agent/run_logs/
+agent/run_logs_exec/
+agent/run_logs_main/
+
+# Cost and job tracking
 cost_history.json
 jobs_state.json
 jobs_data/
+agent/cost_logs/*.json
 
-# Generated fixtures (runtime test content)
+# Generated test fixtures
 sites/fixtures/
+sites/contafuel_marketing/
 
 # Database files
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 
-# Data directory (runtime data)
+# Data directory
+data/
 data/*.db
 data/*.json
 data/*.jsonl
 data/cache/
+data/personalities.db
 
-# Mission and artifact runtime files
+# Mission artifacts
+missions/
 missions/logs/*.json
 artifacts/*/
 !artifacts/.gitkeep
+
+# Workflow files
 agent/run_workflows/*.json
+!agent/run_workflows/.gitkeep
+
+# Memory stores
+agent/memory_store/*.json
+!agent/memory_store/.gitkeep
+
+# Stage summaries
+agent/stage_summaries/*.json
+!agent/stage_summaries/.gitkeep
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Node modules (if any web components)
+node_modules/
+
+# Temporary files
+tmp/
+temp/
+*.bak

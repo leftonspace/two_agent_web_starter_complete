@@ -323,6 +323,15 @@ def chat_json(
     temperature: Optional[float] = None,  # <-- changed: now Optional and default None
     expect_json: bool = True,
     _fallback_attempt: bool = False,  # STAGE 3.3: Internal flag for fallback retry
+    # STAGE 5: Intelligent routing parameters
+    task_type: Optional[str] = None,
+    complexity: Optional[str] = None,
+    interaction_index: int = 0,
+    is_very_important: bool = False,
+    config: Optional[Dict[str, Any]] = None,
+    run_id: Optional[str] = None,
+    # STAGE 5.2: Cost cap enforcement
+    max_cost_usd: float = 0.0,
 ) -> Dict[str, Any]:
     """
     High-level helper that:

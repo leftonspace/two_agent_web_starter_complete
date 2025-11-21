@@ -459,6 +459,45 @@ class MeetingConfig:
 
 
 @dataclass
+class TranscriptionConfig:
+    """
+    PHASE 7A.2: Real-time speech transcription configuration.
+
+    Configuration for converting meeting audio to text using multiple
+    transcription providers with automatic failover.
+    """
+
+    # Core settings
+    enabled: bool = True  # Enable transcription
+    primary_provider: str = "deepgram"  # Primary provider (deepgram, whisper, google, azure)
+    fallback_providers: List[str] = field(default_factory=lambda: ["whisper"])  # Fallback providers in order
+
+    # Provider API keys (from environment)
+    deepgram_api_key: str = field(default_factory=lambda: os.getenv("DEEPGRAM_API_KEY", ""))
+    google_credentials_path: str = field(default_factory=lambda: os.getenv("GOOGLE_CREDENTIALS_PATH", ""))
+    azure_speech_key: str = field(default_factory=lambda: os.getenv("AZURE_SPEECH_KEY", ""))
+    azure_speech_region: str = field(default_factory=lambda: os.getenv("AZURE_SPEECH_REGION", ""))
+
+    # Quality settings
+    sample_rate: int = 16000  # Audio sample rate (Hz)
+    enable_punctuation: bool = True  # Add punctuation to transcripts
+    enable_speaker_diarization: bool = True  # Identify different speakers
+    language: str = "en"  # Primary language (ISO 639-1 code)
+
+    # Performance settings
+    streaming_chunk_size: int = 16000  # Chunk size in samples (1 second at 16kHz)
+    max_latency_ms: int = 2000  # Maximum acceptable latency (fail if exceeded)
+    interim_results: bool = True  # Return interim results for streaming providers
+
+    # Deepgram-specific settings
+    deepgram_model: str = "nova-2"  # Model: nova-2, nova, base, enhanced
+    deepgram_tier: str = "enhanced"  # Tier: base, enhanced
+
+    # Whisper-specific settings
+    whisper_model: str = "whisper-1"  # Model: whisper-1
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -517,6 +556,9 @@ class Config:
 
     # PHASE 7A.1: Meeting platform integration
     meetings: MeetingConfig = field(default_factory=MeetingConfig)
+
+    # PHASE 7A.2: Real-time transcription
+    transcription: TranscriptionConfig = field(default_factory=TranscriptionConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

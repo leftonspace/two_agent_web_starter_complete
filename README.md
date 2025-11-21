@@ -63,13 +63,23 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Zoom integration**: Join Zoom meetings as a participant, capture audio streams ✨
 - **Microsoft Teams**: Join Teams meetings via Graph API with audio capture ✨
 - **Live audio capture**: Record in-person meetings using microphone (PyAudio) ✨
-- **Real-time transcription**: Stream audio at 16kHz for speech-to-text processing ✨
 - **Participant management**: List meeting participants and their status ✨
 - **Chat integration**: Send messages to meeting chat automatically ✨
-- **Action item extraction**: Analyze conversations to find tasks and decisions ✨
 - **Platform abstraction**: Uniform API across Zoom, Teams, and live audio ✨
 - **Privacy compliance**: Configurable recording announcements and consent handling ✨
 - **Meeting lifecycle**: Connect → Join → Capture → Transcribe → Leave workflow ✨
+
+### Real-Time Speech Transcription (Phase 7A.2) 🎙️
+- **Multi-provider support**: Deepgram (streaming), OpenAI Whisper (batch), Google, Azure ✨
+- **Automatic failover**: Switches to backup provider if primary fails ✨
+- **True streaming**: <100ms latency with Deepgram WebSocket streaming ✨
+- **High accuracy**: Best-in-class accuracy with OpenAI Whisper ✨
+- **Speaker diarization**: Identifies different speakers in conversations ✨
+- **Punctuation**: Automatic punctuation and capitalization ✨
+- **Multi-language**: Supports 99+ languages (Whisper), 36+ languages (Deepgram) ✨
+- **Interim results**: Real-time interim transcripts before final results ✨
+- **Confidence scores**: Quality metrics for each transcript segment ✨
+- **Latency optimization**: <2s for Whisper, <100ms for Deepgram ✨
 
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨

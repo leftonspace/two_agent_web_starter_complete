@@ -33,6 +33,49 @@ except ImportError:
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
+def _sanitize_json_escapes(content: str) -> str:
+    """
+    Sanitize invalid JSON escape sequences from LLM responses.
+
+    LLMs sometimes generate invalid escape sequences like \@ (for @media in CSS)
+    which are not valid JSON escapes. This function fixes them by:
+    1. Identifying invalid escape sequences (e.g., \@, \#, \!, etc.)
+    2. Removing the backslash before characters that don't need escaping
+
+    Valid JSON escapes are: \" \\ \/ \b \f \n \r \t \uXXXX
+
+    Args:
+        content: The raw LLM response content
+
+    Returns:
+        Sanitized content with valid JSON escape sequences
+    """
+    # Valid JSON escape characters after backslash
+    valid_escapes = set('"\\bfnrtu/')
+
+    result = []
+    i = 0
+    while i < len(content):
+        if content[i] == '\\' and i + 1 < len(content):
+            next_char = content[i + 1]
+            # Check if this is a valid escape sequence
+            if next_char in valid_escapes:
+                # Valid escape, keep as-is
+                result.append(content[i])
+                result.append(next_char)
+                i += 2
+            else:
+                # Invalid escape like \@ - remove the backslash
+                # Just skip the backslash, keep the next character
+                result.append(next_char)
+                i += 2
+        else:
+            result.append(content[i])
+            i += 1
+
+    return ''.join(result)
+
+
 def _get_default_models() -> Dict[str, str]:
     """
     PHASE 0.3: Get default models from config.py if available, else from environment variables.
@@ -620,12 +663,31 @@ def chat_json(
         return parsed_response
 
     except json.JSONDecodeError as e:  # pragma: no cover
-        raise RuntimeError(
-            "Model response was not valid JSON.\n"
-            f"Role: {role}\n"
-            f"Model: {chosen_model}\n"
-            f"Content:\n{content}"
-        ) from e
+        # Attempt to fix common invalid escape sequences (e.g., \@ in CSS @media)
+        # This is a common issue with LLMs generating invalid JSON escapes
+        try:
+            sanitized_content = _sanitize_json_escapes(content)
+            parsed_response = json.loads(sanitized_content)
+            print(f"[LLM] Warning: Fixed invalid JSON escape sequences in {role} response")
+
+            # PHASE 5.2: Store sanitized response in cache
+            if LLM_CACHE_AVAILABLE and cache_key:
+                try:
+                    cache = get_llm_cache()
+                    cache.set(cache_key, parsed_response)
+                except Exception as cache_e:
+                    print(f"[LLMCache] Cache storage error: {cache_e}")
+
+            return parsed_response
+
+        except json.JSONDecodeError:
+            # If sanitization didn't help, raise the original error
+            raise RuntimeError(
+                "Model response was not valid JSON.\n"
+                f"Role: {role}\n"
+                f"Model: {chosen_model}\n"
+                f"Content:\n{content}"
+            ) from e
 
 
 def chat(

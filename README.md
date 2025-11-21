@@ -154,6 +154,20 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Configurable pool size**: Scale from 1 to 50+ workers based on workload ✨
 - **Graceful degradation**: Handles worker errors without disrupting pool operations ✨
 
+### Parallel Task Distribution (Phase 7C.2) 📊
+- **Priority-based queue**: 4 priority levels (URGENT, HIGH, MEDIUM, LOW) with intelligent scheduling ✨
+- **Dependency tracking**: Tasks wait for dependencies to complete before execution ✨
+- **Dependency chains**: Support for complex dependency graphs (C→B→A) ✨
+- **Load balancing**: Optimal distribution across workers based on current load ✨
+- **Worker affinity**: Related tasks assigned to same worker for better context ✨
+- **Batch optimization**: Groups similar tasks for efficient parallel execution ✨
+- **Deadline-aware scheduling**: Tasks approaching deadline get priority boost ✨
+- **Priority inheritance**: Tasks inherit priority from dependent tasks ✨
+- **Async distribution**: Non-blocking task submission and result retrieval ✨
+- **Queue statistics**: Real-time metrics on pending, completed, and failed tasks ✨
+- **Configurable batching**: Toggle batch optimization and set batch timeouts ✨
+- **Graceful error handling**: Failed tasks don't block queue or dependent tasks ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

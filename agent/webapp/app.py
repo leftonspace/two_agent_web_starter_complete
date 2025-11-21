@@ -1938,6 +1938,77 @@ async def get_task_status(task_id: str):
     return JSONResponse(status)
 
 
+@app.get("/api/chat/agent-messages")
+async def get_agent_messages(since_id: Optional[str] = None):
+    """
+    Get agent messages for streaming (Manager/Supervisor/Employee).
+
+    PHASE 7.2: Returns new agent messages since given ID for real-time updates.
+
+    Query params:
+        since_id: Only return messages after this ID
+
+    Returns:
+        {"messages": [...], "pending_responses": [...]}
+    """
+    global conversational_agent
+
+    if conversational_agent is None:
+        return JSONResponse({"messages": [], "pending_responses": []})
+
+    messages = conversational_agent.get_agent_messages(since_id)
+    pending = conversational_agent.get_pending_agent_responses()
+
+    return JSONResponse({
+        "messages": messages,
+        "pending_responses": pending
+    })
+
+
+@app.post("/api/chat/respond")
+async def respond_to_agent(request: Request):
+    """
+    Respond to an agent's question/approval request.
+
+    PHASE 7.2: Allows user to respond to Manager/Supervisor/Employee questions.
+
+    POST /api/chat/respond
+    Body: {"message_id": "msg_abc123", "response": "yes"}
+    Response: {"success": true}
+    """
+    global conversational_agent
+
+    if conversational_agent is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Conversational agent not initialized"
+        )
+
+    try:
+        data = await request.json()
+        message_id = data.get("message_id", "")
+        response = data.get("response", "")
+
+        if not message_id or not response:
+            return JSONResponse(
+                {"error": "message_id and response required"},
+                status_code=400
+            )
+
+        # Provide response to agent
+        success = conversational_agent.respond_to_agent(message_id, response)
+
+        return JSONResponse({
+            "success": success
+        })
+
+    except Exception as e:
+        return JSONResponse(
+            {"error": str(e)},
+            status_code=500
+        )
+
+
 @app.get("/health")
 async def health_check():
     """

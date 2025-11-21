@@ -309,6 +309,38 @@ class ConversationalConfig:
 
 
 @dataclass
+class WorkflowConfig:
+    """
+    PHASE 7.2: Workflow enforcement configuration.
+
+    Controls quality gates and approval requirements for agent execution.
+    Prevents agents from proceeding with subpar work.
+    """
+
+    # Enforcement mode
+    enforcement_mode: str = "strict"  # "strict", "warn", "disabled"
+
+    # Blocking behavior
+    block_on_failure: bool = True  # Block file writes if validation fails
+    rollback_on_failure: bool = True  # Rollback changes on validation failure
+
+    # Approval requirements
+    require_supervisor_approval: bool = True  # Require supervisor sign-off
+    require_user_approval_for_destructive: bool = True  # User approval for destructive ops
+    require_user_approval_for_external: bool = True  # User approval for external API calls
+
+    # Retry controls (R1 reliability fix)
+    max_retries: int = 3  # Maximum retry attempts
+    detect_infinite_loops: bool = True  # Enable infinite loop detection
+    max_consecutive_identical_feedback: int = 2  # Threshold for loop detection
+
+    # Quality gates
+    require_tests_pass: bool = False  # Require tests to pass before proceeding
+    require_linting_pass: bool = False  # Require linting to pass
+    min_qa_score: float = 0.0  # Minimum QA score (0-100, 0 = no requirement)
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -355,6 +387,9 @@ class Config:
 
     # PHASE 7.1: Conversational agent
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
+
+    # PHASE 7.2: Workflow enforcement
+    workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

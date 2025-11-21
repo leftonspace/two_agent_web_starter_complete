@@ -75,6 +75,41 @@
         border-left: 4px solid #48bb78;
     }
 
+    /* PHASE 7.2: Agent-specific message styling */
+    .message.manager {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-left: 4px solid #2196F3;
+        color: #0d47a1;
+    }
+
+    .message.supervisor {
+        background: #fff3e0;
+        border: 1px solid #ffe0b2;
+        border-left: 4px solid #FF9800;
+        color: #e65100;
+    }
+
+    .message.employee {
+        background: #e8f5e9;
+        border: 1px solid #c8e6c9;
+        border-left: 4px solid #4CAF50;
+        color: #1b5e20;
+    }
+
+    .message.system {
+        background: #f3e5f5;
+        border: 1px solid #e1bee7;
+        border-left: 4px solid #9C27B0;
+        color: #4a148c;
+    }
+
+    .agent-icon {
+        display: inline-block;
+        margin-right: 8px;
+        font-size: 18px;
+    }
+
     .message-role {
         font-size: 0.75rem;
         font-weight: 600;
@@ -339,14 +374,37 @@ async function sendMessage() {
     }
 }
 
-function addMessage(role, content) {
+// PHASE 7.2: Track last seen agent message ID for polling
+let lastAgentMessageId = null;
+
+function addMessage(role, content, metadata = {}) {
     const messagesDiv = document.getElementById('messages');
     const msgDiv = document.createElement('div');
-    msgDiv.className = `message ${role}`;
+
+    // Determine CSS class - check for agent role in metadata
+    let cssClass = `message ${role}`;
+    if (metadata.agent_role) {
+        cssClass = `message ${metadata.agent_role}`;
+    }
+
+    msgDiv.className = cssClass;
 
     const roleDiv = document.createElement('div');
     roleDiv.className = 'message-role';
-    roleDiv.textContent = role.charAt(0).toUpperCase() + role.slice(1);
+
+    // Add agent icon if agent message
+    if (metadata.agent_message && metadata.agent_role) {
+        const icons = {
+            'manager': '👔',
+            'supervisor': '🔍',
+            'employee': '🛠️',
+            'system': '⚙️'
+        };
+        const icon = icons[metadata.agent_role] || '';
+        roleDiv.innerHTML = `<span class="agent-icon">${icon}</span>${metadata.agent_role.charAt(0).toUpperCase() + metadata.agent_role.slice(1)}`;
+    } else {
+        roleDiv.textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    }
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -356,6 +414,11 @@ function addMessage(role, content) {
     msgDiv.appendChild(contentDiv);
     messagesDiv.appendChild(msgDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Track message ID for polling
+    if (metadata.message_id) {
+        lastAgentMessageId = metadata.message_id;
+    }
 }
 
 function showTyping() {
@@ -429,5 +492,37 @@ setInterval(async () => {
         // Silently fail
     }
 }, 5000);
+
+// PHASE 7.2: Poll for agent messages every 1 second
+setInterval(async () => {
+    try {
+        const url = lastAgentMessageId
+            ? `/api/chat/agent-messages?since_id=${lastAgentMessageId}`
+            : '/api/chat/agent-messages';
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // Display new agent messages
+        if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(msg => {
+                // Extract content (remove emoji prefix if present)
+                let content = msg.content;
+
+                // Add message with metadata
+                addMessage('assistant', content, {
+                    agent_message: true,
+                    agent_role: msg.role,
+                    message_id: msg.message_id,
+                    requires_response: msg.requires_response,
+                    ...msg.metadata
+                });
+            });
+        }
+    } catch (error) {
+        // Silently fail
+        console.error('Agent message poll failed:', error);
+    }
+}, 1000);
 </script>
 {% endblock %}

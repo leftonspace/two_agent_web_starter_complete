@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import core_logging
+from agent_messaging import AgentMessage, AgentRole, get_message_bus
 from config import Config, get_config
 from exec_tools import get_tool_metadata
 from llm import chat, chat_json
@@ -105,9 +106,16 @@ class ConversationalAgent:
         self.available_tools = self._load_available_tools()
         self.tool_schemas = self._load_tool_schemas()
 
+        # PHASE 7.2: Subscribe to agent messages from Manager/Supervisor/Employee
+        self.message_bus = get_message_bus()
+        self.message_bus.subscribe(self._handle_agent_message)
+        self.pending_agent_messages: List[AgentMessage] = []
+        self.agent_message_queue: List[AgentMessage] = []  # Queue for streaming to web UI
+
         core_logging.log_event("conversational_agent_initialized", {
             "session_id": self.session_id,
-            "available_tools": len(self.available_tools)
+            "available_tools": len(self.available_tools),
+            "agent_messaging_enabled": True
         })
 
     def _generate_session_id(self) -> str:
@@ -682,6 +690,124 @@ Return JSON:
         """Clear conversation history"""
         self.conversation_history.clear()
         core_logging.log_event("conversation_cleared", {"session_id": self.session_id})
+
+    # ══════════════════════════════════════════════════════════════════════
+    # PHASE 7.2: Agent Message Handling
+    # ══════════════════════════════════════════════════════════════════════
+
+    async def _handle_agent_message(self, message: AgentMessage):
+        """
+        Handle messages from Manager/Supervisor/Employee.
+
+        Stream to chat interface and store for display.
+
+        Args:
+            message: AgentMessage from the message bus
+        """
+        # Format message with agent role and emoji
+        role_emoji = {
+            AgentRole.MANAGER: "👔",
+            AgentRole.SUPERVISOR: "🔍",
+            AgentRole.EMPLOYEE: "🛠️",
+            AgentRole.SYSTEM: "⚙️"
+        }
+
+        emoji = role_emoji.get(message.role, "🤖")
+        formatted = f"{emoji} {message.role.value.title()}: {message.content}"
+
+        # Add to conversation history
+        self._add_message(
+            "assistant",
+            formatted,
+            metadata={
+                "agent_role": message.role.value,
+                "agent_message": True,
+                "message_id": message.message_id,
+                "requires_response": message.requires_response,
+                **message.metadata
+            }
+        )
+
+        # Add to queue for web UI streaming
+        self.agent_message_queue.append(message)
+
+        # If requires response, track it
+        if message.requires_response:
+            self.pending_agent_messages.append(message)
+
+        # Log event
+        core_logging.log_event("agent_message_received", {
+            "role": message.role.value,
+            "content_preview": message.content[:100],
+            "requires_response": message.requires_response
+        })
+
+    def get_agent_messages(self, since_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get agent messages for streaming to web UI.
+
+        Args:
+            since_id: Only return messages after this ID (optional)
+
+        Returns:
+            List of message dicts
+        """
+        messages = []
+
+        if since_id:
+            # Find index of since_id
+            found_index = None
+            for idx, msg in enumerate(self.agent_message_queue):
+                if msg.message_id == since_id:
+                    found_index = idx
+                    break
+
+            # Return messages after that index
+            if found_index is not None:
+                messages = self.agent_message_queue[found_index + 1:]
+            else:
+                messages = self.agent_message_queue
+        else:
+            messages = self.agent_message_queue
+
+        return [msg.to_dict() for msg in messages]
+
+    def get_pending_agent_responses(self) -> List[Dict[str, Any]]:
+        """
+        Get list of agent messages waiting for user response.
+
+        Returns:
+            List of pending message dicts
+        """
+        return [msg.to_dict() for msg in self.pending_agent_messages]
+
+    def respond_to_agent(self, message_id: str, response: str) -> bool:
+        """
+        Provide user response to an agent's question.
+
+        Args:
+            message_id: ID of message to respond to
+            response: User's response text
+
+        Returns:
+            True if response was delivered
+        """
+        success = self.message_bus.provide_response(message_id, response)
+
+        if success:
+            # Remove from pending list
+            self.pending_agent_messages = [
+                msg for msg in self.pending_agent_messages
+                if msg.message_id != message_id
+            ]
+
+            # Log response
+            core_logging.log_event("agent_response_provided", {
+                "message_id": message_id,
+                "response_preview": response[:100]
+            })
+
+        return success
 
 
 # ══════════════════════════════════════════════════════════════════════

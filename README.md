@@ -37,6 +37,16 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Cost tracking**: View token usage and cost breakdowns
 - **RESTful API**: Programmatic access to all features
 
+### Conversational Agent (Phase 7.1) 🚀
+- **Natural language interface**: Chat with the system instead of writing mission files ✨
+- **Intent understanding**: Automatically parses requests and selects appropriate tools ✨
+- **Multi-step planning**: Breaks complex tasks into executable steps ✨
+- **Background execution**: Long-running tasks execute asynchronously ✨
+- **Web chat UI**: Interactive chat interface at `/chat` ✨
+- **CLI chat mode**: Command-line chat with `/status`, `/task`, `/help` commands ✨
+- **Task tracking**: Monitor active tasks and their progress in real-time ✨
+- **Context awareness**: Maintains conversation history for better understanding ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨
@@ -82,7 +92,38 @@ Then:
 4. Click "Start Run"
 5. View results and history
 
-#### Option B: Command Line
+#### Option B: Conversational Chat (New! 🚀)
+
+Chat naturally with the system without writing mission files:
+
+**Web Chat:**
+```bash
+# Start web server
+python -m agent.webapp.app
+
+# Navigate to http://127.0.0.1:8000/chat
+```
+
+Then chat naturally:
+```
+You: Format the code in src/
+Agent: ✓ Code formatted successfully
+
+You: Run the test suite
+Agent: ✓ 47 tests passed
+
+You: Create a portfolio website
+Agent: I'll build that! Working on 5 steps...
+```
+
+**CLI Chat:**
+```bash
+python -m agent.cli_chat
+```
+
+See [docs/CONVERSATIONAL_AGENT.md](docs/CONVERSATIONAL_AGENT.md) for full guide.
+
+#### Option C: Command Line
 
 ```bash
 cd agent

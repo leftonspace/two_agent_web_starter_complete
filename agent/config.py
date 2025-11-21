@@ -275,6 +275,40 @@ class HRConfig:
 
 
 @dataclass
+class ConversationalConfig:
+    """
+    PHASE 7.1: Conversational agent configuration.
+
+    Configuration for natural language chat interface.
+    """
+
+    # Agent settings
+    enabled: bool = True  # Enable conversational agent
+    default_model: str = "gpt-4o"  # Default LLM for intent parsing and chat
+    intent_model: str = "gpt-4o"  # Model for intent classification
+    planning_model: str = "gpt-4o"  # Model for task planning
+
+    # Conversation settings
+    max_history_messages: int = 50  # Maximum messages to keep in history
+    context_window_messages: int = 10  # Messages to include in prompts
+    temperature: float = 0.7  # Default temperature for conversational responses
+
+    # Task execution settings
+    max_concurrent_tasks: int = 3  # Maximum tasks executing simultaneously
+    task_timeout_seconds: int = 3600  # Default task timeout (1 hour)
+    enable_background_execution: bool = True  # Allow async task execution
+
+    # Security settings
+    require_approval_for_destructive: bool = True  # Require approval for destructive operations
+    allowed_tools: Optional[List[str]] = None  # Whitelist of allowed tools (None = all)
+    denied_tools: List[str] = field(default_factory=list)  # Blacklist of denied tools
+
+    # UI settings
+    enable_web_chat: bool = True  # Enable web chat interface at /chat
+    enable_cli_chat: bool = True  # Enable CLI chat interface
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -318,6 +352,9 @@ class Config:
 
     # PHASE 2.3: HR tools
     hr: HRConfig = field(default_factory=HRConfig)
+
+    # PHASE 7.1: Conversational agent
+    conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

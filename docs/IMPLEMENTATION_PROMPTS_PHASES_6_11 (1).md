@@ -10129,3 +10129,1864 @@ This document represents a complete, production-ready architecture for building 
 **Last Updated:** 2025-11-20
 **Status:** ✅ Complete - Ready for Implementation
 
+
+---
+
+## Phase 12: Adaptive Personality Engine (Weeks 17-18)
+
+**Overview:**
+Phase 12 transforms JARVIS from a static system into a self-improving one. Instead of hard-coded Manager/Supervisor/Employee prompts, JARVIS discovers, evaluates, and evolves personalities per domain and task type. Personalities are stored in SQL, tested against benchmarks and real tasks, ranked, and automatically promoted when they outperform defaults.
+
+**Priority:** P0 (Core - Self-Improving JARVIS Brain)
+
+**Goals:**
+- Automatically generate and test candidate personalities
+- Store performance metrics in SQL database
+- Promote high-performing personalities to defaults
+- Measure ≥10-20% improvement over generic prompts
+- Safe rollback when personalities underperform
+
+**Timeline:** 2 weeks
+
+---
+
+### Prompt 12.1: Personality Storage Schema & Core Data Model
+
+**Context:**
+Current state: After Phases 7-11, JARVIS uses static, hand-designed system prompts for Manager/Supervisor/Employee roles. Every domain (CODING, FINANCE, LEGAL) uses the same generic prompts regardless of task type (WEB_DEV, BUGFIX, CONTRACT_SUMMARY).
+
+The Adaptive Personality Engine needs to store, track, and compare different personalities (prompt + model + tool_policy combinations) to find optimal configurations per domain and task type.
+
+**Task:**
+Design and implement SQL schema for storing personality profiles, execution runs, and defaults. Create data models and database operations for personality management.
+
+**Requirements:**
+
+1. **SQL Schema Design**
+   
+   Create `agent/personality/schema.sql`:
+   
+   ```sql
+   -- Personality Profiles: Different Manager/Supervisor/Employee configurations
+   CREATE TABLE personality_profiles (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       domain TEXT NOT NULL,  -- 'CODING', 'FINANCE', 'LEGAL', 'HR', 'OPS'
+       task_type TEXT NOT NULL,  -- 'WEB_DEV', 'BUGFIX', 'REPORT_ANALYSIS', etc.
+       role TEXT NOT NULL,  -- 'MANAGER', 'SUPERVISOR', 'EMPLOYEE'
+       
+       -- Personality configuration
+       prompt TEXT NOT NULL,  -- Full system prompt / persona description
+       model TEXT NOT NULL,  -- 'gpt-4o', 'gpt-4o-mini', 'llama-3-70b', etc.
+       tool_policy TEXT,  -- JSON: allowed tools, preferred tools, risk caps
+       hyperparams TEXT,  -- JSON: temperature, max_tokens, etc.
+       
+       -- Metadata
+       status TEXT NOT NULL DEFAULT 'EXPERIMENTAL',  -- 'EXPERIMENTAL', 'ACTIVE_DEFAULT', 'CANDIDATE', 'DEPRECATED'
+       origin TEXT NOT NULL,  -- 'LLM_GENERATED', 'HUMAN_DEFINED', 'IMPORT'
+       notes TEXT,
+       
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       
+       UNIQUE(domain, task_type, role, prompt, model)
+   );
+   
+   CREATE INDEX idx_personality_domain_task_role ON personality_profiles(domain, task_type, role);
+   CREATE INDEX idx_personality_status ON personality_profiles(status);
+   
+   
+   -- Personality Runs: Performance tracking for each personality usage
+   CREATE TABLE personality_runs (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       personality_id INTEGER NOT NULL,
+       mission_id TEXT,  -- Link to mission/knowledge graph
+       
+       -- Denormalized for fast queries
+       domain TEXT NOT NULL,
+       task_type TEXT NOT NULL,
+       role TEXT NOT NULL,
+       
+       -- Run context
+       run_type TEXT NOT NULL,  -- 'BENCHMARK', 'REAL_USER_TASK', 'EXPERIMENT'
+       
+       -- Performance scores (0.0 - 1.0)
+       score_overall REAL NOT NULL,
+       score_quality REAL,
+       score_cost REAL,
+       score_speed REAL,
+       
+       -- Raw metrics
+       metrics_raw TEXT,  -- JSON: detailed evaluation data
+       
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       
+       FOREIGN KEY (personality_id) REFERENCES personality_profiles(id)
+   );
+   
+   CREATE INDEX idx_runs_personality ON personality_runs(personality_id);
+   CREATE INDEX idx_runs_domain_task ON personality_runs(domain, task_type, role);
+   CREATE INDEX idx_runs_created ON personality_runs(created_at);
+   
+   
+   -- Personality Defaults: Current best personality per domain/task/role
+   CREATE TABLE personality_defaults (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       domain TEXT NOT NULL,
+       task_type TEXT NOT NULL,
+       role TEXT NOT NULL,
+       
+       personality_id INTEGER NOT NULL,
+       
+       -- Selection metadata
+       selection_reason TEXT,
+       min_score_overall REAL NOT NULL,  -- Safety threshold
+       
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       
+       UNIQUE(domain, task_type, role),
+       FOREIGN KEY (personality_id) REFERENCES personality_profiles(id)
+   );
+   
+   CREATE INDEX idx_defaults_domain_task_role ON personality_defaults(domain, task_type, role);
+   
+   
+   -- Personality Experiments: Group related exploration runs
+   CREATE TABLE personality_experiments (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       name TEXT NOT NULL UNIQUE,
+       description TEXT,
+       domain TEXT NOT NULL,
+       task_type TEXT NOT NULL,
+       
+       status TEXT DEFAULT 'RUNNING',  -- 'RUNNING', 'COMPLETED', 'FAILED'
+       
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       completed_at TIMESTAMP
+   );
+   ```
+
+2. **Data Models**
+   
+   Create `agent/personality/models.py`:
+   
+   ```python
+   """
+   Data models for Adaptive Personality Engine.
+   """
+   
+   from dataclasses import dataclass, field
+   from typing import Optional, Dict, Any, List
+   from datetime import datetime
+   from enum import Enum
+   import json
+   
+   
+   class PersonalityStatus(Enum):
+       """Personality lifecycle status"""
+       EXPERIMENTAL = "EXPERIMENTAL"
+       CANDIDATE = "CANDIDATE"
+       ACTIVE_DEFAULT = "ACTIVE_DEFAULT"
+       DEPRECATED = "DEPRECATED"
+   
+   
+   class PersonalityOrigin(Enum):
+       """How personality was created"""
+       LLM_GENERATED = "LLM_GENERATED"
+       HUMAN_DEFINED = "HUMAN_DEFINED"
+       IMPORT = "IMPORT"
+   
+   
+   class RunType(Enum):
+       """Type of personality run"""
+       BENCHMARK = "BENCHMARK"
+       REAL_USER_TASK = "REAL_USER_TASK"
+       EXPERIMENT = "EXPERIMENT"
+       FALLBACK = "FALLBACK"
+   
+   
+   @dataclass
+   class ToolPolicy:
+       """Tool usage policy for a personality"""
+       allowed_tools: List[str]
+       preferred_tools: List[str] = field(default_factory=list)
+       max_tool_calls: int = 50
+       risk_cap: str = "medium"  # 'low', 'medium', 'high'
+       
+       def to_json(self) -> str:
+           return json.dumps({
+               "allowed_tools": self.allowed_tools,
+               "preferred_tools": self.preferred_tools,
+               "max_tool_calls": self.max_tool_calls,
+               "risk_cap": self.risk_cap
+           })
+       
+       @classmethod
+       def from_json(cls, json_str: str) -> 'ToolPolicy':
+           data = json.loads(json_str)
+           return cls(**data)
+   
+   
+   @dataclass
+   class Hyperparams:
+       """LLM hyperparameters"""
+       temperature: float = 0.7
+       max_tokens: int = 4000
+       top_p: float = 1.0
+       frequency_penalty: float = 0.0
+       presence_penalty: float = 0.0
+       
+       def to_json(self) -> str:
+           return json.dumps(self.__dict__)
+       
+       @classmethod
+       def from_json(cls, json_str: str) -> 'Hyperparams':
+           data = json.loads(json_str)
+           return cls(**data)
+   
+   
+   @dataclass
+   class PersonalityProfile:
+       """Complete personality configuration"""
+       id: Optional[int]
+       domain: str
+       task_type: str
+       role: str  # 'MANAGER', 'SUPERVISOR', 'EMPLOYEE'
+       
+       prompt: str
+       model: str
+       tool_policy: ToolPolicy
+       hyperparams: Hyperparams
+       
+       status: PersonalityStatus = PersonalityStatus.EXPERIMENTAL
+       origin: PersonalityOrigin = PersonalityOrigin.LLM_GENERATED
+       notes: str = ""
+       
+       created_at: Optional[datetime] = None
+       updated_at: Optional[datetime] = None
+       
+       def to_dict(self) -> Dict[str, Any]:
+           """Convert to database-ready dict"""
+           return {
+               "id": self.id,
+               "domain": self.domain,
+               "task_type": self.task_type,
+               "role": self.role,
+               "prompt": self.prompt,
+               "model": self.model,
+               "tool_policy": self.tool_policy.to_json(),
+               "hyperparams": self.hyperparams.to_json(),
+               "status": self.status.value,
+               "origin": self.origin.value,
+               "notes": self.notes,
+               "created_at": self.created_at,
+               "updated_at": self.updated_at
+           }
+       
+       @classmethod
+       def from_dict(cls, data: Dict[str, Any]) -> 'PersonalityProfile':
+           """Load from database row"""
+           return cls(
+               id=data["id"],
+               domain=data["domain"],
+               task_type=data["task_type"],
+               role=data["role"],
+               prompt=data["prompt"],
+               model=data["model"],
+               tool_policy=ToolPolicy.from_json(data["tool_policy"]),
+               hyperparams=Hyperparams.from_json(data["hyperparams"]),
+               status=PersonalityStatus(data["status"]),
+               origin=PersonalityOrigin(data["origin"]),
+               notes=data.get("notes", ""),
+               created_at=data.get("created_at"),
+               updated_at=data.get("updated_at")
+           )
+   
+   
+   @dataclass
+   class PersonalityRun:
+       """Record of personality performance"""
+       id: Optional[int]
+       personality_id: int
+       mission_id: Optional[str]
+       
+       domain: str
+       task_type: str
+       role: str
+       
+       run_type: RunType
+       
+       # Scores (0.0 - 1.0)
+       score_overall: float
+       score_quality: Optional[float] = None
+       score_cost: Optional[float] = None
+       score_speed: Optional[float] = None
+       
+       metrics_raw: Dict[str, Any] = field(default_factory=dict)
+       
+       created_at: Optional[datetime] = None
+       
+       def to_dict(self) -> Dict[str, Any]:
+           """Convert to database-ready dict"""
+           return {
+               "id": self.id,
+               "personality_id": self.personality_id,
+               "mission_id": self.mission_id,
+               "domain": self.domain,
+               "task_type": self.task_type,
+               "role": self.role,
+               "run_type": self.run_type.value,
+               "score_overall": self.score_overall,
+               "score_quality": self.score_quality,
+               "score_cost": self.score_cost,
+               "score_speed": self.score_speed,
+               "metrics_raw": json.dumps(self.metrics_raw),
+               "created_at": self.created_at
+           }
+   
+   
+   @dataclass
+   class PersonalityDefault:
+       """Current default personality for domain/task/role"""
+       id: Optional[int]
+       domain: str
+       task_type: str
+       role: str
+       
+       personality_id: int
+       selection_reason: str
+       min_score_overall: float
+       
+       updated_at: Optional[datetime] = None
+   ```
+
+3. **Database Operations**
+   
+   Create `agent/personality/storage.py`:
+   
+   ```python
+   """
+   Database operations for personality storage.
+   """
+   
+   import sqlite3
+   from typing import List, Optional, Dict, Any
+   from pathlib import Path
+   from datetime import datetime, timedelta
+   
+   from agent.personality.models import (
+       PersonalityProfile, PersonalityRun, PersonalityDefault,
+       PersonalityStatus, RunType
+   )
+   from agent.core_logging import log_event
+   
+   
+   class PersonalityStorage:
+       """
+       SQL storage for personalities and performance data.
+       """
+       
+       def __init__(self, db_path: str = "./data/personalities.db"):
+           self.db_path = db_path
+           Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+           self._init_database()
+       
+       def _init_database(self):
+           """Initialize database schema"""
+           schema_path = Path(__file__).parent / "schema.sql"
+           
+           with sqlite3.connect(self.db_path) as conn:
+               with open(schema_path, 'r') as f:
+                   conn.executescript(f.read())
+           
+           log_event("personality_db_initialized", {"path": self.db_path})
+       
+       # Personality Profile Operations
+       
+       def create_profile(self, profile: PersonalityProfile) -> int:
+           """Create new personality profile"""
+           with sqlite3.connect(self.db_path) as conn:
+               cursor = conn.cursor()
+               
+               data = profile.to_dict()
+               data.pop('id')  # Let DB auto-generate
+               data['created_at'] = datetime.now()
+               data['updated_at'] = datetime.now()
+               
+               cursor.execute("""
+                   INSERT INTO personality_profiles 
+                   (domain, task_type, role, prompt, model, tool_policy, hyperparams,
+                    status, origin, notes, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               """, (
+                   data['domain'], data['task_type'], data['role'],
+                   data['prompt'], data['model'], data['tool_policy'],
+                   data['hyperparams'], data['status'], data['origin'],
+                   data['notes'], data['created_at'], data['updated_at']
+               ))
+               
+               profile_id = cursor.lastrowid
+               
+               log_event("personality_profile_created", {
+                   "id": profile_id,
+                   "domain": profile.domain,
+                   "task_type": profile.task_type,
+                   "role": profile.role
+               })
+               
+               return profile_id
+       
+       def get_profile(self, profile_id: int) -> Optional[PersonalityProfile]:
+           """Get personality by ID"""
+           with sqlite3.connect(self.db_path) as conn:
+               conn.row_factory = sqlite3.Row
+               cursor = conn.cursor()
+               
+               cursor.execute(
+                   "SELECT * FROM personality_profiles WHERE id = ?",
+                   (profile_id,)
+               )
+               
+               row = cursor.fetchone()
+               if row:
+                   return PersonalityProfile.from_dict(dict(row))
+               return None
+       
+       def find_profiles(
+           self,
+           domain: str,
+           task_type: str,
+           role: str,
+           status: Optional[PersonalityStatus] = None
+       ) -> List[PersonalityProfile]:
+           """Find profiles matching criteria"""
+           with sqlite3.connect(self.db_path) as conn:
+               conn.row_factory = sqlite3.Row
+               cursor = conn.cursor()
+               
+               query = """
+                   SELECT * FROM personality_profiles
+                   WHERE domain = ? AND task_type = ? AND role = ?
+               """
+               params = [domain, task_type, role]
+               
+               if status:
+                   query += " AND status = ?"
+                   params.append(status.value)
+               
+               cursor.execute(query, params)
+               
+               return [
+                   PersonalityProfile.from_dict(dict(row))
+                   for row in cursor.fetchall()
+               ]
+       
+       def update_profile_status(
+           self,
+           profile_id: int,
+           status: PersonalityStatus
+       ):
+           """Update personality status"""
+           with sqlite3.connect(self.db_path) as conn:
+               conn.execute("""
+                   UPDATE personality_profiles
+                   SET status = ?, updated_at = ?
+                   WHERE id = ?
+               """, (status.value, datetime.now(), profile_id))
+               
+               log_event("personality_status_updated", {
+                   "id": profile_id,
+                   "new_status": status.value
+               })
+       
+       # Personality Run Operations
+       
+       def create_run(self, run: PersonalityRun) -> int:
+           """Record personality performance run"""
+           with sqlite3.connect(self.db_path) as conn:
+               cursor = conn.cursor()
+               
+               data = run.to_dict()
+               data.pop('id')
+               data['created_at'] = datetime.now()
+               
+               cursor.execute("""
+                   INSERT INTO personality_runs
+                   (personality_id, mission_id, domain, task_type, role,
+                    run_type, score_overall, score_quality, score_cost,
+                    score_speed, metrics_raw, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               """, (
+                   data['personality_id'], data['mission_id'],
+                   data['domain'], data['task_type'], data['role'],
+                   data['run_type'], data['score_overall'],
+                   data['score_quality'], data['score_cost'],
+                   data['score_speed'], data['metrics_raw'],
+                   data['created_at']
+               ))
+               
+               return cursor.lastrowid
+       
+       def get_recent_runs(
+           self,
+           domain: str,
+           task_type: str,
+           role: str,
+           days: int = 30,
+           limit: int = 100
+       ) -> List[PersonalityRun]:
+           """Get recent runs for analysis"""
+           with sqlite3.connect(self.db_path) as conn:
+               conn.row_factory = sqlite3.Row
+               cursor = conn.cursor()
+               
+               cutoff = datetime.now() - timedelta(days=days)
+               
+               cursor.execute("""
+                   SELECT * FROM personality_runs
+                   WHERE domain = ? AND task_type = ? AND role = ?
+                     AND created_at >= ?
+                   ORDER BY created_at DESC
+                   LIMIT ?
+               """, (domain, task_type, role, cutoff, limit))
+               
+               return [dict(row) for row in cursor.fetchall()]
+       
+       def get_profile_performance(
+           self,
+           personality_id: int,
+           days: int = 30
+       ) -> Dict[str, float]:
+           """Get aggregated performance for a personality"""
+           with sqlite3.connect(self.db_path) as conn:
+               cursor = conn.cursor()
+               
+               cutoff = datetime.now() - timedelta(days=days)
+               
+               cursor.execute("""
+                   SELECT 
+                       AVG(score_overall) as avg_overall,
+                       AVG(score_quality) as avg_quality,
+                       AVG(score_cost) as avg_cost,
+                       AVG(score_speed) as avg_speed,
+                       COUNT(*) as run_count
+                   FROM personality_runs
+                   WHERE personality_id = ? AND created_at >= ?
+               """, (personality_id, cutoff))
+               
+               row = cursor.fetchone()
+               return {
+                   "avg_overall": row[0] or 0.0,
+                   "avg_quality": row[1] or 0.0,
+                   "avg_cost": row[2] or 0.0,
+                   "avg_speed": row[3] or 0.0,
+                   "run_count": row[4]
+               }
+       
+       # Default Operations
+       
+       def set_default(
+           self,
+           domain: str,
+           task_type: str,
+           role: str,
+           personality_id: int,
+           reason: str,
+           min_score: float
+       ):
+           """Set default personality"""
+           with sqlite3.connect(self.db_path) as conn:
+               conn.execute("""
+                   INSERT OR REPLACE INTO personality_defaults
+                   (domain, task_type, role, personality_id, selection_reason,
+                    min_score_overall, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)
+               """, (domain, task_type, role, personality_id, reason,
+                     min_score, datetime.now()))
+               
+               log_event("personality_default_set", {
+                   "domain": domain,
+                   "task_type": task_type,
+                   "role": role,
+                   "personality_id": personality_id
+               })
+       
+       def get_default(
+           self,
+           domain: str,
+           task_type: str,
+           role: str
+       ) -> Optional[int]:
+           """Get default personality ID"""
+           with sqlite3.connect(self.db_path) as conn:
+               cursor = conn.cursor()
+               
+               cursor.execute("""
+                   SELECT personality_id FROM personality_defaults
+                   WHERE domain = ? AND task_type = ? AND role = ?
+               """, (domain, task_type, role))
+               
+               row = cursor.fetchone()
+               return row[0] if row else None
+   ```
+
+**Acceptance Criteria:**
+
+- [ ] SQL schema creates all 4 tables correctly
+- [ ] PersonalityProfile model with tool_policy and hyperparams
+- [ ] PersonalityRun model tracks all scores
+- [ ] PersonalityDefault model for current bests
+- [ ] PersonalityStorage CRUD operations work
+- [ ] Database operations are transactional
+- [ ] All models have JSON serialization
+- [ ] Tests pass (10+ cases covering CRUD)
+
+**Files to Create:**
+- `agent/personality/__init__.py` (~20 lines)
+- `agent/personality/schema.sql` (~100 lines)
+- `agent/personality/models.py` (~300 lines)
+- `agent/personality/storage.py` (~400 lines)
+- `agent/tests/test_personality_storage.py` (~250 lines)
+
+**Files to Modify:**
+- `agent/config.py` — Add personality engine settings
+
+---
+
+
+### Prompt 12.2: Personality Generation & Exploration
+
+**Context:**
+Current state: From Prompt 12.1, we can store personalities in SQL. Now we need to generate candidate personalities automatically using LLMs to design different prompt styles, model choices, and tool policies.
+
+Instead of manually writing dozens of Manager/Supervisor/Employee prompts for each domain and task type, use an LLM to generate diverse, high-quality candidates based on examples and requirements.
+
+**Task:**
+Implement LLM-driven personality generation system that creates diverse candidate personalities for exploration and testing.
+
+**Requirements:**
+
+1. **Personality Generator**
+   
+   Create `agent/personality/generator.py`:
+   
+   ```python
+   """
+   LLM-driven personality generation.
+   
+   Generates candidate Manager/Supervisor/Employee personalities
+   for different domains and task types.
+   """
+   
+   import asyncio
+   from typing import List, Dict, Optional
+   from datetime import datetime
+   
+   from agent.llm_client import LLMClient
+   from agent.personality.models import (
+       PersonalityProfile, PersonalityOrigin, PersonalityStatus,
+       ToolPolicy, Hyperparams
+   )
+   from agent.personality.storage import PersonalityStorage
+   from agent.core_logging import log_event
+   
+   
+   class PersonalityGenerator:
+       """
+       Generate diverse personality candidates using LLM.
+       """
+       
+       def __init__(
+           self,
+           llm_client: LLMClient,
+           storage: PersonalityStorage
+       ):
+           self.llm = llm_client
+           self.storage = storage
+       
+       async def generate_candidates(
+           self,
+           domain: str,
+           task_type: str,
+           role: str,
+           k_candidates: int = 5
+       ) -> List[PersonalityProfile]:
+           """
+           Generate k candidate personalities for given context.
+           
+           Args:
+               domain: e.g. 'CODING', 'FINANCE'
+               task_type: e.g. 'WEB_DEV', 'REPORT_ANALYSIS'
+               role: 'MANAGER', 'SUPERVISOR', or 'EMPLOYEE'
+               k_candidates: Number of candidates to generate
+               
+           Returns:
+               List of PersonalityProfile objects (not yet saved to DB)
+           """
+           log_event("generating_personality_candidates", {
+               "domain": domain,
+               "task_type": task_type,
+               "role": role,
+               "count": k_candidates
+           })
+           
+           # Generate prompts
+           prompts = await self._generate_diverse_prompts(
+               domain, task_type, role, k_candidates
+           )
+           
+           # Generate model/hyperparams variations
+           configs = self._generate_configurations(k_candidates)
+           
+           # Combine into profiles
+           candidates = []
+           for i in range(k_candidates):
+               prompt = prompts[i] if i < len(prompts) else prompts[0]
+               config = configs[i] if i < len(configs) else configs[0]
+               
+               profile = PersonalityProfile(
+                   id=None,
+                   domain=domain,
+                   task_type=task_type,
+                   role=role,
+                   prompt=prompt,
+                   model=config['model'],
+                   tool_policy=config['tool_policy'],
+                   hyperparams=config['hyperparams'],
+                   status=PersonalityStatus.EXPERIMENTAL,
+                   origin=PersonalityOrigin.LLM_GENERATED,
+                   notes=f"Auto-generated candidate {i+1}/{k_candidates}"
+               )
+               
+               candidates.append(profile)
+           
+           log_event("personality_candidates_generated", {
+               "count": len(candidates)
+           })
+           
+           return candidates
+       
+       async def _generate_diverse_prompts(
+           self,
+           domain: str,
+           task_type: str,
+           role: str,
+           count: int
+       ) -> List[str]:
+           """
+           Use LLM to generate diverse system prompts.
+           """
+           generation_prompt = f"""You are a prompt engineer designing AI agent personalities.
+
+TASK: Generate {count} diverse, high-quality system prompts for a {role} role in the domain of {domain}, specifically for {task_type} tasks.
+
+ROLE DESCRIPTIONS:
+- MANAGER: Strategic planner, breaks down complex tasks, assigns work to Employee, reviews Supervisor feedback
+- SUPERVISOR: Quality reviewer, checks Employee work for correctness and safety, provides feedback
+- EMPLOYEE: Executor, does the actual work (coding, analysis, writing), follows Manager's plan
+
+DOMAIN: {domain}
+TASK TYPE: {task_type}
+
+REQUIREMENTS:
+1. Each prompt should be 200-400 words
+2. Prompts should vary in:
+   - Tone (formal vs casual, strict vs flexible)
+   - Structure (detailed steps vs high-level guidance)
+   - Focus (quality vs speed, safety vs innovation)
+3. Include specific guidance for {domain} and {task_type}
+4. Make prompts actionable and clear
+
+Return JSON array:
+[
+  {{
+    "prompt_number": 1,
+    "style": "description of this prompt's style",
+    "prompt_text": "full system prompt here..."
+  }},
+  ...
+]
+
+Generate {count} distinct, production-ready prompts."""
+           
+           try:
+               response = await self.llm.chat_json(
+                   prompt=generation_prompt,
+                   model="gpt-4o",  # Use best model for meta-task
+                   temperature=0.9  # High temp for diversity
+               )
+               
+               # Extract prompt texts
+               prompts = [
+                   item["prompt_text"]
+                   for item in response
+                   if "prompt_text" in item
+               ]
+               
+               return prompts[:count]
+               
+           except Exception as e:
+               log_event("prompt_generation_failed", {
+                   "error": str(e)
+               })
+               
+               # Fallback to basic template
+               return [self._fallback_prompt(domain, task_type, role)] * count
+       
+       def _fallback_prompt(
+           self,
+           domain: str,
+           task_type: str,
+           role: str
+       ) -> str:
+           """Fallback generic prompt if generation fails"""
+           return f"""You are a {role} AI assistant specializing in {domain} for {task_type} tasks.
+
+Your responsibilities:
+- Work systematically and carefully
+- Communicate clearly and professionally  
+- Focus on quality and correctness
+- Follow best practices for {domain}
+
+Approach each task thoughtfully and thoroughly."""
+       
+       def _generate_configurations(
+           self,
+           count: int
+       ) -> List[Dict]:
+           """
+           Generate diverse model/hyperparams/tool_policy combinations.
+           """
+           # Model options (from cheapest to most capable)
+           models = [
+               "gpt-4o-mini",
+               "gpt-4o",
+               "gpt-4",
+               "llama-3-70b",  # From Phase 9
+               "claude-sonnet-3-5"
+           ]
+           
+           # Temperature variations
+           temperatures = [0.1, 0.3, 0.5, 0.7, 0.9]
+           
+           # Tool policies
+           tool_policies = [
+               # Restrictive
+               ToolPolicy(
+                   allowed_tools=["read_file", "write_file", "search"],
+                   preferred_tools=["read_file"],
+                   max_tool_calls=20,
+                   risk_cap="low"
+               ),
+               # Balanced
+               ToolPolicy(
+                   allowed_tools=["read_file", "write_file", "search", "bash", "api_call"],
+                   preferred_tools=["read_file", "write_file"],
+                   max_tool_calls=50,
+                   risk_cap="medium"
+               ),
+               # Permissive
+               ToolPolicy(
+                   allowed_tools=["read_file", "write_file", "search", "bash", "api_call", "db_query"],
+                   preferred_tools=[],
+                   max_tool_calls=100,
+                   risk_cap="high"
+               )
+           ]
+           
+           configs = []
+           for i in range(count):
+               config = {
+                   "model": models[i % len(models)],
+                   "hyperparams": Hyperparams(
+                       temperature=temperatures[i % len(temperatures)],
+                       max_tokens=4000
+                   ),
+                   "tool_policy": tool_policies[i % len(tool_policies)]
+               }
+               configs.append(config)
+           
+           return configs
+       
+       async def create_baseline_profiles(
+           self,
+           domain: str,
+           task_type: str
+       ) -> Dict[str, int]:
+           """
+           Create baseline (generic) profiles for comparison.
+           
+           Returns dict mapping role -> profile_id
+           """
+           baselines = {}
+           
+           for role in ["MANAGER", "SUPERVISOR", "EMPLOYEE"]:
+               # Use simple, generic prompt
+               baseline_prompt = self._fallback_prompt(domain, task_type, role)
+               
+               profile = PersonalityProfile(
+                   id=None,
+                   domain=domain,
+                   task_type=task_type,
+                   role=role,
+                   prompt=baseline_prompt,
+                   model="gpt-4o",
+                   tool_policy=ToolPolicy(
+                       allowed_tools=["read_file", "write_file", "search", "bash"],
+                       preferred_tools=[],
+                       max_tool_calls=50,
+                       risk_cap="medium"
+                   ),
+                   hyperparams=Hyperparams(temperature=0.7),
+                   status=PersonalityStatus.CANDIDATE,
+                   origin=PersonalityOrigin.HUMAN_DEFINED,
+                   notes="Baseline for comparison"
+               )
+               
+               profile_id = self.storage.create_profile(profile)
+               baselines[role] = profile_id
+           
+           log_event("baseline_profiles_created", {
+               "domain": domain,
+               "task_type": task_type,
+               "profile_ids": baselines
+           })
+           
+           return baselines
+   ```
+
+2. **Personality Explorer**
+   
+   Create `agent/personality/explorer.py`:
+   
+   ```python
+   """
+   Personality exploration and benchmarking.
+   """
+   
+   import asyncio
+   from typing import List, Dict, Optional
+   from datetime import datetime
+   
+   from agent.personality.generator import PersonalityGenerator
+   from agent.personality.storage import PersonalityStorage
+   from agent.personality.models import PersonalityProfile, PersonalityRun, RunType
+   from agent.personality.benchmarks import BenchmarkSuite
+   from agent.orchestrator import StrategicOrchestrator
+   from agent.llm_client import LLMClient
+   from agent.core_logging import log_event
+   
+   
+   class PersonalityExplorer:
+       """
+       Explore new personalities via generation and benchmarking.
+       """
+       
+       def __init__(
+           self,
+           llm_client: LLMClient,
+           storage: PersonalityStorage,
+           generator: PersonalityGenerator,
+           benchmark_suite: BenchmarkSuite
+       ):
+           self.llm = llm_client
+           self.storage = storage
+           self.generator = generator
+           self.benchmarks = benchmark_suite
+       
+       async def explore_domain_task(
+           self,
+           domain: str,
+           task_type: str,
+           k_candidates_per_role: int = 3
+       ) -> Dict[str, List[int]]:
+           """
+           Explore new personalities for a domain/task combination.
+           
+           Returns dict mapping role -> list of profile_ids
+           """
+           log_event("starting_personality_exploration", {
+               "domain": domain,
+               "task_type": task_type,
+               "candidates_per_role": k_candidates_per_role
+           })
+           
+           results = {}
+           
+           for role in ["MANAGER", "SUPERVISOR", "EMPLOYEE"]:
+               # Generate candidates
+               candidates = await self.generator.generate_candidates(
+                   domain=domain,
+                   task_type=task_type,
+                   role=role,
+                   k_candidates=k_candidates_per_role
+               )
+               
+               # Save to database
+               profile_ids = []
+               for candidate in candidates:
+                   profile_id = self.storage.create_profile(candidate)
+                   profile_ids.append(profile_id)
+               
+               # Run benchmarks on each candidate
+               await self._benchmark_candidates(
+                   profile_ids, domain, task_type, role
+               )
+               
+               results[role] = profile_ids
+           
+           log_event("personality_exploration_complete", {
+               "domain": domain,
+               "task_type": task_type,
+               "total_profiles": sum(len(ids) for ids in results.values())
+           })
+           
+           return results
+       
+       async def _benchmark_candidates(
+           self,
+           profile_ids: List[int],
+           domain: str,
+           task_type: str,
+           role: str
+       ):
+           """Run benchmarks for candidate personalities"""
+           
+           # Get benchmark tasks
+           benchmark_tasks = self.benchmarks.get_tasks(domain, task_type)
+           
+           if not benchmark_tasks:
+               log_event("no_benchmarks_found", {
+                   "domain": domain,
+                   "task_type": task_type
+               })
+               return
+           
+           for profile_id in profile_ids:
+               profile = self.storage.get_profile(profile_id)
+               
+               # Run on subset of benchmarks (for speed)
+               sample_tasks = benchmark_tasks[:3]  # Test on first 3
+               
+               scores = []
+               for task in sample_tasks:
+                   score = await self._run_benchmark(profile, task, role)
+                   scores.append(score)
+               
+               # Average scores
+               avg_score = sum(scores) / len(scores) if scores else 0.0
+               
+               # Record run
+               run = PersonalityRun(
+                   id=None,
+                   personality_id=profile_id,
+                   mission_id=None,
+                   domain=domain,
+                   task_type=task_type,
+                   role=role,
+                   run_type=RunType.BENCHMARK,
+                   score_overall=avg_score,
+                   metrics_raw={
+                       "benchmark_count": len(scores),
+                       "individual_scores": scores
+                   }
+               )
+               
+               self.storage.create_run(run)
+               
+               log_event("benchmark_run_complete", {
+                   "profile_id": profile_id,
+                   "avg_score": avg_score
+               })
+       
+       async def _run_benchmark(
+           self,
+           profile: PersonalityProfile,
+           benchmark_task: Dict,
+           role: str
+       ) -> float:
+           """
+           Run single benchmark task with personality.
+           
+           Returns score (0.0 - 1.0)
+           """
+           try:
+               # Would integrate with actual orchestrator
+               # For now, simplified evaluation
+               
+               # Simulate running task with this personality's prompt/model
+               result = await self._execute_with_personality(
+                   profile,
+                   benchmark_task["input"]
+               )
+               
+               # Evaluate result
+               score = await self._evaluate_benchmark_result(
+                   result,
+                   benchmark_task["expected"],
+                   benchmark_task["eval_criteria"]
+               )
+               
+               return score
+               
+           except Exception as e:
+               log_event("benchmark_execution_failed", {
+                   "profile_id": profile.id,
+                   "error": str(e)
+               })
+               return 0.0
+       
+       async def _execute_with_personality(
+           self,
+           profile: PersonalityProfile,
+           task_input: str
+       ) -> str:
+           """Execute task using personality's configuration"""
+           
+           # Call LLM with personality's prompt and settings
+           response = await self.llm.chat(
+               prompt=f"{profile.prompt}\n\nTask: {task_input}",
+               model=profile.model,
+               temperature=profile.hyperparams.temperature,
+               max_tokens=profile.hyperparams.max_tokens
+           )
+           
+           return response
+       
+       async def _evaluate_benchmark_result(
+           self,
+           result: str,
+           expected: str,
+           eval_criteria: Dict
+       ) -> float:
+           """
+           Evaluate benchmark result quality.
+           
+           Uses LLM-as-judge evaluation.
+           """
+           eval_prompt = f"""Evaluate the quality of this AI assistant's output.
+
+TASK CRITERIA:
+{eval_criteria.get('description', 'General quality assessment')}
+
+EXPECTED OUTPUT:
+{expected}
+
+ACTUAL OUTPUT:
+{result}
+
+Rate the output on a scale of 0.0 to 1.0 based on:
+- Correctness (does it solve the task?)
+- Completeness (covers all requirements?)
+- Quality (well-structured, clear?)
+
+Return JSON:
+{{
+  "score": 0.85,
+  "reasoning": "brief explanation..."
+}}
+"""
+           
+           try:
+               evaluation = await self.llm.chat_json(
+                   prompt=eval_prompt,
+                   model="gpt-4o",
+                   temperature=0.1
+               )
+               
+               return evaluation.get("score", 0.0)
+               
+           except Exception as e:
+               log_event("evaluation_failed", {"error": str(e)})
+               return 0.5  # Neutral score on failure
+   ```
+
+**Acceptance Criteria:**
+
+- [ ] PersonalityGenerator creates diverse prompts via LLM
+- [ ] Generates different model/hyperparams combinations
+- [ ] Tool policies vary (restrictive, balanced, permissive)
+- [ ] PersonalityExplorer runs benchmarks
+- [ ] LLM-as-judge evaluation works
+- [ ] Baseline profiles created for comparison
+- [ ] All tests pass (8+ cases)
+
+**Files to Create:**
+- `agent/personality/generator.py` (~350 lines)
+- `agent/personality/explorer.py` (~350 lines)
+- `agent/tests/test_personality_generator.py` (~150 lines)
+- `agent/tests/test_personality_explorer.py` (~150 lines)
+
+---
+
+
+### Prompt 12.3: Benchmarks & Evaluation Framework
+
+**Context:**
+From Prompts 12.1-12.2, we can generate and store personality candidates. Now we need systematic benchmarks to evaluate them. Define benchmark suites for each domain/task type with clear success criteria.
+
+**Task:**
+Implement benchmark framework with tasks for CODING, FINANCE, LEGAL domains and LLM-as-judge evaluation system.
+
+**Requirements:**
+
+1. **Benchmark Suite** - Create `agent/personality/benchmarks.py`:
+   
+   ```python
+   """
+   Benchmark tasks for personality evaluation.
+   """
+   
+   from typing import List, Dict, Optional
+   from dataclasses import dataclass
+   
+   
+   @dataclass
+   class BenchmarkTask:
+       """Single benchmark task"""
+       id: str
+       domain: str
+       task_type: str
+       
+       input: str  # Task description
+       expected: str  # Expected output or reference answer
+       eval_criteria: Dict  # Evaluation rubric
+       
+       difficulty: str = "medium"  # easy, medium, hard
+   
+   
+   class BenchmarkSuite:
+       """Collection of benchmark tasks"""
+       
+       def __init__(self):
+           self.tasks: Dict[str, List[BenchmarkTask]] = {}
+           self._init_coding_benchmarks()
+           self._init_finance_benchmarks()
+           self._init_legal_benchmarks()
+       
+       def _init_coding_benchmarks(self):
+           """Initialize CODING domain benchmarks"""
+           
+           # WEB_DEV tasks
+           self.tasks["CODING_WEB_DEV"] = [
+               BenchmarkTask(
+                   id="webdev_landing_1",
+                   domain="CODING",
+                   task_type="WEB_DEV",
+                   input="Create a responsive landing page with header, hero section, and footer. Use modern CSS, no inline styles.",
+                   expected="Valid HTML5 with semantic tags, external CSS, mobile-responsive design",
+                   eval_criteria={
+                       "description": "Check for: valid HTML, semantic structure, CSS in external file, responsive breakpoints",
+                       "quality_weight": 0.4,
+                       "correctness_weight": 0.4,
+                       "best_practices_weight": 0.2
+                   }
+               ),
+               BenchmarkTask(
+                   id="webdev_form_1",
+                   domain="CODING",
+                   task_type="WEB_DEV",
+                   input="Build a contact form with name, email, message fields. Include client-side validation.",
+                   expected="Form with validation, proper labels, accessible markup",
+                   eval_criteria={
+                       "description": "Validation logic present, accessibility attributes, proper input types"
+                   }
+               ),
+               # Add 3-5 more WEB_DEV tasks
+           ]
+           
+           # BUGFIX tasks
+           self.tasks["CODING_BUGFIX"] = [
+               BenchmarkTask(
+                   id="bugfix_null_1",
+                   domain="CODING",
+                   task_type="BUGFIX",
+                   input="Fix this code that crashes with null pointer:\ndef process(data):\n    return data.value.upper()",
+                   expected="Code with null/None check before accessing attributes",
+                   eval_criteria={
+                       "description": "Null check added, error handling present, maintains functionality"
+                   }
+               ),
+               # Add more BUGFIX tasks
+           ]
+       
+       def _init_finance_benchmarks(self):
+           """Initialize FINANCE domain benchmarks"""
+           
+           self.tasks["FINANCE_REPORT_ANALYSIS"] = [
+               BenchmarkTask(
+                   id="finance_pl_1",
+                   domain="FINANCE",
+                   task_type="REPORT_ANALYSIS",
+                   input="Analyze this P&L: Revenue $2.5M, COGS $1.2M, OpEx $800K, Tax $150K. Identify 3 risks and 3 opportunities.",
+                   expected="Analysis identifying margin trends, cost structure, profitability risks/opportunities",
+                   eval_criteria={
+                       "description": "Identifies: thin margins (34%), high OpEx%, tax efficiency, growth opportunities, cost reduction areas"
+                   }
+               ),
+               # Add more REPORT_ANALYSIS tasks
+           ]
+       
+       def _init_legal_benchmarks(self):
+           """Initialize LEGAL domain benchmarks"""
+           
+           self.tasks["LEGAL_CONTRACT_SUMMARY"] = [
+               BenchmarkTask(
+                   id="legal_nda_1",
+                   domain="LEGAL",
+                   task_type="CONTRACT_SUMMARY",
+                   input="Summarize this NDA: [sample NDA text]. Highlight key obligations and duration.",
+                   expected="Summary with: parties, confidential information scope, duration, return/destroy obligations, governing law",
+                   eval_criteria={
+                       "description": "Extracts all key terms, flags unusual clauses, accurate legal interpretation"
+                   }
+               ),
+               # Add more CONTRACT_SUMMARY tasks
+           ]
+       
+       def get_tasks(
+           self,
+           domain: str,
+           task_type: str
+       ) -> List[BenchmarkTask]:
+           """Get benchmark tasks for domain/task_type"""
+           key = f"{domain}_{task_type}"
+           return self.tasks.get(key, [])
+       
+       def get_all_domains(self) -> List[str]:
+           """Get all domains with benchmarks"""
+           domains = set()
+           for key in self.tasks.keys():
+               domain = key.split("_")[0]
+               domains.add(domain)
+           return list(domains)
+   ```
+
+2. **LLM Evaluator** - Create `agent/personality/evaluator.py`:
+   
+   ```python
+   """
+   LLM-as-judge evaluation system.
+   """
+   
+   from typing import Dict, Optional
+   from agent.llm_client import LLMClient
+   from agent.core_logging import log_event
+   
+   
+   class LLMEvaluator:
+       """
+       Evaluate outputs using LLM as judge.
+       """
+       
+       def __init__(self, llm_client: LLMClient):
+           self.llm = llm_client
+       
+       async def evaluate(
+           self,
+           task_input: str,
+           expected_output: str,
+           actual_output: str,
+           eval_criteria: Dict
+       ) -> Dict[str, float]:
+           """
+           Evaluate quality using LLM judge.
+           
+           Returns dict with scores and reasoning.
+           """
+           prompt = self._build_evaluation_prompt(
+               task_input, expected_output, actual_output, eval_criteria
+           )
+           
+           try:
+               result = await self.llm.chat_json(
+                   prompt=prompt,
+                   model="gpt-4o",  # Use strong model for evaluation
+                   temperature=0.1  # Low temp for consistency
+               )
+               
+               return {
+                   "score_overall": result.get("score_overall", 0.0),
+                   "score_quality": result.get("score_quality", 0.0),
+                   "score_correctness": result.get("score_correctness", 0.0),
+                   "reasoning": result.get("reasoning", "")
+               }
+               
+           except Exception as e:
+               log_event("llm_evaluation_failed", {"error": str(e)})
+               return {
+                   "score_overall": 0.0,
+                   "score_quality": 0.0,
+                   "score_correctness": 0.0,
+                   "reasoning": f"Evaluation failed: {str(e)}"
+               }
+       
+       def _build_evaluation_prompt(
+           self,
+           task_input: str,
+           expected: str,
+           actual: str,
+           criteria: Dict
+       ) -> str:
+           """Build evaluation prompt for LLM judge"""
+           
+           return f"""You are an expert evaluator assessing AI assistant output quality.
+
+TASK:
+{task_input}
+
+EXPECTED OUTPUT (reference):
+{expected}
+
+ACTUAL OUTPUT (to evaluate):
+{actual}
+
+EVALUATION CRITERIA:
+{criteria.get('description', 'Assess overall quality, correctness, and completeness')}
+
+SCORING WEIGHTS:
+- Quality: {criteria.get('quality_weight', 0.33)}
+- Correctness: {criteria.get('correctness_weight', 0.33)}
+- Best Practices: {criteria.get('best_practices_weight', 0.34)}
+
+Evaluate and return JSON:
+{{
+  "score_overall": 0.85,  // 0.0 to 1.0
+  "score_quality": 0.90,  // Clarity, structure, professionalism
+  "score_correctness": 0.80,  // Factual accuracy, completeness
+  "reasoning": "Brief explanation of scores..."
+}}
+
+Be strict but fair. Score of 0.7+ is good, 0.85+ is excellent."""
+   ```
+
+**Acceptance Criteria:**
+
+- [ ] BenchmarkSuite has 5+ tasks per domain/task_type
+- [ ] Tasks cover CODING, FINANCE, LEGAL
+- [ ] LLMEvaluator provides consistent scores
+- [ ] Evaluation criteria clearly defined
+- [ ] Scores are reproducible (low variance)
+- [ ] Tests pass (6+ cases)
+
+**Files to Create:**
+- `agent/personality/benchmarks.py` (~400 lines with all tasks)
+- `agent/personality/evaluator.py` (~200 lines)
+- `agent/tests/test_benchmarks.py` (~100 lines)
+- `agent/tests/test_evaluator.py` (~120 lines)
+
+---
+
+### Prompt 12.4: Personality Engine Core & Integration
+
+**Context:**
+Final piece: Tie everything together with PersonalityEngine that manages lifecycle (lookup, explore, promote, rollback) and integrates with ConversationalAgent and Orchestrator.
+
+**Task:**
+Implement PersonalityEngine core API and integrate with existing conversational and orchestration systems.
+
+**Requirements:**
+
+1. **Personality Engine Core** - Create `agent/personality/engine.py`:
+   
+   ```python
+   """
+   Adaptive Personality Engine - Core orchestration.
+   """
+   
+   import asyncio
+   from typing import Dict, Optional, List
+   from datetime import datetime, timedelta
+   
+   from agent.personality.models import (
+       PersonalityProfile, PersonalityRun, PersonalityStatus, RunType
+   )
+   from agent.personality.storage import PersonalityStorage
+   from agent.personality.generator import PersonalityGenerator
+   from agent.personality.explorer import PersonalityExplorer
+   from agent.llm_client import LLMClient
+   from agent.core_logging import log_event
+   
+   
+   class PersonalityEngine:
+       """
+       Manages adaptive personality lifecycle.
+       
+       Main API:
+       - get_or_create_default_profiles() - Get best personalities
+       - record_real_task_result() - Log performance
+       - maybe_update_defaults() - Promote/demote as needed
+       """
+       
+       def __init__(
+           self,
+           llm_client: LLMClient,
+           storage: PersonalityStorage,
+           min_score_threshold: float = 0.6,
+           promotion_margin: float = 0.1,
+           min_samples_for_promotion: int = 10
+       ):
+           self.llm = llm_client
+           self.storage = storage
+           
+           self.min_score_threshold = min_score_threshold
+           self.promotion_margin = promotion_margin
+           self.min_samples = min_samples_for_promotion
+           
+           self.generator = PersonalityGenerator(llm_client, storage)
+           # Explorer initialized with benchmark suite
+       
+       async def get_or_create_default_profiles(
+           self,
+           domain: str,
+           task_type: str
+       ) -> Dict[str, PersonalityProfile]:
+           """
+           Get current best personalities for domain/task.
+           
+           Returns dict: {"MANAGER": profile, "SUPERVISOR": profile, "EMPLOYEE": profile}
+           """
+           profiles = {}
+           
+           for role in ["MANAGER", "SUPERVISOR", "EMPLOYEE"]:
+               # Check if default exists
+               default_id = self.storage.get_default(domain, task_type, role)
+               
+               if default_id:
+                   profile = self.storage.get_profile(default_id)
+                   
+                   # Verify it's still above threshold
+                   perf = self.storage.get_profile_performance(default_id)
+                   
+                   if perf["avg_overall"] >= self.min_score_threshold:
+                       profiles[role] = profile
+                       continue
+                   else:
+                       log_event("default_below_threshold", {
+                           "domain": domain,
+                           "task_type": task_type,
+                           "role": role,
+                           "score": perf["avg_overall"]
+                       })
+               
+               # No valid default - explore
+               await self._explore_and_set_default(domain, task_type, role)
+               
+               # Get newly created default
+               default_id = self.storage.get_default(domain, task_type, role)
+               if default_id:
+                   profiles[role] = self.storage.get_profile(default_id)
+               else:
+                   # Fallback to safe generic
+                   profiles[role] = await self._create_fallback_profile(
+                       domain, task_type, role
+                   )
+           
+           return profiles
+       
+       async def _explore_and_set_default(
+           self,
+           domain: str,
+           task_type: str,
+           role: str
+       ):
+           """Explore candidates and set best as default"""
+           
+           # Generate candidates
+           candidates = await self.generator.generate_candidates(
+               domain, task_type, role, k_candidates=3
+           )
+           
+           # Save and benchmark
+           best_id = None
+           best_score = 0.0
+           
+           for candidate in candidates:
+               profile_id = self.storage.create_profile(candidate)
+               
+               # Quick benchmark (simplified)
+               score = await self._quick_benchmark(
+                   profile_id, domain, task_type, role
+               )
+               
+               if score > best_score:
+                   best_score = score
+                   best_id = profile_id
+           
+           # Set as default if above threshold
+           if best_id and best_score >= self.min_score_threshold:
+               self.storage.set_default(
+                   domain, task_type, role, best_id,
+                   reason=f"Initial exploration, score: {best_score:.2f}",
+                   min_score=best_score
+               )
+               
+               self.storage.update_profile_status(
+                   best_id, PersonalityStatus.ACTIVE_DEFAULT
+               )
+       
+       async def _quick_benchmark(
+           self,
+           profile_id: int,
+           domain: str,
+           task_type: str,
+           role: str
+       ) -> float:
+           """Run quick benchmark, return score"""
+           # Simplified - would use actual benchmarks
+           return 0.7  # Placeholder
+       
+       async def _create_fallback_profile(
+           self,
+           domain: str,
+           task_type: str,
+           role: str
+       ) -> PersonalityProfile:
+           """Create safe fallback profile"""
+           return PersonalityProfile(
+               id=None,
+               domain=domain,
+               task_type=task_type,
+               role=role,
+               prompt=f"You are a {role} for {domain} {task_type} tasks. Work carefully and systematically.",
+               model="gpt-4o",
+               tool_policy=self.generator._generate_configurations(1)[0]["tool_policy"],
+               hyperparams=self.generator._generate_configurations(1)[0]["hyperparams"],
+               status=PersonalityStatus.CANDIDATE
+           )
+       
+       async def record_real_task_result(
+           self,
+           personality_ids: Dict[str, int],  # role -> personality_id
+           mission_id: str,
+           domain: str,
+           task_type: str,
+           success: bool,
+           metrics: Dict
+       ):
+           """
+           Record real-world task performance.
+           
+           Called after mission completion.
+           """
+           for role, personality_id in personality_ids.items():
+               score_overall = self._compute_overall_score(success, metrics)
+               
+               run = PersonalityRun(
+                   id=None,
+                   personality_id=personality_id,
+                   mission_id=mission_id,
+                   domain=domain,
+                   task_type=task_type,
+                   role=role,
+                   run_type=RunType.REAL_USER_TASK,
+                   score_overall=score_overall,
+                   score_quality=metrics.get("quality", None),
+                   score_cost=metrics.get("cost_efficiency", None),
+                   score_speed=metrics.get("speed", None),
+                   metrics_raw=metrics
+               )
+               
+               self.storage.create_run(run)
+           
+           log_event("real_task_recorded", {
+               "mission_id": mission_id,
+               "domain": domain,
+               "task_type": task_type,
+               "success": success
+           })
+       
+       def _compute_overall_score(
+           self,
+           success: bool,
+           metrics: Dict
+       ) -> float:
+           """Compute overall score from metrics"""
+           if not success:
+               return 0.2  # Low score for failures
+           
+           # Weighted average
+           quality = metrics.get("quality", 0.7)
+           cost_eff = metrics.get("cost_efficiency", 0.7)
+           speed = metrics.get("speed", 0.7)
+           
+           return (quality * 0.5 + cost_eff * 0.3 + speed * 0.2)
+       
+       async def maybe_update_defaults(
+           self,
+           domain: str,
+           task_type: str
+       ):
+           """
+           Check if defaults should be updated.
+           
+           Runs periodically (e.g. daily) or after N missions.
+           """
+           for role in ["MANAGER", "SUPERVISOR", "EMPLOYEE"]:
+               await self._maybe_promote_for_role(domain, task_type, role)
+       
+       async def _maybe_promote_for_role(
+           self,
+           domain: str,
+           task_type: str,
+           role: str
+       ):
+           """Check if a candidate should be promoted"""
+           
+           # Get current default
+           current_default_id = self.storage.get_default(domain, task_type, role)
+           
+           if not current_default_id:
+               return
+           
+           current_perf = self.storage.get_profile_performance(
+               current_default_id, days=30
+           )
+           
+           # Find all candidates
+           candidates = self.storage.find_profiles(
+               domain, task_type, role,
+               status=PersonalityStatus.CANDIDATE
+           )
+           
+           best_candidate = None
+           best_score = current_perf["avg_overall"]
+           
+           for candidate in candidates:
+               perf = self.storage.get_profile_performance(candidate.id, days=30)
+               
+               # Must have enough samples
+               if perf["run_count"] < self.min_samples:
+                   continue
+               
+               # Must beat current by margin
+               if perf["avg_overall"] > best_score + self.promotion_margin:
+                   best_score = perf["avg_overall"]
+                   best_candidate = candidate
+           
+           # Promote if found better
+           if best_candidate:
+               # Demote old default
+               self.storage.update_profile_status(
+                   current_default_id,
+                   PersonalityStatus.DEPRECATED
+               )
+               
+               # Promote new
+               self.storage.set_default(
+                   domain, task_type, role, best_candidate.id,
+                   reason=f"Outperformed previous by {best_score - current_perf['avg_overall']:.2f}",
+                   min_score=best_score
+               )
+               
+               self.storage.update_profile_status(
+                   best_candidate.id,
+                   PersonalityStatus.ACTIVE_DEFAULT
+               )
+               
+               log_event("personality_promoted", {
+                   "domain": domain,
+                   "task_type": task_type,
+                   "role": role,
+                   "old_id": current_default_id,
+                   "new_id": best_candidate.id,
+                   "improvement": best_score - current_perf["avg_overall"]
+               })
+   ```
+
+2. **Integration with ConversationalAgent** - Update `agent/conversational_agent.py`:
+   
+   ```python
+   # Add to ConversationalAgent class:
+   
+   from agent.personality.engine import PersonalityEngine
+   from agent.personality.storage import PersonalityStorage
+   
+   class ConversationalAgent:
+       def __init__(self, ...):
+           # ... existing init ...
+           
+           # Initialize Personality Engine
+           personality_storage = PersonalityStorage()
+           self.personality_engine = PersonalityEngine(
+               llm_client=self.llm,
+               storage=personality_storage
+           )
+       
+       async def start_complex_mission(self, ...):
+           # ... existing logic ...
+           
+           # Get optimal personalities for this domain/task
+           personalities = await self.personality_engine.get_or_create_default_profiles(
+               domain=parsed.domain,
+               task_type=parsed.task_type
+           )
+           
+           # Pass to orchestrator
+           result = await self.orchestrator.run(
+               task=user_message,
+               personalities=personalities,  # NEW
+               ...
+           )
+           
+           # Record performance
+           await self.personality_engine.record_real_task_result(
+               personality_ids={
+                   "MANAGER": personalities["MANAGER"].id,
+                   "SUPERVISOR": personalities["SUPERVISOR"].id,
+                   "EMPLOYEE": personalities["EMPLOYEE"].id
+               },
+               mission_id=result.get("mission_id"),
+               domain=parsed.domain,
+               task_type=parsed.task_type,
+               success=result.get("success", False),
+               metrics=result.get("metrics", {})
+           )
+   ```
+
+**Acceptance Criteria:**
+
+- [ ] PersonalityEngine manages full lifecycle
+- [ ] get_or_create_default_profiles works
+- [ ] Real task results recorded correctly
+- [ ] Promotion logic triggers appropriately
+- [ ] Rollback on poor performance
+- [ ] Integration with ConversationalAgent complete
+- [ ] Tests pass (12+ cases covering lifecycle)
+
+**Files to Create:**
+- `agent/personality/engine.py` (~500 lines)
+- `agent/tests/test_personality_engine.py` (~250 lines)
+
+**Files to Modify:**
+- `agent/conversational_agent.py` — Add PersonalityEngine integration
+- `agent/orchestrator.py` — Use provided personalities instead of static prompts
+
+**Phase 12 Success Metrics:**
+
+By end of Phase 12:
+- ✅ 3+ domains (CODING, FINANCE, LEGAL) have benchmark suites
+- ✅ Adaptive personalities show ≥10% improvement over baseline
+- ✅ All personalities above min_score_threshold (0.6)
+- ✅ Automatic promotion/demotion working
+- ✅ Real-world task performance tracked
+- ✅ 50+ test cases passing
+
+---
+
+## Phase 12 Summary
+
+**Phase 12: Adaptive Personality Engine** transforms JARVIS from static to self-improving:
+
+1. **Prompt 12.1:** SQL schema and data models for personality storage
+2. **Prompt 12.2:** LLM-driven personality generation and exploration
+3. **Prompt 12.3:** Benchmark framework with LLM-as-judge evaluation
+4. **Prompt 12.4:** PersonalityEngine core and system integration
+
+**Key Innovation:** JARVIS now discovers and evolves optimal Manager/Supervisor/Employee configurations per domain and task type, continuously improving through data-driven optimization.
+
+**Timeline:** 2 weeks
+**Estimated Lines of Code:** ~3,500 lines
+**Test Cases:** 50+ tests
+
+---
+

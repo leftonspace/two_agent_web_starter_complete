@@ -61,6 +61,99 @@ from stage_summaries import create_tracker
 from orchestrator_context import OrchestratorContext
 from workflow_manager import create_workflow
 
+# =============================================================================
+# OPTIONAL MODULE IMPORTS (with availability flags)
+# =============================================================================
+
+# Config module (PHASE 0.3)
+try:
+    import config as config_module
+    import paths as paths_module
+    CONFIG_AVAILABLE = True
+except ImportError:
+    config_module = None
+    paths_module = None
+    CONFIG_AVAILABLE = False
+
+# Domain router (PHASE 1.1)
+try:
+    import domain_router
+    DOMAIN_ROUTER_AVAILABLE = True
+except ImportError:
+    domain_router = None
+    DOMAIN_ROUTER_AVAILABLE = False
+
+# Project stats (PHASE 2.2)
+try:
+    import project_stats
+    PROJECT_STATS_AVAILABLE = True
+except ImportError:
+    project_stats = None
+    PROJECT_STATS_AVAILABLE = False
+
+# Specialist market (PHASE 4)
+try:
+    import specialist_market
+    SPECIALISTS_AVAILABLE = True
+except ImportError:
+    specialist_market = None
+    SPECIALISTS_AVAILABLE = False
+
+# Overseer and self-refinement (PHASE 5)
+try:
+    import overseer
+    import self_refinement
+    OVERSEER_AVAILABLE = True
+except ImportError:
+    overseer = None
+    self_refinement = None
+    OVERSEER_AVAILABLE = False
+
+# Artifacts logging (PHASE 1.4)
+try:
+    import artifacts
+    ARTIFACTS_AVAILABLE = True
+except ImportError:
+    artifacts = None
+    ARTIFACTS_AVAILABLE = False
+
+# Stage 3 workflow systems
+try:
+    import workflow_manager
+    import memory_store as memory_store_module
+    import inter_agent_bus
+    STAGE3_AVAILABLE = True
+except ImportError:
+    workflow_manager = None
+    memory_store_module = None
+    inter_agent_bus = None
+    STAGE3_AVAILABLE = False
+
+# Prompt security (PHASE 1.3)
+try:
+    import prompt_security
+    PROMPT_SECURITY_AVAILABLE = True
+except ImportError:
+    prompt_security = None
+    PROMPT_SECURITY_AVAILABLE = False
+
+# Model router utilities
+try:
+    from model_router import estimate_complexity, is_stage_important
+except ImportError:
+    def estimate_complexity(**kwargs):
+        return "medium"
+    def is_stage_important(**kwargs):
+        return False
+
+# Repo router (STAGE 4.3)
+try:
+    from repo_router import resolve_repo_path
+except ImportError:
+    def resolve_repo_path(cfg, stage=None):
+        from pathlib import Path
+        return Path(cfg.get("project_subdir", "default_project"))
+
 
 def _load_config() -> Dict[str, Any]:
     """
@@ -344,14 +437,14 @@ def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:
     total_cost = cost_tracker.get_total_cost_usd()
     warning_threshold = float(cfg.get("cost_warning_usd", 0) or 0)
 
-    if mode == "once" and checkpoint != "after_planning_and_supervisor":
+    if mode == "once" and stage_label != "after_planning_and_supervisor":
         return True
 
     if total_cost < warning_threshold:
         return True
 
     print(f"\n[Cost] Current cost: ~${total_cost:.4f} USD")
-    print(f"[Cost] Checkpoint: {checkpoint}")
+    print(f"[Cost] Checkpoint: {stage_label}")
     response = input("[Cost] Continue? (y/n): ").strip().lower()
     return response == "y"
 
@@ -398,12 +491,16 @@ def main(
 
     # PHASE 1.3: Sanitize and validate task input to prevent prompt injection (V1)
     original_task = task
-    task, detected_patterns, was_blocked = prompt_security.check_and_sanitize_task(
-        task,
-        context="orchestrator_main",
-        session_id=core_run_id,
-        strict_mode=False,  # Allow with sanitization rather than blocking
-    )
+    detected_patterns = []
+    was_blocked = False
+
+    if PROMPT_SECURITY_AVAILABLE and prompt_security is not None:
+        task, detected_patterns, was_blocked = prompt_security.check_and_sanitize_task(
+            task,
+            context="orchestrator_main",
+            session_id=core_run_id,
+            strict_mode=False,  # Allow with sanitization rather than blocking
+        )
 
     if detected_patterns:
         print(f"[Security] Detected injection patterns: {', '.join(detected_patterns)}")
@@ -429,6 +526,7 @@ def main(
             })
 
     max_rounds: int = int(cfg.get("max_rounds", 1))
+    max_audits_per_stage: int = int(cfg.get("max_audits_per_stage", 3))
     use_visual_review: bool = bool(cfg.get("use_visual_review", False))
     prompts_file: str = cfg.get("prompts_file", "prompts_default.json")
 
@@ -480,6 +578,7 @@ def main(
     snapshots_root.mkdir(parents=True, exist_ok=True)
 
     # Git
+    git_ready = False
     if use_git:
         git_ready = context.git_utils.ensure_repo(out_dir)
 
@@ -925,6 +1024,20 @@ def main(
     current_stage_idx = 0  # Index into phase_list
     current_stage_obj = None  # Current Stage object from workflow_mgr
 
+    # Initialize iteration tracking variables
+    last_status: Optional[str] = None
+    last_tests: Optional[Dict[str, Any]] = None
+    last_feedback: Optional[List[str]] = None
+    extra_iteration_granted = False
+    safety_failed_on_final = False
+    cost_warning_shown = False
+    final_status = "unknown"
+    stages_processed = 0
+    all_completed = False
+
+    # Initialize next_stage for iteration loop
+    next_stage = None
+
     # Start first stage if workflow manager available
     if workflow_mgr is not None and phase_list:
         try:
@@ -960,11 +1073,8 @@ def main(
         # STAGE 2.2: Log iteration begin
         context.logger.log_iteration_begin(
             core_run_id,
-            message.id,
-            message.from_agent,
-            message.to_agent,
-            message.message_type.value,
-            message.subject
+            iteration=iteration,
+            stage_name=phase_list[current_stage_idx].get("name", f"Stage {current_stage_idx}") if current_stage_idx < len(phase_list) else "Unknown"
         )
 
         # STAGE 5: Use model router for employee
@@ -988,17 +1098,36 @@ def main(
             print("[Files] No existing files loaded; starting from scratch.")
 
 
-        # Log stage start
-        core_logging.log_stage_started(
-            core_run_id,
-            next_stage.id,
-            next_stage.name,
-            stage_number=stages_processed,
-            total_stages=len(workflow.state.current_roadmap.stages)
-        )
+        # Get current phase info
+        phase_index = current_stage_idx
+        phase = phase_list[phase_index] if phase_index < len(phase_list) else {"name": "Unknown"}
+
+        # Log stage start - only if next_stage is available
+        if next_stage is not None:
+            core_logging.log_stage_started(
+                core_run_id,
+                next_stage.id,
+                next_stage.name,
+                stage_number=stages_processed,
+                total_stages=len(workflow.state.current_roadmap.stages) if hasattr(workflow, 'state') and hasattr(workflow.state, 'current_roadmap') else len(phase_list)
+            )
+        else:
+            # Fallback logging when next_stage is not available
+            core_logging.log_stage_started(
+                core_run_id,
+                f"stage_{phase_index}",
+                phase.get("name", f"Stage {phase_index}"),
+                stage_number=stages_processed,
+                total_stages=len(phase_list)
+            )
 
         # Build context from previous stages
-        prev_stage_summary = memory.get_previous_stage_summary(next_stage.id)
+        stage_id = next_stage.id if next_stage is not None else f"stage_{phase_index}"
+        stage_name = next_stage.name if next_stage is not None else phase.get("name", f"Stage {phase_index}")
+        stage_categories = next_stage.categories if next_stage is not None else phase.get("categories", [])
+        stage_plan_steps = next_stage.plan_steps if next_stage is not None else phase.get("plan_steps", [])
+
+        prev_stage_summary = memory.get_previous_stage_summary(stage_id)
         context_notes = []
         if prev_stage_summary:
             context_notes.append(f"Previous stage summary: {prev_stage_summary}")
@@ -1016,8 +1145,8 @@ def main(
             print(f"\n--- Audit Cycle {audit_cycle}/{max_audits_per_stage} ---")
 
             # Start fix cycle tracking
-            tracker.start_fix_cycle(next_stage.id, audit_cycle, employee_model="gpt-5")
-            memory.increment_iterations(next_stage.id)
+            tracker.start_fix_cycle(stage_id, audit_cycle, employee_model="gpt-5")
+            memory.increment_iterations(stage_id)
 
             # ────────────────────────────────────────────────────
             # EMPLOYEE: Build stage
@@ -1029,15 +1158,16 @@ def main(
                 "task": task,
                 "plan": plan,
                 "phase": {
-                    "name": next_stage.name,
-                    "categories": next_stage.categories,
-                    "plan_steps": next_stage.plan_steps,
+                    "name": stage_name,
+                    "categories": stage_categories,
+                    "plan_steps": stage_plan_steps,
                 },
                 "previous_files": existing_files,
                 "feedback": last_feedback,
                 "context_notes": context_notes,
                 "iteration": audit_cycle,
             }
+            phase_payload = employee_payload  # Alias for backward compatibility
 
             employee_sys_phase = employee_sys_base
 
@@ -1054,7 +1184,7 @@ def main(
                 prompt_length=len(employee_sys_base) + len(json.dumps(employee_payload)),
                 iteration=audit_cycle,
                 phase_index=stages_processed,
-                phase_name=next_stage.name
+                phase_name=stage_name
             )
 
             emp = context.llm.chat_json(
@@ -1084,7 +1214,7 @@ def main(
                     # Log model fallback event
                     core_logging.log_model_fallback(
                         core_run_id,
-                        next_stage.id,
+                        stage_id,
                         "employee",
                         original_model,
                         fallback_model,
@@ -1094,8 +1224,8 @@ def main(
                 # STAGE 3.3 FIX: Use log_llm_failure helper (proper payload dict)
                 core_logging.log_llm_failure(
                     core_run_id,
-                    stage_id=next_stage.id,
-                    stage_name=next_stage.name,
+                    stage_id=stage_id,
+                    stage_name=stage_name,
                     role="employee",
                     reason=reason,
                     retry_count=5,  # From llm.MAX_RETRIES
@@ -1104,14 +1234,14 @@ def main(
 
                 # STAGE 3.3: Mark as pending_retry instead of hard failure
                 print("[Stage3] Marking stage as pending_retry for later revisit")
-                memory.set_final_status(next_stage.id, "pending_retry")
-                tracker.complete_stage(next_stage.id, "pending_retry", reason)
+                memory.set_final_status(stage_id, "pending_retry")
+                tracker.complete_stage(stage_id, "pending_retry", reason)
 
                 # Log pending retry
                 core_logging.log_stage_pending_retry(
                     core_run_id,
-                    next_stage.id,
-                    next_stage.name,
+                    stage_id,
+                    stage_name,
                     reason=f"Employee LLM failure: {reason}"
                 )
 
@@ -1543,12 +1673,12 @@ def main(
         # STAGE 2.2: Log iteration end
         context.logger.log_iteration_end(
             core_run_id,
-            next_stage.id,
-            next_stage.name,
+            stage_id,
+            stage_name,
             status="completed",
             iterations=audit_cycle,
             audit_count=audit_cycle,
-            duration_seconds=stage_duration
+            duration_seconds=0  # TODO: Track actual duration
         )
 
         # PHASE 1.4: Log iteration end artifact

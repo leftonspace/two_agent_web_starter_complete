@@ -224,6 +224,20 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Git operations**: Add, commit, push, pull, branch management, status, diff, log ✨
 - **Safe git commands**: All git operations through validated async subprocess calls ✨
 
+### Database Operations (Phase 8.4) 🗄️
+- **Connection pooling**: SQLAlchemy async engine with configurable pool size ✨
+- **Read-only mode**: Default read-only mode blocks write operations (UPDATE, INSERT, DELETE) ✨
+- **Multiple databases**: Support for PostgreSQL, MySQL, and SQLite ✨
+- **Query validation**: Automatic detection of read-only vs write queries ✨
+- **Parameter binding**: Prevents SQL injection through parameter substitution ✨
+- **Transaction support**: Async context manager for transaction management ✨
+- **Query timeout**: Configurable timeout protection (default 30s) ✨
+- **Result pagination**: Built-in LIMIT/OFFSET support with metadata ✨
+- **Connection management**: Async context manager for automatic cleanup ✨
+- **Query helpers**: query(), query_one(), query_value(), query_paginated() ✨
+- **Statistics tracking**: Request count, error tracking, success rate ✨
+- **Comprehensive logging**: All queries logged with parameters and results ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

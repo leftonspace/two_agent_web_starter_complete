@@ -4,6 +4,7 @@ Action execution module.
 PHASE 8.1: Code execution engine with sandboxing.
 PHASE 8.2: API integration system with authentication and retry.
 PHASE 8.3: File system operations with git integration.
+PHASE 8.4: Database operations with connection pooling and safety.
 
 Provides safe execution of Python, JavaScript, and shell commands
 with security controls, timeout protection, and output capture.
@@ -13,6 +14,9 @@ authentication, rate limiting, and exponential backoff retry.
 
 Provides safe file system operations with workspace restrictions
 and git repository management.
+
+Provides database client for SQL databases with read-only mode,
+transaction management, and query timeout protection.
 """
 
 from agent.actions.code_executor import (
@@ -38,6 +42,10 @@ from agent.actions.file_ops import (
 from agent.actions.git_ops import (
     GitOps
 )
+from agent.actions.db_client import (
+    DatabaseClient,
+    DatabaseType
+)
 
 __all__ = [
     "CodeExecutor",
@@ -50,5 +58,7 @@ __all__ = [
     "AuthType",
     "RateLimiter",
     "FileOperations",
-    "GitOps"
+    "GitOps",
+    "DatabaseClient",
+    "DatabaseType"
 ]

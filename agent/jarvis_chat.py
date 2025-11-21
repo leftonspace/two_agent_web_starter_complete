@@ -8,6 +8,7 @@ Intelligent chat interface that routes requests to appropriate handlers:
 """
 
 import asyncio
+import importlib.util
 import json
 import os
 import time
@@ -26,19 +27,43 @@ except ImportError:
     VectorMemoryStore = None
     ContextRetriever = None
 
-# Import orchestrator
+# Import LLM module explicitly (bypass llm/ package shadowing)
+# The llm/ directory (Phase 9) shadows llm.py - we need to load llm.py explicitly
+llm_chat = None
 try:
-    from orchestrator import main as orchestrator_main
-    from orchestrator_context import OrchestratorContext
-except ImportError:
-    orchestrator_main = None
-    OrchestratorContext = None
-
-# Import existing LLM infrastructure
-try:
-    from llm import chat as llm_chat
-except ImportError:
+    # Find the llm.py file (not the llm/ package)
+    llm_file = Path(__file__).parent / "llm.py"
+    if llm_file.exists():
+        spec = importlib.util.spec_from_file_location("llm_module", llm_file)
+        llm_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(llm_module)
+        llm_chat = llm_module.chat
+        print(f"[Jarvis] LLM module loaded from {llm_file}")
+except Exception as e:
+    print(f"[Jarvis] LLM import failed: {e}")
     llm_chat = None
+
+# Import orchestrator - must also handle the llm/ shadowing issue
+orchestrator_main = None
+OrchestratorContext = None
+try:
+    # Import OrchestratorContext first (doesn't depend on llm)
+    from orchestrator_context import OrchestratorContext
+
+    # For orchestrator, we need to ensure llm.py is used, not llm/ package
+    # Temporarily fix the import by loading orchestrator after llm_module is set
+    orchestrator_file = Path(__file__).parent / "orchestrator.py"
+    if orchestrator_file.exists():
+        # The orchestrator will use whatever 'llm' is in sys.modules
+        # We need a different approach - just import and catch errors
+        try:
+            from orchestrator import main as orchestrator_main
+        except ImportError as e:
+            print(f"[Jarvis] Orchestrator import failed: {e}")
+            orchestrator_main = None
+except ImportError as e:
+    print(f"[Jarvis] OrchestratorContext import failed: {e}")
+    OrchestratorContext = None
 
 
 class IntentType(Enum):

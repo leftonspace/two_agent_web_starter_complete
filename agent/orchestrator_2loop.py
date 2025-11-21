@@ -6,11 +6,15 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import cost_tracker
-from git_utils import commit_all, ensure_repo
-from llm import chat_json
-from prompts import load_prompts
-from run_logger import finish_run, log_iteration, start_run
-from site_tools import analyze_site, load_existing_files, summarize_files_for_manager
+
+# PHASE 1.3: Import prompt security for injection defense
+import prompt_security
+
+# PHASE 1.5: Import dependency injection context
+from orchestrator_context import OrchestratorContext
+
+# Legacy imports kept for backward compatibility with helper functions
+# All actual usage in main() now uses context-based calls
 
 
 def _load_config() -> Dict[str, Any]:
@@ -114,11 +118,37 @@ def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:
     return answer in ("y", "yes")
 
 
-def main() -> None:
+def main(context: Optional[OrchestratorContext] = None) -> None:
+    # PHASE 1.5: Initialize dependency injection context
+    if context is None:
+        context = OrchestratorContext.create_default(None)
+        print("[DI] Using default production context")
+    else:
+        print("[DI] Using provided context (likely test context)")
+
     cfg = _load_config()
     out_dir = _ensure_out_dir(cfg)
 
     task: str = cfg["task"]
+
+    # PHASE 1.3: Sanitize and validate task input to prevent prompt injection (V1)
+    original_task = task
+    task, detected_patterns, was_blocked = prompt_security.check_and_sanitize_task(
+        task,
+        context="orchestrator_2loop",
+        strict_mode=False,  # Allow with sanitization rather than blocking
+    )
+
+    if detected_patterns:
+        print(f"[Security] Detected injection patterns: {', '.join(detected_patterns)}")
+        if was_blocked:
+            print("[Security] CRITICAL: Task blocked due to high-severity injection attempt")
+            print(f"[Security] Original task: {original_task[:200]}...")
+            print("[Security] Aborting 2-loop orchestrator due to security violation")
+            return
+        else:
+            print(f"[Security] Task sanitized (patterns detected but not blocked)")
+
     max_rounds: int = int(cfg.get("max_rounds", 1))
     use_visual_review: bool = bool(cfg.get("use_visual_review", False))
     prompts_file: str = cfg.get("prompts_file", "prompts_default.json")
@@ -127,6 +157,9 @@ def main() -> None:
     cost_warning_usd: float = float(cfg.get("cost_warning_usd", 0.0) or 0.0)
     interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
     use_git: bool = bool(cfg.get("use_git", False))
+
+    # PHASE 1.4: Git secret scanning configuration
+    git_secret_scanning_enabled: bool = bool(cfg.get("git_secret_scanning_enabled", True))
 
     print("=== PROJECT CONFIG (2-loop) ===")
     print(f"Project folder: {out_dir}")
@@ -138,6 +171,7 @@ def main() -> None:
     print(f"cost_warning_usd: {cost_warning_usd}")
     print(f"interactive_cost_mode: {interactive_cost_mode}")
     print(f"use_git: {use_git}")
+    print(f"git_secret_scanning_enabled: {git_secret_scanning_enabled}")
 
     # snapshots: per-iteration copies
     snapshots_root = out_dir / ".history"
@@ -146,43 +180,66 @@ def main() -> None:
     # Git setup
     git_ready = False
     if use_git:
-        git_ready = ensure_repo(out_dir)
+        git_ready = context.git_utils.ensure_repo(out_dir)
 
     # Cost tracker: reset state for this run
-    cost_tracker.reset()
+    context.cost_tracker.reset()
 
     # Load prompts/personas
-    prompts = load_prompts(prompts_file)
+    prompts = context.prompts.load_prompts(prompts_file)
     manager_plan_sys = prompts["manager_plan_sys"]
     manager_review_sys = prompts["manager_review_sys"]
     employee_sys = prompts["employee_sys"]
 
-    # Run log
+    # PHASE 1.6: Initialize core_logging (structured event system)
     mode = "2loop"
-    run_record = start_run(cfg, mode, out_dir)
+    core_run_id = context.logger.new_run_id()
+    context.logger.log_start(
+        core_run_id,
+        project_folder=str(out_dir),
+        task_description=task,
+        config=cfg,
+    )
+
+    # PHASE 1.6: Removed run_logger.start_run() - now using core_logging only
+    # run_record = context.run_logger.start_run(cfg, mode, out_dir)
 
     # 1) Manager planning
     print("\n====== MANAGER PLANNING (2-loop) ======")
-    plan = chat_json("manager", manager_plan_sys, task)
+    plan = context.llm.chat_json("manager", manager_plan_sys, task)
     print("\n-- Manager Plan --")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
 
-    total_cost = cost_tracker.get_total_cost_usd()
+    total_cost = context.cost_tracker.get_total_cost_usd()
     print(f"\n[Cost] After planning: ~${total_cost:.4f} USD")
 
     if max_cost_usd and total_cost > max_cost_usd:
         print("[Cost] Max cost exceeded during planning. Aborting run.")
         final_status = "aborted_cost_cap_planning"
-        final_cost_summary = cost_tracker.get_summary()
-        finish_run(run_record, final_status, final_cost_summary, out_dir)
+        final_cost_summary = context.cost_tracker.get_summary()
+        # PHASE 1.6: core_logging.log_final_status() handles this now
+        context.logger.log_final_status(
+            core_run_id,
+            status=final_status,
+            reason="Cost cap exceeded during planning phase",
+            iterations=0,
+            total_cost_usd=total_cost,
+        )
         return
 
     # Optional interactive confirmation (once)
     if not _maybe_confirm_cost(cfg, "after_planning"):
         print("[User] Aborted run after planning.")
         final_status = "aborted_by_user_after_planning"
-        final_cost_summary = cost_tracker.get_summary()
-        finish_run(run_record, final_status, final_cost_summary, out_dir)
+        final_cost_summary = context.cost_tracker.get_summary()
+        # PHASE 1.6: core_logging.log_final_status() handles this now
+        context.logger.log_final_status(
+            core_run_id,
+            status=final_status,
+            reason="Run aborted by user after planning",
+            iterations=0,
+            total_cost_usd=context.cost_tracker.get_total_cost_usd(),
+        )
         return
 
     # Track last review/tests to drive model choice
@@ -194,10 +251,17 @@ def main() -> None:
     for iteration in range(1, max_rounds + 1):
         print(f"\n====== ITERATION {iteration} / {max_rounds} ======")
 
+        # PHASE 1.6: Log iteration start
+        context.logger.log_iteration_begin(
+            core_run_id,
+            iteration=iteration,
+            phase="2loop_iteration",
+        )
+
         employee_model = _choose_employee_model(iteration, last_status, last_tests)
         print(f"[ModelSelect] Employee will use model: {employee_model}")
 
-        existing_files = load_existing_files(out_dir)
+        existing_files = context.site_tools.load_existing_files(out_dir)
         if existing_files:
             print(f"[Files] Loaded {len(existing_files)} existing files from {out_dir}")
         else:
@@ -212,7 +276,7 @@ def main() -> None:
         }
 
         print("\n[Employee] Building / updating site...")
-        emp = chat_json(
+        emp = context.llm.chat_json(
             "employee",
             employee_sys,
             json.dumps(emp_payload, ensure_ascii=False),
@@ -251,7 +315,7 @@ def main() -> None:
         screenshot_path = None
         if use_visual_review:
             print("\n[Analysis] Reading index.html DOM for manager...")
-            analysis = analyze_site(out_dir)
+            analysis = context.site_tools.analyze_site(out_dir)
             browser_summary = analysis.get("dom_info")
             screenshot_path = analysis.get("screenshot_path")
             print("\n-- Browser Summary (DOM/style) --")
@@ -262,13 +326,13 @@ def main() -> None:
         mgr_payload = {
             "task": task,
             "plan": plan,
-            "files_summary": summarize_files_for_manager(load_existing_files(out_dir)),
+            "files_summary": context.site_tools.summarize_files_for_manager(context.site_tools.load_existing_files(out_dir)),
             "tests": test_results,
             "browser_summary": browser_summary,
             "screenshot_path": screenshot_path,
             "iteration": iteration,
         }
-        review = chat_json(
+        review = context.llm.chat_json(
             "manager",
             manager_review_sys,
             json.dumps(mgr_payload, ensure_ascii=False),
@@ -283,29 +347,43 @@ def main() -> None:
         last_tests = test_results
         last_feedback = feedback
 
+        # PHASE 1.6: Log iteration end
+        context.logger.log_iteration_end(
+            core_run_id,
+            iteration=iteration,
+            status=status,
+            tests_passed=test_results.get("all_passed", False),
+            files_written=len(files_dict),
+        )
+
         # Git commit
         if git_ready:
             commit_message = (
                 f"2loop iteration {iteration}: "
                 f"status={status}, all_passed={test_results.get('all_passed')}"
             )
-            commit_all(out_dir, commit_message)
+            # PHASE 1.4: Pass secret scanning configuration
+            commit_success = context.git_utils.commit_all(out_dir, commit_message, git_secret_scanning_enabled)
+            if not commit_success:
+                print(f"[Git] Warning: Commit failed for iteration {iteration}")
 
-        # RUN LOG: record this iteration
-        log_iteration(
-            run_record,
-            {
-                "iteration": iteration,
-                "status": status,
-                "tests": test_results,
-                "employee_model": employee_model,
-                "screenshot_path": screenshot_path,
-                "feedback_size": len(feedback) if isinstance(feedback, list) else None,
-            },
-        )
+        # PHASE 1.6: Removed run_logger.log_iteration_legacy() - now using core_logging only
+        # Already using: context.logger.log_iteration_begin() (line ~255)
+        # Already using: context.logger.log_iteration_end() (line ~351)
+        # context.run_logger.log_iteration_legacy(
+        #     run_record,
+        #     {
+        #         "iteration": iteration,
+        #         "status": status,
+        #         "tests": test_results,
+        #         "employee_model": employee_model,
+        #         "screenshot_path": screenshot_path,
+        #         "feedback_size": len(feedback) if isinstance(feedback, list) else None,
+        #     },
+        # )
 
         # Cost checks after this iteration
-        total_cost = cost_tracker.get_total_cost_usd()
+        total_cost = context.cost_tracker.get_total_cost_usd()
         print(f"\n[Cost] After iteration {iteration}: ~${total_cost:.4f} USD")
 
         if cost_warning_usd and total_cost > cost_warning_usd:
@@ -329,7 +407,7 @@ def main() -> None:
 
     # Final status & cost
     final_status = last_status or "completed_no_status"
-    final_cost_summary = cost_tracker.get_summary()
+    final_cost_summary = context.cost_tracker.get_summary()
 
     print("\n====== DONE (2-loop) ======")
     print(f"Final status: {final_status}")
@@ -342,7 +420,7 @@ def main() -> None:
     cost_log_dir.mkdir(parents=True, exist_ok=True)
     cost_log_file = cost_log_dir / f"{cfg['project_subdir']}.jsonl"
 
-    cost_tracker.append_history(
+    context.cost_tracker.append_history(
         log_file=cost_log_file,
         project_name=cfg["project_subdir"],
         task=task,
@@ -350,8 +428,18 @@ def main() -> None:
         extra={"max_rounds": max_rounds, "mode": "2loop"},
     )
 
-    # RUN LOG: finalize and write JSONL entry
-    finish_run(run_record, final_status, final_cost_summary, out_dir)
+    # PHASE 1.6: Log final status with core_logging
+    context.logger.log_final_status(
+        core_run_id,
+        status=final_status,
+        reason=f"2-loop orchestration completed with status: {final_status}",
+        iterations=max_rounds,
+        total_cost_usd=context.cost_tracker.get_total_cost_usd(),
+    )
+
+    # PHASE 1.6: Removed run_logger.finish_run_legacy() - now using core_logging only
+    # Already using: context.logger.log_final_status() (line above)
+    # context.run_logger.finish_run_legacy(run_record, final_status, final_cost_summary, out_dir)
 
 
 if __name__ == "__main__":

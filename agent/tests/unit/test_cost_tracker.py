@@ -62,3 +62,52 @@ def test_append_history_creates_file(tmp_path: Path) -> None:
     # one JSON line
     assert content.startswith("{") and content.endswith("}")
     assert '"project": "unit-test-project"' in content
+
+
+def test_check_cost_cap_no_cap() -> None:
+    """STAGE 5.2: Test cost cap check with no cap set."""
+    cost_tracker.reset()
+
+    would_exceed, current, message = cost_tracker.check_cost_cap(
+        max_cost_usd=0.0,  # No cap
+        estimated_tokens=5000,
+        model="gpt-5-mini",
+    )
+
+    assert would_exceed is False
+    assert "No cost cap" in message
+
+
+def test_check_cost_cap_within_budget() -> None:
+    """STAGE 5.2: Test cost cap check when within budget."""
+    cost_tracker.reset()
+    # Add a small call
+    cost_tracker.register_call("manager", "gpt-5-mini", 100, 100)
+
+    would_exceed, current, message = cost_tracker.check_cost_cap(
+        max_cost_usd=1.0,  # High cap
+        estimated_tokens=1000,
+        model="gpt-5-mini",
+    )
+
+    assert would_exceed is False
+    assert "Within budget" in message
+    assert current > 0.0
+
+
+def test_check_cost_cap_would_exceed() -> None:
+    """STAGE 5.2: Test cost cap check when next call would exceed cap."""
+    cost_tracker.reset()
+    # Add enough calls to get close to a small cap
+    for _ in range(5):
+        cost_tracker.register_call("manager", "gpt-5", 10_000, 10_000)
+
+    would_exceed, current, message = cost_tracker.check_cost_cap(
+        max_cost_usd=0.01,  # Very small cap - already exceeded
+        estimated_tokens=5000,
+        model="gpt-5",
+    )
+
+    assert would_exceed is True
+    assert "would be exceeded" in message
+    assert current > 0.0

@@ -62,13 +62,11 @@
     "description": "Safety check configuration. run_safety_before_final: run checks before approval. allow_extra_iteration_on_failure: if safety fails on final iteration, grant one extra iteration for fixes"
   },
 
-  "llm_resilience": {
-    "max_retries": 5,
-    "timeout_seconds": 180,
-    "initial_backoff": 2.0,
-    "max_backoff": 60.0,
-    "fallback_model": null,
-    "stage_retry_passes": 2,
-    "description": "STAGE 3.3: LLM failure resilience configuration. max_retries: number of retry attempts per LLM call. timeout_seconds: request timeout. initial_backoff/max_backoff: exponential backoff parameters. fallback_model: model to use as fallback (e.g. 'gpt-4o-mini'). stage_retry_passes: how many times to revisit failed stages"
-  }
+  "auto_git_commit": false,
+  "auto_git_commit_mode": "semantic",
+  "auto_git_commit_repos": ["default"],
+
+  "llm_very_important_stages": [],
+
+  "repos": []
 }

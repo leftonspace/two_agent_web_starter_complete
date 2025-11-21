@@ -1,0 +1,247 @@
+{
+  "version": "2.2.0",
+  "description": "Role-based permission matrix for tool access control",
+  "last_updated": "2025-11-19",
+
+  "domain_role_permissions": {
+    "coding": {
+      "manager": [
+        "filesystem_read",
+        "git_read",
+        "sandbox_execute",
+        "config_read",
+        "audit_view"
+      ],
+      "supervisor": [
+        "filesystem_read",
+        "filesystem_write",
+        "git_read",
+        "sandbox_execute",
+        "config_read"
+      ],
+      "employee": [
+        "filesystem_read",
+        "filesystem_write",
+        "git_read",
+        "git_write",
+        "git_branch",
+        "sandbox_execute",
+        "code_execute"
+      ]
+    },
+
+    "hr": {
+      "hr_manager": [
+        "filesystem_read",
+        "filesystem_write",
+        "email_send",
+        "calendar_read",
+        "calendar_write",
+        "hris_read",
+        "hris_write",
+        "hris_delete",
+        "candidate_read",
+        "candidate_write",
+        "offer_create",
+        "offer_approve",
+        "document_read",
+        "document_write"
+      ],
+      "hr_recruiter": [
+        "filesystem_read",
+        "email_send",
+        "calendar_read",
+        "calendar_write",
+        "hris_read",
+        "candidate_read",
+        "candidate_write",
+        "offer_create",
+        "document_read"
+      ],
+      "hr_business_partner": [
+        "filesystem_read",
+        "filesystem_write",
+        "email_send",
+        "calendar_read",
+        "hris_read",
+        "hris_write",
+        "candidate_read",
+        "document_read",
+        "document_write"
+      ]
+    },
+
+    "finance": {
+      "finance_controller": [
+        "database_read",
+        "database_write",
+        "accounting_read",
+        "accounting_write",
+        "invoice_create",
+        "invoice_approve",
+        "payment_create",
+        "payment_approve",
+        "document_write"
+      ],
+      "finance_analyst": [
+        "database_read",
+        "accounting_read",
+        "document_read",
+        "invoice_create"
+      ],
+      "finance_manager": [
+        "database_read",
+        "database_write",
+        "accounting_read",
+        "accounting_write",
+        "invoice_create",
+        "invoice_approve",
+        "payment_create",
+        "document_write"
+      ]
+    },
+
+    "legal": {
+      "legal_counsel": [
+        "document_read",
+        "document_write",
+        "legal_db_access",
+        "contract_create",
+        "contract_review",
+        "contract_sign"
+      ],
+      "legal_assistant": [
+        "document_read",
+        "legal_db_access",
+        "contract_create"
+      ],
+      "legal_manager": [
+        "document_read",
+        "document_write",
+        "legal_db_access",
+        "contract_create",
+        "contract_review",
+        "contract_sign",
+        "config_read"
+      ]
+    },
+
+    "testing": {
+      "test_user": [
+        "filesystem_read",
+        "test_permission"
+      ]
+    }
+  },
+
+  "tool_overrides": {
+    "git_push": {
+      "allowed_roles": [
+        "employee"
+      ],
+      "blocked_roles": [
+        "manager"
+      ],
+      "reason": "Managers review and approve; employees commit and push code"
+    },
+    "git_commit": {
+      "allowed_roles": [
+        "employee",
+        "supervisor"
+      ],
+      "blocked_roles": [
+        "manager"
+      ],
+      "reason": "Managers delegate; employees and supervisors execute commits"
+    },
+    "approve_offer": {
+      "allowed_roles": [
+        "hr_manager"
+      ],
+      "blocked_roles": [
+        "hr_recruiter",
+        "hr_business_partner"
+      ],
+      "reason": "Only HR Manager can approve offers; recruiters can create"
+    },
+    "approve_payment": {
+      "allowed_roles": [
+        "finance_controller"
+      ],
+      "blocked_roles": [
+        "finance_analyst"
+      ],
+      "reason": "Only Controller can approve payments; analysts can create"
+    },
+    "sign_contract": {
+      "allowed_roles": [
+        "legal_counsel",
+        "legal_manager"
+      ],
+      "blocked_roles": [
+        "legal_assistant"
+      ],
+      "reason": "Only licensed counsel can sign legal documents"
+    }
+  },
+
+  "permission_groups": {
+    "hr_full_access": [
+      "email_send",
+      "calendar_read",
+      "calendar_write",
+      "hris_read",
+      "hris_write",
+      "candidate_read",
+      "candidate_write",
+      "offer_create",
+      "offer_approve",
+      "document_read",
+      "document_write"
+    ],
+    "hr_readonly": [
+      "hris_read",
+      "candidate_read",
+      "document_read"
+    ],
+    "finance_full_access": [
+      "database_read",
+      "database_write",
+      "accounting_read",
+      "accounting_write",
+      "invoice_create",
+      "invoice_approve",
+      "payment_create",
+      "payment_approve"
+    ],
+    "finance_readonly": [
+      "database_read",
+      "accounting_read"
+    ]
+  },
+
+  "escalation_paths": {
+    "hr_recruiter": {
+      "escalate_to": "hr_manager",
+      "allowed_permissions": [
+        "offer_approve",
+        "hris_write",
+        "hris_delete"
+      ]
+    },
+    "finance_analyst": {
+      "escalate_to": "finance_controller",
+      "allowed_permissions": [
+        "invoice_approve",
+        "payment_create",
+        "payment_approve"
+      ]
+    },
+    "legal_assistant": {
+      "escalate_to": "legal_counsel",
+      "allowed_permissions": [
+        "contract_sign"
+      ]
+    }
+  }
+}

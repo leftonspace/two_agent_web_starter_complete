@@ -115,7 +115,18 @@ EVENT_TYPES = {
     # Generic events (now used)
     "error": "Error occurred",
     "warning": "Warning logged",
-    "info": "Informational message"
+    "info": "Informational message",
+
+    # Stage 4 events (merge manager & git)
+    "merge_manager_diff_summary": "Git diff analyzed by merge manager",
+    "semantic_commit_summary": "Semantic commit message generated",
+    "git_commit_attempt": "Attempted to create git commit",
+    "git_commit_success": "Git commit created successfully",
+    "git_commit_skipped": "Git commit skipped (no changes or disabled)",
+    "git_commit_failed": "Git commit failed",
+
+    # Stage 5 events (model routing)
+    "model_selected": "Model selected by router for LLM call"
 }
 
 
@@ -144,6 +155,7 @@ def log_event(run_id: str, event_type: str, payload: Dict[str, Any]) -> None:
     - Appends a JSON line
     - Does NOT crash the program if logging fails (prints warning to stderr)
     - Includes schema_version for future compatibility
+    - PHASE 1.2: Sanitizes payload to prevent sensitive data leakage (vulnerability S1)
 
     STAGE 3.3: Enhanced with global exception guard to prevent any logging
     error from crashing the orchestrator.
@@ -468,6 +480,43 @@ def log_safety_check(
         **kwargs
     }
     log_event(run_id, "safety_check", payload)
+
+
+def log_cost_checkpoint(
+    run_id: str,
+    checkpoint: str,
+    total_cost_usd: float,
+    max_cost_usd: float,
+    cost_summary: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> None:
+    """
+    STAGE 5.2: Log cost checkpoint during orchestrator run.
+
+    Args:
+        run_id: Run identifier
+        checkpoint: Checkpoint name (e.g., "after_planning", "iteration_1", "final")
+        total_cost_usd: Current total cost in USD
+        max_cost_usd: Maximum cost cap in USD (0 if no cap)
+        cost_summary: Optional detailed cost breakdown from cost_tracker
+        **kwargs: Additional cost-related metadata
+    """
+    payload = {
+        "checkpoint": checkpoint,
+        "total_cost_usd": round(total_cost_usd, 6),
+        "max_cost_usd": round(max_cost_usd, 6) if max_cost_usd else 0.0,
+        "remaining_budget_usd": (
+            round(max_cost_usd - total_cost_usd, 6) if max_cost_usd > 0 else None
+        ),
+        "percent_of_cap": (
+            round(100.0 * total_cost_usd / max_cost_usd, 2) if max_cost_usd > 0 else None
+        ),
+        **kwargs
+    }
+    if cost_summary:
+        payload["cost_summary"] = cost_summary
+
+    log_event(run_id, "cost_checkpoint", payload)
 
 
 def log_final_status(

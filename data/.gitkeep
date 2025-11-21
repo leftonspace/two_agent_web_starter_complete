@@ -1,0 +1,5 @@
+# This file ensures the data/ directory is tracked by git
+# The directory contains runtime data:
+# - knowledge_graph.db (SQLite database)
+# - project_stats.json (statistics history)
+# - cache/ (temporary cache files)

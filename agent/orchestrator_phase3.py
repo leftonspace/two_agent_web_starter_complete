@@ -29,35 +29,36 @@ from __future__ import annotations
 
 import json
 import time
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import cost_tracker
 import core_logging
-from exec_safety import run_safety_checks
+import cost_tracker
 from exec_tools import get_tool_metadata
-from git_utils import commit_all, ensure_repo
+from git_utils import ensure_repo
+from inter_agent_bus import get_bus, reset_bus
 from llm import chat_json
+from memory_store import create_memory_store
 from prompts import load_prompts
 from run_logger import (
     RunSummary,
+)
+from run_logger import (
     finish_run_legacy as finish_run,
+)
+from run_logger import (
     log_iteration as log_iteration_new,
-    log_iteration_legacy as log_iteration_dict,
+)
+from run_logger import (
     start_run_legacy as start_run,
 )
 from site_tools import (
-    analyze_site,
     load_existing_files,
-    summarize_files_for_manager,
 )
+from stage_summaries import create_tracker
 
 # PHASE 3: Import new systems
-from workflow_manager import create_workflow, WorkflowManager
-from memory_store import create_memory_store, MemoryStore
-from inter_agent_bus import get_bus, reset_bus, MessageType
-from stage_summaries import create_tracker, StageSummaryTracker
+from workflow_manager import create_workflow
 
 
 def _load_config() -> Dict[str, Any]:
@@ -191,8 +192,9 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
 
     max_cost_usd: float = float(cfg.get("max_cost_usd", 0.0) or 0.0)
     cost_warning_usd: float = float(cfg.get("cost_warning_usd", 0.0) or 0.0)
-    interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
+    _interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
     use_git: bool = bool(cfg.get("use_git", False))
+
 
     # Safety configuration
     safety_config = cfg.get("safety", {})
@@ -216,11 +218,11 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
     snapshots_root.mkdir(parents=True, exist_ok=True)
 
     # Git
-    git_ready = False
     if use_git:
-        git_ready = ensure_repo(out_dir)
+        ensure_repo(out_dir)
 
     # Cost tracker
+
     cost_tracker.reset()
 
     # Load prompts
@@ -427,11 +429,12 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
         workflow.start_stage(next_stage.id)
 
         # Create stage memory
-        stage_mem = memory.get_or_create_memory(next_stage.id, next_stage.name)
+        memory.get_or_create_memory(next_stage.id, next_stage.name)
         core_logging.log_memory_created(core_run_id, next_stage.id, next_stage.name)
 
         # Create stage summary
-        stage_summary = tracker.create_summary(next_stage.id, next_stage.name)
+        tracker.create_summary(next_stage.id, next_stage.name)
+
 
         # Log stage start
         core_logging.log_stage_started(
@@ -457,9 +460,9 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
 
         while audit_cycle < max_audits_per_stage:
             audit_cycle += 1
-            cycle_start_time = time.time()
 
             print(f"\n--- Audit Cycle {audit_cycle}/{max_audits_per_stage} ---")
+
 
             # Start fix cycle tracking
             tracker.start_fix_cycle(next_stage.id, audit_cycle, employee_model="gpt-5")
@@ -773,7 +776,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
     all_completed = workflow.get_next_pending_stage() is None
     final_status = "completed" if all_completed else "partial_completion"
 
-    print(f"\n[Phase3] 🎉 Run completed!")
+    print("\n[Phase3] 🎉 Run completed!")
     print(f"[Phase3] Stages processed: {stages_processed}")
     print(f"[Phase3] Total cost: ~${final_cost:.4f} USD")
     print(f"[Phase3] Status: {final_status}")
@@ -784,7 +787,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
 
     # Print roadmap summary
     roadmap_summary = workflow.get_roadmap_summary()
-    print(f"\n[Phase3] Roadmap summary:")
+    print("\n[Phase3] Roadmap summary:")
     print(f"  Version: {roadmap_summary['version']}")
     print(f"  Total stages: {roadmap_summary['total_stages']}")
     if roadmap_summary.get('stages_by_status'):

@@ -10,10 +10,8 @@ import json
 import logging
 import sys
 import threading
-import time
 import uuid
-from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -22,10 +20,8 @@ agent_dir = Path(__file__).resolve().parent
 if str(agent_dir) not in sys.path:
     sys.path.insert(0, str(agent_dir))
 
-from runner import run_project
-from safe_io import safe_json_write, safe_timestamp
-from status_codes import COMPLETED, EXCEPTION, USER_ABORT
-
+from runner import run_project  # noqa: E402
+from safe_io import safe_timestamp  # noqa: E402
 
 # Job statuses
 STATUS_QUEUED = "queued"
@@ -106,14 +102,25 @@ class JobManager:
             logging.warning(f"[Jobs] Failed to load jobs state: {e}")
 
     def _save_jobs(self) -> None:
-        """Save jobs to state file (atomic write)."""
+        """
+        Save jobs to state file (atomic write).
+
+        PHASE 4.3 (R7): Uses atomic write pattern (temp file + rename) to prevent
+        corruption if server crashes during write. The os.rename() operation is
+        atomic on POSIX systems, ensuring the state file is never partially written.
+        """
         data = {"jobs": [asdict(job) for job in self.jobs.values()]}
 
-        # Atomic write: write to temp file, then rename
+        # PHASE 1.2: Sanitize job data before persistence
+        sanitized_data = log_sanitizer.sanitize_log_data(data)
+
+        # PHASE 4.3 (R7): Atomic write - write to temp file, then rename
+        # This prevents corruption if process crashes mid-write
         temp_file = self.state_file.with_suffix(".tmp")
         try:
             with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+                json.dump(sanitized_data, f, indent=2, ensure_ascii=False)
+            # Atomic rename - either succeeds completely or not at all
             temp_file.replace(self.state_file)
         except Exception as e:
             logging.error(f"[Jobs] Failed to save jobs state: {e}")
@@ -195,29 +202,17 @@ class JobManager:
         return jobs
 
     def update_job(self, job_id: str, **updates) -> Optional[Job]:
-        """
-        Update a job's fields.
-
-        Args:
-            job_id: Job identifier
-            **updates: Fields to update (status, logs_path, result_summary, etc.)
-
-        Returns:
-            Updated Job object or None if not found
-        """
-        job = self.jobs.get(job_id)
-        if not job:
+        job = self.get_job(job_id)
+        if job is None:
             return None
 
-        with self.lock:
-            # Update fields
-            for key, value in updates.items():
-                if hasattr(job, key):
-                    setattr(job, key, value)
+        for key, value in updates.items():
+            setattr(job, key, value)
 
-            job.updated_at = safe_timestamp()
-            self._save_jobs()
+        # Ensure updated_at is bumped on every update
+        job.updated_at = safe_timestamp()
 
+        self._save_job(job)
         return job
 
     def cancel_job(self, job_id: str) -> bool:
@@ -315,7 +310,9 @@ class JobManager:
         try:
             # Log job start
             logging.info(f"[Jobs] Starting job {job_id}")
-            logging.info(f"[Jobs] Config: {json.dumps(job.config, indent=2)}")
+            # PHASE 1.2: Sanitize config before logging
+            sanitized_config = log_sanitizer.sanitize_log_data(job.config)
+            logging.info(f"[Jobs] Config: {json.dumps(sanitized_config, indent=2)}")
 
             # Check cancellation before starting
             if job.cancelled:

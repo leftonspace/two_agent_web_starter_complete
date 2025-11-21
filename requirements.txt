@@ -7,6 +7,24 @@ jinja2>=3.1.0
 uvicorn[standard]>=0.24.0
 python-multipart>=0.0.6  # For form data handling
 
+# PHASE 1.1: Authentication dependencies
+bcrypt>=4.0.0  # Password hashing for API keys
+
+# PHASE 2.3: HR Tools dependencies
+google-api-python-client>=2.100.0  # Google Calendar API
+google-auth>=2.23.0  # Google OAuth2
+google-auth-oauthlib>=1.1.0  # OAuth flow
+google-auth-httplib2>=0.1.1  # HTTP transport
+aiohttp>=3.9.0  # Async HTTP client for HRIS APIs
+
+# PHASE 2.4: Document Generation dependencies
+python-docx>=1.1.0  # Word documents
+docxtpl>=0.17.0  # Word templates with Jinja2
+openpyxl>=3.1.0  # Excel spreadsheets
+reportlab>=4.0.0  # PDF generation
+weasyprint>=60.0  # HTML to PDF conversion
+PyPDF2>=3.0.0  # PDF merging and manipulation
+
 # Testing dependencies
 pytest>=7.4.0
 pytest-cov>=4.1.0

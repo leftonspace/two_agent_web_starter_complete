@@ -1,17 +1,32 @@
 # cost_tracker.py
+"""
+PHASE 1.7: Integrated with ModelRegistry for dynamic pricing.
+
+Cost tracking now queries models.json for up-to-date pricing information
+instead of relying on hard-coded prices.
+"""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+# PHASE 1.7: Import model registry for dynamic pricing
+try:
+    from model_registry import get_registry
+    REGISTRY_AVAILABLE = True
+except ImportError:
+    REGISTRY_AVAILABLE = False
 
 # Where to store the default runtime history when log_file is None
 HISTORY_FILE = Path("cost_history.json")
 
-# USD per token, based on your pricing snippet
-# (prices are per 1M tokens, so we divide by 1_000_000)
+# DEPRECATED: Hard-coded pricing (Phase 1.7)
+# These are kept as fallback only. ModelRegistry provides current pricing.
+# USD per token (prices are per 1M tokens, so we divide by 1_000_000)
 PRICES_USD_PER_TOKEN: Dict[str, Dict[str, float]] = {
     "gpt-5": {
         "input": 1.250 / 1_000_000,
@@ -34,6 +49,68 @@ PRICES_USD_PER_TOKEN: Dict[str, Dict[str, float]] = {
 FALLBACK_MODEL = "gpt-5-mini"  # if we don't know a model name, use this as a safe-ish default
 
 
+def _get_pricing_from_registry(model_id: str) -> Optional[Dict[str, float]]:
+    """
+    Get pricing from ModelRegistry for a given model ID.
+
+    Args:
+        model_id: Full model ID (e.g., "gpt-5-2025-08-07")
+
+    Returns:
+        Dict with 'input' and 'output' keys (cost per token), or None if not found
+    """
+    if not REGISTRY_AVAILABLE:
+        return None
+
+    try:
+        registry = get_registry()
+
+        # Try to find model in registry by full ID
+        for model_info in registry.list_models():
+            if model_info.full_id == model_id or model_info.model_id in model_id:
+                # Convert per-1k pricing to per-token pricing
+                return {
+                    "input": model_info.cost_per_1k_prompt / 1000,
+                    "output": model_info.cost_per_1k_completion / 1000,
+                }
+
+        return None
+    except Exception:
+        # If registry fails, return None and fall back to hard-coded prices
+        return None
+
+
+def _get_pricing_fallback(model_key: str) -> Dict[str, float]:
+    """
+    Get pricing with fallback logic.
+
+    Tries registry first, then hard-coded prices, then fallback model.
+
+    Args:
+        model_key: Model identifier
+
+    Returns:
+        Dict with 'input' and 'output' pricing (per token)
+    """
+    # Try registry first
+    registry_pricing = _get_pricing_from_registry(model_key)
+    if registry_pricing:
+        return registry_pricing
+
+    # Fall back to hard-coded prices
+    # Try exact match first
+    if model_key in PRICES_USD_PER_TOKEN:
+        return PRICES_USD_PER_TOKEN[model_key]
+
+    # Try partial match (e.g., "gpt-5-2025-08-07" -> "gpt-5")
+    for key_prefix in ["gpt-5-pro", "gpt-5-mini", "gpt-5-nano", "gpt-5"]:
+        if key_prefix in model_key:
+            return PRICES_USD_PER_TOKEN.get(key_prefix, PRICES_USD_PER_TOKEN[FALLBACK_MODEL])
+
+    # Ultimate fallback
+    return PRICES_USD_PER_TOKEN[FALLBACK_MODEL]
+
+
 @dataclass
 class CallRecord:
     role: str
@@ -51,7 +128,9 @@ class CostState:
 
     def add_call(self, role: str, model: str, prompt_tokens: int, completion_tokens: int) -> None:
         model_key = model or FALLBACK_MODEL
-        price_cfg = PRICES_USD_PER_TOKEN.get(model_key, PRICES_USD_PER_TOKEN[FALLBACK_MODEL])
+
+        # PHASE 1.7: Use registry-based pricing with fallback
+        price_cfg = _get_pricing_fallback(model_key)
 
         input_cost = prompt_tokens * price_cfg["input"]
         output_cost = completion_tokens * price_cfg["output"]
@@ -162,6 +241,58 @@ def get_total_cost_usd() -> float:
         return _GLOBAL_STATE.summary()["total_usd"]
     except Exception:
         return 0.0
+
+
+def check_cost_cap(
+    max_cost_usd: float,
+    estimated_tokens: int = 5000,
+    model: str = "gpt-5-mini",
+) -> tuple[bool, float, str]:
+    """
+    STAGE 5.2: Check if making another LLM call would exceed the cost cap.
+
+    Args:
+        max_cost_usd: Maximum allowed cost in USD
+        estimated_tokens: Rough estimate of tokens for next call (input + output)
+        model: Model that will be used for the call
+
+    Returns:
+        Tuple of (would_exceed, current_cost, message)
+        - would_exceed: True if the call would likely exceed the cap
+        - current_cost: Current total cost in USD
+        - message: Human-readable explanation
+    """
+    if max_cost_usd <= 0:
+        # No cap set
+        return (False, 0.0, "No cost cap configured")
+
+    current_cost = get_total_cost_usd()
+
+    # Estimate cost of next call
+    # Use a conservative estimate: assume all tokens are output tokens (more expensive)
+    # PHASE 1.7: Use registry-based pricing with fallback
+    price_cfg = _get_pricing_fallback(model or FALLBACK_MODEL)
+    # Conservative: assume all tokens are output (more expensive)
+    estimated_call_cost = estimated_tokens * price_cfg["output"]
+
+    projected_cost = current_cost + estimated_call_cost
+
+    if projected_cost > max_cost_usd:
+        message = (
+            f"Cost cap would be exceeded: current=${current_cost:.4f}, "
+            f"estimated next call=${estimated_call_cost:.4f}, "
+            f"projected total=${projected_cost:.4f}, "
+            f"cap=${max_cost_usd:.4f}"
+        )
+        return (True, current_cost, message)
+
+    remaining = max_cost_usd - current_cost
+    message = (
+        f"Within budget: current=${current_cost:.4f}, "
+        f"remaining=${remaining:.4f}, "
+        f"cap=${max_cost_usd:.4f}"
+    )
+    return (False, current_cost, message)
 
 
 def load_history() -> list[dict[str, Any]]:

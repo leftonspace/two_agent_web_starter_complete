@@ -7,8 +7,6 @@ pipeline should handle gracefully.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 
@@ -22,7 +20,7 @@ def temp_qa_project(tmp_path):
 
 def test_qa_missing_title_tag(temp_qa_project):
     """Test QA detects missing <title> tag."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     # HTML without title
     html_content = """
@@ -54,7 +52,7 @@ def test_qa_missing_title_tag(temp_qa_project):
 
 def test_qa_missing_meta_description(temp_qa_project):
     """Test QA detects missing meta description."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     html_content = """
     <!DOCTYPE html>
@@ -84,7 +82,7 @@ def test_qa_missing_meta_description(temp_qa_project):
 
 def test_qa_missing_lang_attribute(temp_qa_project):
     """Test QA detects missing lang attribute."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     html_content = """
     <!DOCTYPE html>
@@ -112,7 +110,7 @@ def test_qa_missing_lang_attribute(temp_qa_project):
 
 def test_qa_images_without_alt(temp_qa_project):
     """Test QA detects images missing alt attributes."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     html_content = """
     <!DOCTYPE html>
@@ -144,7 +142,7 @@ def test_qa_images_without_alt(temp_qa_project):
 
 def test_qa_buttons_without_text(temp_qa_project):
     """Test QA detects buttons without accessible text."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     html_content = """
     <!DOCTYPE html>
@@ -172,7 +170,7 @@ def test_qa_buttons_without_text(temp_qa_project):
 
 def test_qa_large_javascript_file(temp_qa_project):
     """Test QA detects oversized JavaScript files."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     # Create a large JS file (>5000 lines)
     large_js = "\n".join([f"console.log({i});" for i in range(6000)])
@@ -195,7 +193,7 @@ def test_qa_large_javascript_file(temp_qa_project):
 
 def test_qa_excessive_console_logs(temp_qa_project):
     """Test QA detects too many console.log statements."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     # JS file with many console.log calls
     js_content = """
@@ -223,7 +221,7 @@ def test_qa_excessive_console_logs(temp_qa_project):
 
 def test_qa_smoke_test_failure(temp_qa_project, monkeypatch):
     """Test QA handles smoke test command failures."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     config = QAConfig(
         enabled=True,
@@ -243,7 +241,7 @@ def test_qa_smoke_test_failure(temp_qa_project, monkeypatch):
 
 def test_qa_smoke_test_timeout(temp_qa_project):
     """Test QA handles smoke test timeouts."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     # Command that takes longer than timeout
     config = QAConfig(
@@ -260,7 +258,7 @@ def test_qa_smoke_test_timeout(temp_qa_project):
 
 def test_qa_no_html_files(temp_qa_project):
     """Test QA when project has no HTML files."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     # Create only a text file
     (temp_qa_project / "readme.txt").write_text("No HTML here")
@@ -278,7 +276,7 @@ def test_qa_no_html_files(temp_qa_project):
 
 def test_qa_malformed_html(temp_qa_project):
     """Test QA handles malformed HTML gracefully."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     # Malformed HTML
     bad_html = """
@@ -304,7 +302,7 @@ def test_qa_malformed_html(temp_qa_project):
 
 def test_qa_empty_project(temp_qa_project):
     """Test QA on completely empty project."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     config = QAConfig(enabled=True)
 
@@ -317,7 +315,7 @@ def test_qa_empty_project(temp_qa_project):
 
 def test_qa_missing_project_directory():
     """Test QA handles missing project directory."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     config = QAConfig(enabled=True)
 
@@ -333,7 +331,7 @@ def test_qa_missing_project_directory():
 
 def test_qa_duplicate_ids(temp_qa_project):
     """Test QA detects duplicate ID attributes."""
-    from qa import run_qa_for_project, QAConfig
+    from qa import QAConfig, run_qa_for_project
 
     html_content = """
     <!DOCTYPE html>
@@ -402,8 +400,9 @@ def test_qa_config_from_dict_partial():
 
 def test_qa_report_serialization(temp_qa_project):
     """Test QAReport.to_dict() produces valid JSON-serializable output."""
-    from qa import run_qa_for_project, QAConfig
     import json
+
+    from qa import QAConfig, run_qa_for_project
 
     html_content = """
     <!DOCTYPE html>

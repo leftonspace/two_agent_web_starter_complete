@@ -1,0 +1,658 @@
+{% extends "base.html" %}
+
+{% block title %}Integrations - AI Dev Team{% endblock %}
+
+{% block content %}
+<style>
+    .integration-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .integration-card {
+        background: white;
+        border-radius: 8px;
+        padding: 25px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid #667eea;
+    }
+
+    .integration-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .integration-card.connected {
+        border-left-color: #10b981;
+    }
+
+    .integration-card.error {
+        border-left-color: #ef4444;
+    }
+
+    .integration-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .integration-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-badge.connected {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-badge.disconnected {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .status-badge.error {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .integration-details {
+        margin: 15px 0;
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .detail-label {
+        font-weight: 600;
+    }
+
+    .integration-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #5568d3;
+    }
+
+    .btn-success {
+        background: #10b981;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #059669;
+    }
+
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+    }
+
+    .add-integration {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #374151;
+    }
+
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 30px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .modal-header h2 {
+        font-size: 1.5rem;
+        color: #1f2937;
+    }
+
+    .close {
+        color: #9ca3af;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close:hover {
+        color: #1f2937;
+    }
+
+    .metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+        padding: 15px;
+        background: #f9fafb;
+        border-radius: 6px;
+    }
+
+    .metric {
+        text-align: center;
+    }
+
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .metric-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .test-result {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 6px;
+        display: none;
+    }
+
+    .test-result.success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .test-result.error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+</style>
+
+<div class="container">
+    <header>
+        <div class="container">
+            <h1>System Integrations</h1>
+            <p>Manage connections to external systems (HRIS, Databases, APIs)</p>
+        </div>
+    </header>
+
+    <!-- Add New Integration -->
+    <div class="add-integration" id="addIntegrationForm" style="display: none;">
+        <h2>Add New Integration</h2>
+        <form id="integrationForm">
+            <div class="form-group">
+                <label for="integrationType">Integration Type</label>
+                <select id="integrationType" required>
+                    <option value="">Select type...</option>
+                    <option value="bamboohr">BambooHR (HRIS)</option>
+                    <option value="postgresql">PostgreSQL Database</option>
+                    <option value="mysql">MySQL Database</option>
+                    <option value="sqlite">SQLite Database</option>
+                </select>
+            </div>
+
+            <div id="formFields"></div>
+
+            <div class="integration-actions">
+                <button type="submit" class="btn btn-success">Add Integration</button>
+                <button type="button" class="btn btn-secondary" onclick="hideAddForm()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Integration Cards -->
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" onclick="showAddForm()">+ Add Integration</button>
+    </div>
+
+    <div class="integration-grid" id="integrationGrid">
+        <!-- Integrations will be loaded here -->
+        <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: #6b7280;">
+            <p>No integrations configured. Click "Add Integration" to get started.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Test Connection Modal -->
+<div id="testModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Connection Test</h2>
+            <span class="close" onclick="closeTestModal()">&times;</span>
+        </div>
+        <div id="testResults"></div>
+    </div>
+</div>
+
+<!-- Details Modal -->
+<div id="detailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Integration Details</h2>
+            <span class="close" onclick="closeDetailsModal()">&times;</span>
+        </div>
+        <div id="integrationDetails"></div>
+    </div>
+</div>
+
+<script>
+    let integrations = [];
+
+    // Load integrations on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadIntegrations();
+
+        // Set up form type change handler
+        document.getElementById('integrationType').addEventListener('change', updateFormFields);
+    });
+
+    async function loadIntegrations() {
+        try {
+            const response = await fetch('/api/integrations');
+            const data = await response.json();
+            integrations = data.integrations || [];
+            renderIntegrations();
+        } catch (error) {
+            console.error('Failed to load integrations:', error);
+        }
+    }
+
+    function renderIntegrations() {
+        const container = document.getElementById('integrationGrid');
+
+        if (integrations.length === 0) {
+            container.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: #6b7280;">
+                    <p>No integrations configured. Click "Add Integration" to get started.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = integrations.map(integration => `
+            <div class="integration-card ${integration.status}">
+                <div class="integration-header">
+                    <div class="integration-name">${integration.name}</div>
+                    <span class="status-badge ${integration.status}">${integration.status}</span>
+                </div>
+
+                <div class="integration-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Type</span>
+                        <span>${integration.type}</span>
+                    </div>
+                    ${integration.metrics ? `
+                        <div class="metrics">
+                            <div class="metric">
+                                <div class="metric-value">${integration.metrics.total_requests || 0}</div>
+                                <div class="metric-label">Requests</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">${(integration.metrics.success_rate * 100).toFixed(1)}%</div>
+                                <div class="metric-label">Success</div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="integration-actions">
+                    <button class="btn btn-primary" onclick="testConnection('${integration.connector_id}')">Test</button>
+                    <button class="btn btn-secondary" onclick="showDetails('${integration.connector_id}')">Details</button>
+                    ${integration.status === 'connected' ?
+                        `<button class="btn btn-danger" onclick="disconnect('${integration.connector_id}')">Disconnect</button>` :
+                        `<button class="btn btn-success" onclick="connect('${integration.connector_id}')">Connect</button>`
+                    }
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function showAddForm() {
+        document.getElementById('addIntegrationForm').style.display = 'block';
+    }
+
+    function hideAddForm() {
+        document.getElementById('addIntegrationForm').style.display = 'none';
+        document.getElementById('integrationForm').reset();
+        document.getElementById('formFields').innerHTML = '';
+    }
+
+    function updateFormFields() {
+        const type = document.getElementById('integrationType').value;
+        const container = document.getElementById('formFields');
+
+        if (!type) {
+            container.innerHTML = '';
+            return;
+        }
+
+        if (type === 'bamboohr') {
+            container.innerHTML = `
+                <div class="form-group">
+                    <label for="subdomain">Subdomain</label>
+                    <input type="text" id="subdomain" placeholder="mycompany" required>
+                </div>
+                <div class="form-group">
+                    <label for="apiKey">API Key</label>
+                    <input type="password" id="apiKey" placeholder="Enter BambooHR API key" required>
+                </div>
+            `;
+        } else if (type === 'postgresql' || type === 'mysql') {
+            container.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="host">Host</label>
+                        <input type="text" id="host" placeholder="localhost" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="port">Port</label>
+                        <input type="number" id="port" placeholder="${type === 'postgresql' ? '5432' : '3306'}" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="database">Database</label>
+                    <input type="text" id="database" placeholder="database_name" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" placeholder="db_user" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter password" required>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'sqlite') {
+            container.innerHTML = `
+                <div class="form-group">
+                    <label for="database">Database Path</label>
+                    <input type="text" id="database" placeholder="/path/to/database.db" required>
+                </div>
+            `;
+        }
+    }
+
+    document.getElementById('integrationForm').onsubmit = async function(e) {
+        e.preventDefault();
+
+        const type = document.getElementById('integrationType').value;
+        let config = { type: type };
+
+        if (type === 'bamboohr') {
+            config.subdomain = document.getElementById('subdomain').value;
+            config.api_key = document.getElementById('apiKey').value;
+        } else if (type === 'postgresql' || type === 'mysql') {
+            config.host = document.getElementById('host').value;
+            config.port = parseInt(document.getElementById('port').value);
+            config.database = document.getElementById('database').value;
+            config.username = document.getElementById('username').value;
+            config.password = document.getElementById('password').value;
+            config.engine = type;
+        } else if (type === 'sqlite') {
+            config.database = document.getElementById('database').value;
+            config.engine = 'sqlite';
+        }
+
+        try {
+            const response = await fetch('/api/integrations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                hideAddForm();
+                await loadIntegrations();
+                alert('Integration added successfully!');
+            } else {
+                alert(`Error: ${result.error || 'Failed to add integration'}`);
+            }
+        } catch (error) {
+            console.error('Failed to add integration:', error);
+            alert('Failed to add integration. Please try again.');
+        }
+    };
+
+    async function testConnection(connectorId) {
+        try {
+            const response = await fetch(`/api/integrations/${connectorId}/test`);
+            const result = await response.json();
+
+            const modal = document.getElementById('testModal');
+            const resultsDiv = document.getElementById('testResults');
+
+            resultsDiv.innerHTML = `
+                <div class="test-result ${result.success ? 'success' : 'error'}" style="display: block;">
+                    <h3>${result.success ? '✓ Connection Successful' : '✗ Connection Failed'}</h3>
+                    <p>${result.message}</p>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-value">${result.latency_ms}ms</div>
+                            <div class="metric-label">Latency</div>
+                        </div>
+                    </div>
+                    ${result.details ? `<pre style="margin-top: 15px; padding: 10px; background: #f3f4f6; border-radius: 4px; font-size: 0.75rem;">${JSON.stringify(result.details, null, 2)}</pre>` : ''}
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        } catch (error) {
+            console.error('Test failed:', error);
+            alert('Test failed. Please try again.');
+        }
+    }
+
+    async function connect(connectorId) {
+        try {
+            const response = await fetch(`/api/integrations/${connectorId}/connect`, { method: 'POST' });
+            const result = await response.json();
+
+            if (response.ok) {
+                await loadIntegrations();
+                alert('Connected successfully!');
+            } else {
+                alert(`Error: ${result.error || 'Failed to connect'}`);
+            }
+        } catch (error) {
+            console.error('Connection failed:', error);
+            alert('Connection failed. Please try again.');
+        }
+    }
+
+    async function disconnect(connectorId) {
+        if (!confirm('Are you sure you want to disconnect this integration?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/integrations/${connectorId}/disconnect`, { method: 'POST' });
+            const result = await response.json();
+
+            if (response.ok) {
+                await loadIntegrations();
+                alert('Disconnected successfully!');
+            } else {
+                alert(`Error: ${result.error || 'Failed to disconnect'}`);
+            }
+        } catch (error) {
+            console.error('Disconnect failed:', error);
+            alert('Disconnect failed. Please try again.');
+        }
+    }
+
+    async function showDetails(connectorId) {
+        try {
+            const response = await fetch(`/api/integrations/${connectorId}`);
+            const integration = await response.json();
+
+            const modal = document.getElementById('detailsModal');
+            const detailsDiv = document.getElementById('integrationDetails');
+
+            detailsDiv.innerHTML = `
+                <div class="integration-details">
+                    <h3>${integration.name}</h3>
+                    <div class="detail-item">
+                        <span class="detail-label">Connector ID</span>
+                        <span>${integration.connector_id}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Type</span>
+                        <span>${integration.type}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="status-badge ${integration.status}">${integration.status}</span>
+                    </div>
+                    ${integration.metrics ? `
+                        <div class="metrics" style="margin-top: 20px;">
+                            <div class="metric">
+                                <div class="metric-value">${integration.metrics.total_requests || 0}</div>
+                                <div class="metric-label">Total Requests</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">${integration.metrics.successful_requests || 0}</div>
+                                <div class="metric-label">Successful</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">${integration.metrics.failed_requests || 0}</div>
+                                <div class="metric-label">Failed</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">${(integration.metrics.success_rate * 100).toFixed(1)}%</div>
+                                <div class="metric-label">Success Rate</div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        } catch (error) {
+            console.error('Failed to load details:', error);
+            alert('Failed to load integration details.');
+        }
+    }
+
+    function closeTestModal() {
+        document.getElementById('testModal').style.display = 'none';
+    }
+
+    function closeDetailsModal() {
+        document.getElementById('detailsModal').style.display = 'none';
+    }
+
+    // Close modals on click outside
+    window.onclick = function(event) {
+        const testModal = document.getElementById('testModal');
+        const detailsModal = document.getElementById('detailsModal');
+
+        if (event.target == testModal) {
+            closeTestModal();
+        }
+        if (event.target == detailsModal) {
+            closeDetailsModal();
+        }
+    };
+</script>
+{% endblock %}

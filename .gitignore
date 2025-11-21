@@ -37,3 +37,21 @@ jobs_data/
 
 # Generated fixtures (runtime test content)
 sites/fixtures/
+
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Data directory (runtime data)
+data/*.db
+data/*.json
+data/*.jsonl
+data/cache/
+
+# Mission and artifact runtime files
+missions/logs/*.json
+artifacts/*/
+!artifacts/.gitkeep
+agent/run_workflows/*.json

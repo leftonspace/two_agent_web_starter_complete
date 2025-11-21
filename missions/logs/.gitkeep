@@ -1,0 +1,2 @@
+# Mission execution logs are stored here
+# Each mission creates a <mission_id>.json file with execution results

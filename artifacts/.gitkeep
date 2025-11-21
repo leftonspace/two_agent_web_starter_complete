@@ -1,0 +1,5 @@
+# Mission artifacts are stored here in subdirectories
+# Each mission creates artifacts/<mission_id>/ with:
+# - artifacts.jsonl (structured log)
+# - report.html (human-readable report)
+# - files/ (generated files if any)

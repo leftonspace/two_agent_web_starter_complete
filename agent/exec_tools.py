@@ -34,7 +34,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 # ══════════════════════════════════════════════════════════════════════
 # Tool Implementation
 # ══════════════════════════════════════════════════════════════════════
@@ -65,15 +64,17 @@ def format_code(
             "error": str
         }
     """
-    project_path = Path(project_dir)
-
-    if not project_path.exists():
+    # PHASE 0.3: Validate project directory with safety checks
+    is_valid, error = _validate_project_dir(project_dir)
+    if not is_valid:
         return {
             "status": "failed",
             "exit_code": 1,
             "output": "",
-            "error": f"Project directory not found: {project_dir}"
+            "error": error
         }
+
+    project_path = Path(project_dir)
 
     # Validate formatter choice
     if formatter not in ("ruff", "black"):
@@ -166,18 +167,20 @@ def run_unit_tests(
             "skipped": int
         }
     """
-    project_path = Path(project_dir)
-
-    if not project_path.exists():
+    # PHASE 0.3: Validate project directory with safety checks
+    is_valid, error = _validate_project_dir(project_dir)
+    if not is_valid:
         return {
             "status": "failed",
             "exit_code": 1,
             "output": "",
-            "error": f"Project directory not found: {project_dir}",
+            "error": error,
             "passed": 0,
             "failed": 0,
             "skipped": 0
         }
+
+    project_path = Path(project_dir)
 
     # Check if pytest is installed (OS-agnostic availability check)
     if not shutil.which("pytest"):
@@ -303,16 +306,18 @@ def git_diff(
             "truncated": bool
         }
     """
-    project_path = Path(project_dir)
-
-    if not project_path.exists():
+    # PHASE 0.3: Validate project directory with safety checks
+    is_valid, error = _validate_project_dir(project_dir)
+    if not is_valid:
         return {
             "status": "failed",
             "exit_code": 1,
             "output": "",
-            "error": f"Project directory not found: {project_dir}",
+            "error": error,
             "truncated": False
         }
+
+    project_path = Path(project_dir)
 
     # Check if git is installed (OS-agnostic availability check)
     if not shutil.which("git"):
@@ -409,15 +414,17 @@ def git_status(
             "error": str
         }
     """
-    project_path = Path(project_dir)
-
-    if not project_path.exists():
+    # PHASE 0.3: Validate project directory with safety checks
+    is_valid, error = _validate_project_dir(project_dir)
+    if not is_valid:
         return {
             "status": "failed",
             "exit_code": 1,
             "output": "",
-            "error": f"Project directory not found: {project_dir}"
+            "error": error
         }
+
+    project_path = Path(project_dir)
 
     # Check if git is installed (OS-agnostic availability check)
     if not shutil.which("git"):
@@ -558,7 +565,7 @@ def _run_shell_internal(
             "output": "",
             "error": f"Command timed out after {timeout} seconds"
         }
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return {
             "status": "failed",
             "exit_code": 127,
@@ -610,6 +617,49 @@ def _parse_pytest_results(output: str) -> tuple[int, int, int]:
         skipped = int(match.group(1))
 
     return passed, failed, skipped
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 3.1: Sandbox Tool Helper
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _import_and_call_sandbox(func_name: str, **kwargs) -> Dict[str, Any]:
+    """
+    Import sandbox module and call the specified function.
+
+    This is a helper for lazy-loading sandbox tools to avoid import errors
+    if the sandbox module is not available.
+
+    Args:
+        func_name: Name of the sandbox function to call
+        **kwargs: Arguments to pass to the function
+
+    Returns:
+        Result dict from sandbox execution
+    """
+    try:
+        import sandbox
+        func = getattr(sandbox, func_name)
+        return func(**kwargs)
+    except ImportError:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": "",
+            "timeout": False,
+            "error": "Sandbox module not available. Ensure agent/sandbox.py exists.",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": "",
+            "timeout": False,
+            "error": f"Sandbox execution failed: {str(e)}",
+        }
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -680,6 +730,39 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
             "project_dir": "Path to the project directory (must be a git repo) (required)",
             "short": "Use short format; default: True (optional)",
             "timeout": "Timeout in seconds; default: 10 (optional)"
+        }
+    },
+    # PHASE 3.1: Sandbox execution tools
+    "sandbox_run_python": {
+        "func": lambda code, working_dir=None, timeout=30: _import_and_call_sandbox("run_python_snippet", code=code, working_dir=working_dir, timeout_seconds=timeout),
+        "description": "Execute Python code snippet in a sandboxed environment with resource limits and timeout. The code runs in an isolated subprocess with memory and CPU constraints.",
+        "category": "sandbox",
+        "parameters": {
+            "code": "Python code to execute (required)",
+            "working_dir": "Working directory for execution; default: temp directory (optional)",
+            "timeout": "Timeout in seconds; default: 30 (optional)"
+        }
+    },
+    "sandbox_run_node": {
+        "func": lambda code, working_dir=None, timeout=30: _import_and_call_sandbox("run_node_snippet", code=code, working_dir=working_dir, timeout_seconds=timeout),
+        "description": "Execute Node.js code snippet in a sandboxed environment with resource limits and timeout. The code runs in an isolated subprocess with memory and CPU constraints.",
+        "category": "sandbox",
+        "parameters": {
+            "code": "JavaScript code to execute (required)",
+            "working_dir": "Working directory for execution; default: temp directory (optional)",
+            "timeout": "Timeout in seconds; default: 30 (optional)"
+        }
+    },
+    "sandbox_run_script": {
+        "func": lambda script_path, args=None, working_dir=None, timeout=60, interpreter=None: _import_and_call_sandbox("run_script", script_path=script_path, args=args, working_dir=working_dir, timeout_seconds=timeout, interpreter=interpreter),
+        "description": "Execute a script file in a sandboxed environment with resource limits and timeout. Supports Python, Node.js, Bash, and other interpreters.",
+        "category": "sandbox",
+        "parameters": {
+            "script_path": "Path to the script file (required)",
+            "args": "Optional command-line arguments as a list (optional)",
+            "working_dir": "Working directory; default: script directory (optional)",
+            "timeout": "Timeout in seconds; default: 60 (optional)",
+            "interpreter": "Optional interpreter (e.g., 'python3', 'node', 'bash'); if not specified, script must be executable (optional)"
         }
     }
     # NOTE: run_shell has been intentionally removed from the public tool registry

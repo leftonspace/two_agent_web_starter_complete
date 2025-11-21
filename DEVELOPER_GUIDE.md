@@ -681,3 +681,71 @@ All checks are graceful - missing tools won't fail the commit.
 ---
 
 **Happy developing!** 🚀
+
+---
+
+## Stage 5.2: Model Routing & Cost Controls
+
+Stage 5.2 introduces intelligent model selection and production-ready cost controls.
+
+### Key Features
+
+1. **Centralized Model Routing**: All LLM calls use `model_router.choose_model()` for intelligent model selection
+2. **GPT-5 Gating**: Expensive models only used when justified (2nd/3rd iterations, high complexity, or marked important)
+3. **Cost Cap Enforcement**: Hard caps prevent budget overruns before LLM calls
+4. **Real-Time Cost Tracking**: Detailed breakdowns by role and model
+5. **Cost Checkpoints**: Logged at planning, each iteration, and final stages
+
+### Documentation
+
+For comprehensive documentation on model routing and cost controls, see:
+
+**[docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)** - Complete guide covering:
+- How model routing works
+- GPT-5 gating rules
+- Cost tracking and summaries
+- Cost cap configuration
+- Troubleshooting
+
+### Quick Reference
+
+**Config Parameters:**
+
+```json
+{
+  "max_cost_usd": 5.0,              // Hard cost cap (0 = no cap)
+  "cost_warning_usd": 4.0,          // Warning threshold
+  "llm_very_important_stages": [    // Stages that justify GPT-5
+    "security_audit",
+    "final_validation"
+  ]
+}
+```
+
+**Checking Costs:**
+
+```python
+import cost_tracker
+
+summary = cost_tracker.get_summary()
+print(f"Total cost: ${summary['total_usd']:.4f}")
+print(f"By role: {summary['by_role']}")
+```
+
+**GPT-5 Gating Rules:**
+
+- ❌ First iteration: Never uses GPT-5
+- ✅ 2nd/3rd iteration: GPT-5 allowed if `complexity="high"` OR `is_very_important=True`  
+- ❌ 4th+ iteration: Falls back to cheaper models
+
+### Testing
+
+```bash
+# Unit tests
+pytest tests/unit/test_model_router.py
+pytest tests/unit/test_cost_tracker.py
+
+# Integration tests
+pytest tests/integration/test_stage5_integration.py
+```
+

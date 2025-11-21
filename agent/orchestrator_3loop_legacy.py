@@ -5,16 +5,17 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# STAGE 2.2: Import core logging for main run events
+import core_logging
 import cost_tracker
 from exec_safety import run_safety_checks
+
+# STAGE 2.1: Import tool registry for metadata
+from exec_tools import get_tool_metadata
 from git_utils import commit_all, ensure_repo
 from llm import chat_json
 from prompts import load_prompts
-from run_logger import (
-    finish_run_legacy as finish_run,
-    log_iteration_legacy as log_iteration_dict,
-    start_run_legacy as start_run,
-)
+
 # STAGE 2: Import new run logging API
 # NOTE: We maintain TWO parallel logging systems:
 # 1. Legacy logging (run_logger.py) - writes to agent/run_logs/<project>_<mode>.jsonl
@@ -27,16 +28,22 @@ from run_logger import (
 # DEPRECATION PLAN: The legacy logging API should eventually be phased out in favor
 # of core_logging once all consumers are migrated. For now, both are maintained to
 # avoid breaking existing scripts/dashboards that depend on the legacy format.
-from run_logger import RunSummary, log_iteration as log_iteration_new
+from run_logger import RunSummary
+from run_logger import (
+    finish_run_legacy as finish_run,
+)
+from run_logger import log_iteration as log_iteration_new
+from run_logger import (
+    log_iteration_legacy as log_iteration_dict,
+)
+from run_logger import (
+    start_run_legacy as start_run,
+)
 from site_tools import (
     analyze_site,
     load_existing_files,
     summarize_files_for_manager,
 )
-# STAGE 2.1: Import tool registry for metadata
-from exec_tools import get_tool_metadata
-# STAGE 2.2: Import core logging for main run events
-import core_logging
 
 
 def _load_config() -> Dict[str, Any]:

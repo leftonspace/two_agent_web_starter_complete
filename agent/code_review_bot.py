@@ -54,8 +54,14 @@ def run_static_checks() -> dict:
     }
 
 
-def ask_ai_for_review(outputs: dict) -> None:
-    """Optionally ask the LLM to summarize lint/type issues and suggest fixes."""
+def ask_ai_for_review(outputs: dict, max_cost_usd: float = 0.5) -> None:
+    """
+    Optionally ask the LLM to summarize lint/type issues and suggest fixes.
+
+    Args:
+        outputs: Dict with ruff and mypy outputs
+        max_cost_usd: Maximum cost cap in USD (STAGE 5.2, default: $0.50)
+    """
     if not os.getenv("OPENAI_API_KEY"):
         print("[code_review_bot] OPENAI_API_KEY not set; skipping AI review.")
         return
@@ -84,11 +90,13 @@ def ask_ai_for_review(outputs: dict) -> None:
 
     # We reuse your existing chat_json helper.
     # Reviewer role is "manager" but you could create a dedicated "reviewer" role if you like.
+    # STAGE 5.2: Pass max_cost_usd for cost cap enforcement
     review = llm.chat_json(
         role="manager",
         system=system_prompt,
         user_content=combined,
         expect_json=False,  # we just want plain text feedback
+        max_cost_usd=max_cost_usd,
     )
 
     print("===== AI Review =====")

@@ -17,7 +17,7 @@ import pytest
 agent_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(agent_dir))
 
-import analytics
+import analytics  # noqa: E402
 
 
 @pytest.fixture

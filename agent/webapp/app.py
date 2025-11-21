@@ -35,6 +35,9 @@ import qa
 import analytics
 import brain
 
+# PHASE 7.1: Conversational Agent
+from conversational_agent import ConversationalAgent
+
 # PHASE 1.1: Authentication
 from agent.webapp.auth import (
     User,
@@ -69,11 +72,17 @@ if static_dir.exists():
 app.include_router(auth_router)
 app.include_router(api_keys_router)
 
+# PHASE 7.1: Global conversational agent instance
+conversational_agent: Optional[ConversationalAgent] = None
+
 # Initialize auth system on startup
 @app.on_event("startup")
 async def startup_event():
-    """Initialize authentication system."""
+    """Initialize authentication and conversational agent systems."""
+    global conversational_agent
     initialize_auth_system()
+    conversational_agent = ConversationalAgent()
+    print("[Startup] Conversational agent initialized")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -1811,6 +1820,122 @@ async def api_delete_integration(connector_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete integration: {str(e)}")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PHASE 7.1: Conversational Agent Endpoints
+# ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page(request: Request):
+    """
+    Serve conversational chat interface.
+
+    PHASE 7.1: Chat UI for natural language interaction with System-1.2.
+    """
+    return templates.TemplateResponse(
+        "chat.html",
+        {"request": request}
+    )
+
+
+@app.post("/api/chat")
+async def chat_endpoint(request: Request):
+    """
+    Conversational chat endpoint.
+
+    PHASE 7.1: Main endpoint for natural language chat interaction.
+
+    POST /api/chat
+    Body: {"message": "your message here"}
+    Response: {"response": "agent response", "active_tasks": [...]}
+    """
+    global conversational_agent
+
+    if conversational_agent is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Conversational agent not initialized"
+        )
+
+    try:
+        data = await request.json()
+        message = data.get("message", "")
+
+        if not message:
+            return JSONResponse(
+                {"error": "Message required"},
+                status_code=400
+            )
+
+        # Process message through conversational agent
+        response = await conversational_agent.chat(message)
+
+        # Get active tasks
+        active_tasks = conversational_agent.get_active_tasks()
+
+        return JSONResponse({
+            "response": response,
+            "active_tasks": active_tasks
+        })
+
+    except Exception as e:
+        return JSONResponse(
+            {"error": str(e)},
+            status_code=500
+        )
+
+
+@app.get("/api/chat/tasks")
+async def get_active_tasks():
+    """
+    Get list of active tasks.
+
+    PHASE 7.1: Returns all tasks currently being executed by the agent.
+
+    Returns:
+        {"tasks": [{"task_id": "...", "description": "...", "status": "...", "progress": "..."}]}
+    """
+    global conversational_agent
+
+    if conversational_agent is None:
+        return JSONResponse({"tasks": []})
+
+    tasks = conversational_agent.get_active_tasks()
+    return JSONResponse({"tasks": tasks})
+
+
+@app.get("/api/chat/task/{task_id}")
+async def get_task_status(task_id: str):
+    """
+    Get detailed status of a specific task.
+
+    PHASE 7.1: Returns detailed information about a task.
+
+    Args:
+        task_id: Task identifier
+
+    Returns:
+        Task details or 404 if not found
+    """
+    global conversational_agent
+
+    if conversational_agent is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Conversational agent not initialized"
+        )
+
+    status = conversational_agent.get_task_status(task_id)
+
+    if not status:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task not found: {task_id}"
+        )
+
+    return JSONResponse(status)
 
 
 @app.get("/health")

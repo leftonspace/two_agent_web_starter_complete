@@ -441,3 +441,47 @@ def chat_json(
             f"Model: {chosen_model}\n"
             f"Content:\n{content}"
         ) from e
+
+
+def chat(
+    role: str = "employee",
+    system_prompt: Optional[str] = None,
+    user_content: str = "",
+    *,
+    system: Optional[str] = None,
+    model: Optional[str] = None,
+    temperature: float = 0.7,
+    **kwargs
+) -> str:
+    """
+    PHASE 7.1: Simple text chat wrapper around chat_json.
+
+    Returns plain text response instead of JSON.
+    Useful for conversational interactions where JSON parsing is not needed.
+
+    Args:
+        role: Agent role (manager, supervisor, employee)
+        system_prompt: System message
+        user_content: User message
+        system: Alternative system message parameter
+        model: Optional model override
+        temperature: Sampling temperature (default 0.7 for conversations)
+        **kwargs: Additional parameters passed to chat_json
+
+    Returns:
+        Plain text response from LLM
+    """
+    # Call chat_json with expect_json=False
+    response = chat_json(
+        role=role,
+        system_prompt=system_prompt,
+        user_content=user_content,
+        system=system,
+        model=model,
+        temperature=temperature,
+        expect_json=False,
+        **kwargs
+    )
+
+    # Extract raw text from response
+    return response.get("raw", "")

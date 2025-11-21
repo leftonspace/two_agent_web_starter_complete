@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 # STAGE 5: Import status codes and safe I/O
-from safe_io import safe_json_write, safe_timestamp, safe_mkdir
+from safe_io import safe_json_write, safe_mkdir, safe_timestamp
 from status_codes import UNKNOWN
 
 # PHASE 1.2: Import log sanitizer to prevent sensitive data leakage
@@ -230,6 +230,15 @@ def finalize_run(
     if cost_summary is not None:
         run.cost_summary = cost_summary
     return run
+
+def finish_run(*args, **kwargs):
+    """
+    Backward-compatible alias for finalize_run().
+
+    Some modules (or tests) still import `finish_run`.
+    Delegate directly to `finalize_run` so both names work.
+    """
+    return finalize_run(*args, **kwargs)
 
 
 def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:

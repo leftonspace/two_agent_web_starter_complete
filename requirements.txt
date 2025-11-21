@@ -19,7 +19,7 @@ aiohttp>=3.9.0  # Async HTTP client for HRIS APIs
 
 # PHASE 2.4: Document Generation dependencies
 python-docx>=1.1.0  # Word documents
-python-docxtpl>=0.17.0  # Word templates with Jinja2
+docxtpl>=0.17.0  # Word templates with Jinja2
 openpyxl>=3.1.0  # Excel spreadsheets
 reportlab>=4.0.0  # PDF generation
 weasyprint>=60.0  # HTML to PDF conversion

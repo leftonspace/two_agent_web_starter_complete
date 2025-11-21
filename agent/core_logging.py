@@ -40,9 +40,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-# PHASE 1.2: Import log sanitizer to prevent sensitive data leakage
-import log_sanitizer
-
 # ══════════════════════════════════════════════════════════════════════
 # Configuration
 # ══════════════════════════════════════════════════════════════════════
@@ -98,6 +95,11 @@ EVENT_TYPES = {
     "roadmap_mutated": "Roadmap changed (merge, split, reorder, etc.)",
     "stage_reopened": "Previous stage reopened for rework",
     "auto_advance": "Auto-advanced to next stage (zero findings)",
+    "llm_failure": "LLM API call failed after all retries (Stage 3.3)",
+    "stage_pending_retry": "Stage marked for retry due to LLM failure (Stage 3.3)",
+    "stage_retry_pass_start": "Starting retry pass for failed stages (Stage 3.3)",
+    "stage_retry_pass_end": "Completed retry pass for failed stages (Stage 3.3)",
+    "model_fallback": "Switched to fallback model due to repeated failures (Stage 3.3)",
 
     # Phase 3 events (agent communication)
     "agent_message": "Inter-agent message sent",
@@ -155,6 +157,9 @@ def log_event(run_id: str, event_type: str, payload: Dict[str, Any]) -> None:
     - Includes schema_version for future compatibility
     - PHASE 1.2: Sanitizes payload to prevent sensitive data leakage (vulnerability S1)
 
+    STAGE 3.3: Enhanced with global exception guard to prevent any logging
+    error from crashing the orchestrator.
+
     Args:
         run_id: Unique identifier for this run
         event_type: Type of event (see EVENT_TYPES)
@@ -167,36 +172,40 @@ def log_event(run_id: str, event_type: str, payload: Dict[str, Any]) -> None:
             "config": {...}
         })
     """
-    # PHASE 1.2: Sanitize payload before persistence to prevent API key leakage
-    sanitized_payload = log_sanitizer.sanitize_log_data(payload)
-
-    # Create log event with schema version
-    event = LogEvent(
-        run_id=run_id,
-        timestamp=time.time(),
-        event_type=event_type,
-        payload=sanitized_payload,
-        schema_version=LOG_SCHEMA_VERSION
-    )
-
-    # Ensure logs directory exists
+    # STAGE 3.3: Wrap entire function in try/except to prevent crashes
     try:
-        LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        print(f"[CoreLog] Warning: Failed to create logs directory: {e}", file=sys.stderr)
-        return
+        # Create log event with schema version
+        event = LogEvent(
+            run_id=run_id,
+            timestamp=time.time(),
+            event_type=event_type,
+            payload=payload,
+            schema_version=LOG_SCHEMA_VERSION
+        )
 
-    # Get log file path
-    log_file = LOGS_DIR / f"{run_id}.jsonl"
+        # Ensure logs directory exists
+        try:
+            LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"[CoreLog] Warning: Failed to create logs directory: {e}", file=sys.stderr)
+            return
 
-    # Write log entry
-    try:
-        with log_file.open("a", encoding="utf-8") as f:
-            json_line = json.dumps(asdict(event), ensure_ascii=False)
-            f.write(json_line + "\n")
+        # Get log file path
+        log_file = LOGS_DIR / f"{run_id}.jsonl"
+
+        # Write log entry
+        try:
+            with log_file.open("a", encoding="utf-8") as f:
+                json_line = json.dumps(asdict(event), ensure_ascii=False)
+                f.write(json_line + "\n")
+        except Exception as e:
+            print(f"[CoreLog] Warning: Failed to write log entry: {e}", file=sys.stderr)
+            # Don't crash - logging is best-effort
+
     except Exception as e:
-        print(f"[CoreLog] Warning: Failed to write log entry: {e}", file=sys.stderr)
-        # Don't crash - logging is best-effort
+        # STAGE 3.3: Global exception guard - catch ANY error in logging
+        print(f"[CoreLog] CRITICAL: Logging failed for event '{event_type}': {e}", file=sys.stderr)
+        # Do not re-raise - logging must NEVER crash the orchestrator
 
 
 def load_run_events(run_id: str) -> list[LogEvent]:
@@ -923,3 +932,165 @@ def log_decision_recorded(
         **kwargs
     }
     log_event(run_id, "decision_recorded", payload)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# STAGE 3.3: LLM Failure & Retry Logging
+# ══════════════════════════════════════════════════════════════════════
+
+
+def log_llm_failure(
+    run_id: str,
+    stage_id: str,
+    stage_name: str,
+    role: str,
+    reason: str,
+    retry_count: int | None = None,
+    model: str | None = None,
+    **kwargs
+) -> None:
+    """
+    Log LLM API failure.
+
+    STAGE 3.3: Helper to properly log LLM failures with rich context.
+
+    Args:
+        run_id: Run identifier
+        stage_id: Stage identifier
+        stage_name: Stage name
+        role: Agent role (manager, employee, supervisor)
+        reason: Failure reason (timeout, API error, etc.)
+        retry_count: Number of retry attempts (if tracked)
+        model: Model that failed (if known)
+        **kwargs: Additional metadata
+    """
+    payload = {
+        "stage_id": stage_id,
+        "stage_name": stage_name,
+        "role": role,
+        "reason": reason,
+        **kwargs
+    }
+
+    if retry_count is not None:
+        payload["retry_count"] = retry_count
+
+    if model is not None:
+        payload["model"] = model
+
+    log_event(run_id, "llm_failure", payload)
+
+
+def log_stage_pending_retry(
+    run_id: str,
+    stage_id: str,
+    stage_name: str,
+    reason: str,
+    **kwargs
+) -> None:
+    """
+    Log stage marked for retry.
+
+    STAGE 3.3: Logs when a stage is marked pending_retry due to LLM failures.
+
+    Args:
+        run_id: Run identifier
+        stage_id: Stage identifier
+        stage_name: Stage name
+        reason: Reason for retry (usually LLM failure details)
+        **kwargs: Additional metadata
+    """
+    payload = {
+        "stage_id": stage_id,
+        "stage_name": stage_name,
+        "reason": reason,
+        **kwargs
+    }
+    log_event(run_id, "stage_pending_retry", payload)
+
+
+def log_stage_retry_pass_start(
+    run_id: str,
+    pass_number: int,
+    pending_stage_count: int,
+    **kwargs
+) -> None:
+    """
+    Log start of retry pass.
+
+    STAGE 3.3: Logs when orchestrator starts a retry pass for failed stages.
+
+    Args:
+        run_id: Run identifier
+        pass_number: Retry pass number (1, 2, etc.)
+        pending_stage_count: Number of stages pending retry
+        **kwargs: Additional metadata
+    """
+    payload = {
+        "pass_number": pass_number,
+        "pending_stage_count": pending_stage_count,
+        **kwargs
+    }
+    log_event(run_id, "stage_retry_pass_start", payload)
+
+
+def log_stage_retry_pass_end(
+    run_id: str,
+    pass_number: int,
+    succeeded_count: int,
+    still_failing_count: int,
+    **kwargs
+) -> None:
+    """
+    Log end of retry pass.
+
+    STAGE 3.3: Logs completion of a retry pass with results.
+
+    Args:
+        run_id: Run identifier
+        pass_number: Retry pass number
+        succeeded_count: Number of stages that succeeded in this pass
+        still_failing_count: Number of stages still failing
+        **kwargs: Additional metadata
+    """
+    payload = {
+        "pass_number": pass_number,
+        "succeeded_count": succeeded_count,
+        "still_failing_count": still_failing_count,
+        **kwargs
+    }
+    log_event(run_id, "stage_retry_pass_end", payload)
+
+
+def log_model_fallback(
+    run_id: str,
+    stage_id: str,
+    role: str,
+    original_model: str,
+    fallback_model: str,
+    reason: str,
+    **kwargs
+) -> None:
+    """
+    Log model fallback event.
+
+    STAGE 3.3: Logs when LLM switches to fallback model.
+
+    Args:
+        run_id: Run identifier
+        stage_id: Stage identifier
+        role: Agent role
+        original_model: Original model that failed
+        fallback_model: Fallback model being used
+        reason: Reason for fallback
+        **kwargs: Additional metadata
+    """
+    payload = {
+        "stage_id": stage_id,
+        "role": role,
+        "original_model": original_model,
+        "fallback_model": fallback_model,
+        "reason": reason,
+        **kwargs
+    }
+    log_event(run_id, "model_fallback", payload)

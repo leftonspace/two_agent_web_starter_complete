@@ -8,7 +8,6 @@ and properly integrated into the run pipeline.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -78,7 +77,6 @@ def qa_disabled_config():
 def test_run_project_automatic_qa_execution(temp_project_with_qa, qa_config):
     """Test that QA runs automatically after successful job completion."""
     from runner import run_project
-    import qa
 
     config = {
         "mode": "3loop",
@@ -109,7 +107,7 @@ def test_run_project_automatic_qa_execution(temp_project_with_qa, qa_config):
          patch("runner.finalize_run", return_value=mock_run_summary), \
          patch("runner.estimate_cost", return_value={"estimated_total_usd": 0.5}), \
          patch("runner.load_tuning_config"), \
-         patch("qa.run_qa_for_project", return_value=mock_qa_report) as mock_qa, \
+         patch("qa.run_qa_for_project", return_value=mock_qa_report), \
          patch.dict("runner.json.load", qa_config):  # Mock config loading
 
         # Setup path mocking
@@ -129,7 +127,6 @@ def test_run_project_automatic_qa_execution(temp_project_with_qa, qa_config):
 def test_run_project_qa_disabled(temp_project_with_qa):
     """Test that QA doesn't run when disabled in config."""
     from runner import run_project
-    import qa
 
     config = {
         "mode": "2loop",
@@ -152,7 +149,8 @@ def test_run_project_qa_disabled(temp_project_with_qa):
          patch("runner.finalize_run", return_value=mock_run_summary), \
          patch("runner.estimate_cost", return_value={"estimated_total_usd": 0.3}), \
          patch("runner.load_tuning_config"), \
-         patch("qa.run_qa_for_project") as mock_qa:
+         patch("qa.run_qa_for_project"):
+
 
         mock_path_obj = MagicMock()
         mock_path_obj.resolve.return_value.parent.parent = temp_project_with_qa
@@ -203,7 +201,6 @@ def test_run_project_qa_failure_doesnt_break_run(temp_project_with_qa):
 def test_run_qa_only_with_config(temp_project_with_qa):
     """Test run_qa_only() function with explicit config."""
     from runner import run_qa_only
-    import qa
 
     project_path = temp_project_with_qa / "sites" / "test_project"
 
@@ -232,7 +229,6 @@ def test_run_qa_only_with_config(temp_project_with_qa):
 def test_run_qa_only_loads_default_config(temp_project_with_qa, tmp_path):
     """Test run_qa_only() loads config from project_config.json when not provided."""
     from runner import run_qa_only
-    import qa
 
     project_path = temp_project_with_qa / "sites" / "test_project"
 

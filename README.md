@@ -128,6 +128,18 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **LLM-powered planning**: Uses GPT-4o-mini for fast action planning ✨
 - **Error handling**: Graceful failures with detailed error messages ✨
 
+### Task Routing Logic (Phase 7B.3) 🚦
+- **Unified entry point**: Single TaskRouter handles all task execution ✨
+- **6 task statuses**: PENDING, ROUTING, EXECUTING, COMPLETED, FAILED, REQUIRES_APPROVAL ✨
+- **Automatic routing**: Routes to Direct, Reviewed, or Full Loop based on strategy ✨
+- **Retry with escalation**: Failed tasks automatically retry at higher execution mode ✨
+- **Smart escalation**: Direct → Reviewed → Full Loop on failure ✨
+- **Human approval workflow**: High-risk tasks pause for approval before execution ✨
+- **Task tracking**: Monitors all active tasks with real-time status updates ✨
+- **Pending approvals**: Lists all tasks awaiting human approval ✨
+- **Task lifecycle management**: Complete lifecycle from routing to completion ✨
+- **Memory management**: Automatically clears old completed tasks to prevent bloat ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

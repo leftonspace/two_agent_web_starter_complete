@@ -1680,9 +1680,10 @@ def main(
         # STAGE 2.2: Log iteration end
         context.logger.log_iteration_end(
             core_run_id,
-            stage_id,
-            stage_name,
-            status="completed",
+            iteration,  # iteration number (int)
+            "completed",  # status
+            stage_id=stage_id,
+            stage_name=stage_name,
             iterations=audit_cycle,
             audit_count=audit_cycle,
             duration_seconds=0  # TODO: Track actual duration

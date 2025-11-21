@@ -26,8 +26,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import core_logging
-from agent.business_memory.manager import BusinessMemory
-from agent_messaging import AgentMessage, AgentRole, get_message_bus
 from config import Config, get_config
 from exec_tools import get_tool_metadata
 from llm import chat, chat_json
@@ -107,6 +105,9 @@ class ConversationalAgent:
         self.available_tools = self._load_available_tools()
         self.tool_schemas = self._load_tool_schemas()
 
+        core_logging.log_event("conversational_agent_initialized", {
+            "session_id": self.session_id,
+            "available_tools": len(self.available_tools)
         # PHASE 7.2: Subscribe to agent messages from Manager/Supervisor/Employee
         self.message_bus = get_message_bus()
         self.message_bus.subscribe(self._handle_agent_message)
@@ -163,6 +164,7 @@ class ConversationalAgent:
 
     async def chat(self, user_message: str) -> str:
         """
+        Main conversational interface.
         Main conversational interface with business memory.
 
         Args:
@@ -175,6 +177,16 @@ class ConversationalAgent:
         self._add_message("user", user_message)
 
         try:
+            # Step 1: Parse intent
+            intent = await self._parse_intent(user_message)
+
+            # Step 2: Route based on intent type
+            if intent.type == IntentType.SIMPLE_ACTION:
+                response = await self._handle_simple_action(intent, user_message)
+            elif intent.type == IntentType.COMPLEX_TASK:
+                response = await self._handle_complex_task(intent, user_message)
+            elif intent.type == IntentType.QUESTION:
+                response = await self._handle_question(user_message)
             # PHASE 7.3: Get relevant context from business memory
             memory_context = await self.business_memory.get_context_for_query(user_message)
 
@@ -219,6 +231,10 @@ class ConversationalAgent:
     # Intent Parsing
     # ══════════════════════════════════════════════════════════════════════
 
+    async def _parse_intent(self, message: str) -> Intent:
+        """Use LLM to understand user intent"""
+        context = self._build_conversation_context(last_n=5)
+
     async def _parse_intent(self, message: str, memory_context: Optional[Dict[str, Any]] = None) -> Intent:
         """Use LLM to understand user intent with business memory context"""
         context = self._build_conversation_context(last_n=5)
@@ -235,6 +251,7 @@ BUSINESS CONTEXT (from memory):
 
 CONVERSATION CONTEXT:
 {context}
+
 {memory_info}
 CURRENT MESSAGE: "{message}"
 
@@ -301,6 +318,7 @@ Return JSON:
     # Intent Handlers
     # ══════════════════════════════════════════════════════════════════════
 
+    async def _handle_simple_action(self, intent: Intent, user_message: str) -> str:
     async def _handle_simple_action(self, intent: Intent, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
         """Handle simple actions with single tool call"""
         tool_name = intent.suggested_tool
@@ -313,11 +331,13 @@ Return JSON:
         if not tool_schema:
             return f"Tool '{tool_name}' not found."
 
+        # Extract parameters if not provided
         # Extract parameters if not provided (with memory context)
         if not intent.parameters:
             intent.parameters = await self._extract_parameters(
                 tool_name,
                 tool_schema,
+                user_message
                 user_message,
                 memory_context
             )
@@ -347,6 +367,7 @@ Return JSON:
         except Exception as e:
             return f"Error executing {tool_name}: {str(e)}"
 
+    async def _handle_complex_task(self, intent: Intent, user_message: str) -> str:
     async def _handle_complex_task(self, intent: Intent, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
         """Handle complex multi-step tasks"""
         # Create task execution tracker
@@ -357,8 +378,8 @@ Return JSON:
         )
         self.active_tasks[task.task_id] = task
 
-        # Generate execution plan (with memory context)
-        plan = await self._create_execution_plan(user_message, intent, memory_context)
+        # Generate execution plan
+        plan = await self._create_execution_plan(user_message, intent)
 
         task.steps = plan["steps"]
         task.status = "executing"
@@ -378,22 +399,15 @@ Estimated time: {estimated_time // 60} minutes
 Task ID: {task.task_id}
 I'll work on this and update you. You can continue chatting or ask for status with '/task {task.task_id}'."""
 
-    async def _handle_question(self, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
-        """Answer user questions with business memory context"""
+    async def _handle_question(self, user_message: str) -> str:
+        """Answer user questions"""
         context = self._build_conversation_context(last_n=10)
-
-        # PHASE 7.3: Add business memory context
-        memory_info = ""
-        if memory_context:
-            memory_info = f"""
-BUSINESS CONTEXT (from memory):
-{json.dumps(memory_context, indent=2)}
-"""
 
         prompt = f"""You are a helpful AI assistant for System-1.2, a multi-agent orchestration platform.
 
 CONVERSATION HISTORY:
 {context}
+
 {memory_info}
 USER QUESTION: {user_message}
 
@@ -402,6 +416,7 @@ If asked about System-1.2 capabilities, mention:
 - Multi-agent orchestration (manager, supervisor, employee loops)
 - Tool execution (format code, run tests, git operations)
 - Web dashboard and CLI interfaces
+- Conversational interface (this chat!)"""
 - Conversational interface (this chat!)
 
 Use the business context if relevant to answer the question accurately."""
@@ -453,6 +468,11 @@ What would you like to do?"""
         self,
         tool_name: str,
         schema: Dict[str, Any],
+        message: str
+    ) -> Dict[str, Any]:
+        """Use LLM to extract parameter values from message"""
+        context = self._build_conversation_context(last_n=3)
+
         message: str,
         memory_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
@@ -474,6 +494,7 @@ TOOL SCHEMA:
 
 CONVERSATION CONTEXT:
 {context}
+
 {memory_info}
 USER MESSAGE: "{message}"
 
@@ -524,6 +545,9 @@ Return only the parameters JSON object."""
     async def _create_execution_plan(
         self,
         task_description: str,
+        intent: Intent
+    ) -> Dict[str, Any]:
+        """Create multi-step execution plan for complex task"""
         intent: Intent,
         memory_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
@@ -540,6 +564,7 @@ BUSINESS CONTEXT (from memory):
 
 AVAILABLE TOOLS:
 {json.dumps(self._get_tool_summary(), indent=2)}
+
 {memory_info}
 Break task into concrete steps. Each step should be either:
 - tool_call: Execute a specific tool
@@ -648,11 +673,13 @@ Return JSON:
     # Helper Methods
     # ══════════════════════════════════════════════════════════════════════
 
+    def _add_message(self, role: str, content: str):
     def _add_message(self, role: str, content: str, metadata: Optional[Dict[str, Any]] = None):
         """Add message to conversation history"""
         message = ConversationMessage(
             role=role,
             content=content,
+            timestamp=datetime.now()
             timestamp=datetime.now(),
             metadata=metadata or {}
         )

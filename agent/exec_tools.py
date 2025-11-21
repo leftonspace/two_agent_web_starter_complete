@@ -34,45 +34,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# PHASE 0.3: Import paths module for safety checks
-try:
-    import paths as paths_module
-    PATHS_AVAILABLE = True
-except ImportError:
-    PATHS_AVAILABLE = False
-
-
-# ══════════════════════════════════════════════════════════════════════
-# Safety Helpers
-# ══════════════════════════════════════════════════════════════════════
-
-
-def _validate_project_dir(project_dir: str) -> tuple[bool, str]:
-    """
-    PHASE 0.3: Validate that project directory is safe to write to.
-
-    Uses paths.is_safe_path() if available to prevent path traversal attacks.
-
-    Args:
-        project_dir: Path to validate
-
-    Returns:
-        (is_valid, error_message) - error_message is empty string if valid
-    """
-    project_path = Path(project_dir)
-
-    if not project_path.exists():
-        return False, f"Project directory not found: {project_dir}"
-
-    if PATHS_AVAILABLE:
-        # Use paths module for safety validation
-        if not paths_module.is_safe_path(project_path):
-            return False, f"Unsafe path: {project_dir} is outside repository root"
-
-    # Path is valid
-    return True, ""
-
-
 # ══════════════════════════════════════════════════════════════════════
 # Tool Implementation
 # ══════════════════════════════════════════════════════════════════════
@@ -604,7 +565,7 @@ def _run_shell_internal(
             "output": "",
             "error": f"Command timed out after {timeout} seconds"
         }
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return {
             "status": "failed",
             "exit_code": 127,

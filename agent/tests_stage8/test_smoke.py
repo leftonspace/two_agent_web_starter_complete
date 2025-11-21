@@ -19,7 +19,8 @@ sys.path.insert(0, str(agent_dir))
 def test_jobs_imports():
     """Test that jobs module imports successfully."""
     try:
-        from jobs import Job, JobManager, get_job_manager
+        from jobs import Job, JobManager, get_job_manager  # noqa: F401
+
 
         print("✓ jobs.py imports successfully")
         return True
@@ -72,8 +73,9 @@ def test_job_list():
                 "max_rounds": 1,
             }
 
-            job1 = manager.create_job(config)
+            _job1 = manager.create_job(config)
             job2 = manager.create_job(config)
+
 
             jobs = manager.list_jobs()
             assert len(jobs) == 2, "Should have 2 jobs"
@@ -150,7 +152,7 @@ def test_webapp_imports():
     """Test that webapp imports successfully with job support."""
     try:
         # Check if FastAPI is installed
-        import fastapi
+        import fastapi  # noqa: F401
 
         from webapp.app import app
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -22,19 +21,19 @@ def test_imports():
     print("[TEST] Testing module imports...")
 
     try:
-        import status_codes
-        import run_mode
-        import orchestrator
-        import llm
-        import site_tools
-        import cost_tracker
-        import cost_estimator
-        import self_eval
-        import auto_pilot
-        import run_logger
-        import exec_safety
-        import exec_analysis
-        import exec_deps
+        import auto_pilot  # noqa: F401
+        import cost_estimator  # noqa: F401
+        import cost_tracker  # noqa: F401
+        import exec_analysis  # noqa: F401
+        import exec_deps  # noqa: F401
+        import exec_safety  # noqa: F401
+        import llm  # noqa: F401
+        import orchestrator  # noqa: F401
+        import run_logger  # noqa: F401
+        import run_mode  # noqa: F401
+        import self_eval  # noqa: F401
+        import site_tools  # noqa: F401
+        import status_codes  # noqa: F401
 
         print("  ✓ All modules imported successfully")
         return True
@@ -147,8 +146,9 @@ def test_run_logger():
     print("[TEST] Testing run logger...")
 
     try:
-        from run_logger import start_run, log_iteration, finalize_run
         from dataclasses import asdict
+
+        from run_logger import finalize_run, log_iteration, start_run
 
         # Create a run
         run = start_run(
@@ -187,12 +187,12 @@ def test_status_codes():
 
     try:
         from status_codes import (
-            SUCCESS,
             COMPLETED,
             MAX_ROUNDS_REACHED,
-            is_terminal_status,
-            is_success_status,
+            SUCCESS,
             is_failure_status,
+            is_success_status,
+            is_terminal_status,
         )
 
         assert is_terminal_status(SUCCESS)

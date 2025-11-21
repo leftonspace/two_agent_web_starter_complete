@@ -1153,15 +1153,6 @@ def main(
             # PHASE 2.1a: Track unique files for knowledge graph
             all_files_modified.update(written_files)
 
-                # Track file changes
-                tracker.add_file_change(
-                    next_stage.id,
-                    rel_path,
-                    change_type="modified",  # Could be "created" if new
-                    lines_added=len(content.split('\n')),
-                    size_bytes=len(content)
-                )
-
             # Log file writes
             if written_files:
                 context.logger.log_file_write(
@@ -1401,34 +1392,13 @@ def main(
 
                 context.logger.log_safety_check(
                     core_run_id,
-                    next_stage.id,
-                    next_stage.name,
-                    reason=f"Supervisor LLM failure: {reason}"
+                    status=iteration_safety_status,
+                    error_count=error_count,
+                    warning_count=warning_count,
+                    iteration=iteration
                 )
 
-                # Don't complete or reopen - just move to next stage
-                # The retry pass will revisit this stage
-                break  # Exit audit loop
-
-            findings = audit_result.get("findings", [])
-            print(f"[Supervisor] Found {len(findings)} issues")
-
-            # Record findings in memory and tracker
-            for idx, finding in enumerate(findings):
-                issue_id = f"{next_stage.id}_issue_{audit_cycle}_{idx}"
-                severity = finding.get("severity", "warning")
-                category = finding.get("category", "general")
-                description = finding.get("description", "No description")
-                file_path = finding.get("file_path")
-
-                memory.add_finding(
-                    next_stage.id,
-                    severity=severity,
-                    category=category,
-                    description=description,
-                    file_path=file_path
-                )
-
+                # Process safety results
                 if iteration_safety_status == "failed":
                     print("\n[Safety] ❌ Safety checks FAILED")
                     print(f"[Safety] Static issues: {len(safety_result.get('static_issues', []))}")
@@ -1794,10 +1764,6 @@ def main(
         reason="All stages completed" if all_completed else "Partial completion",
         iterations=stages_processed
     )
-
-
-# For backward compatibility with run_mode.py
-main = main_phase3
 
     # PHASE 1.4: Log final result artifact if mission_id provided
     if mission_id and ARTIFACTS_AVAILABLE:

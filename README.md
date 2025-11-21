@@ -47,6 +47,18 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Task tracking**: Monitor active tasks and their progress in real-time ✨
 - **Context awareness**: Maintains conversation history for better understanding ✨
 
+### Action Execution Tools (Phase 7.4) 🎯
+- **Domain purchase**: Buy domains via Namecheap API with approval workflow ✨
+- **Website deployment**: Deploy to Vercel (auto-creates GitHub repo, pushes code, deploys) ✨
+- **SMS messaging**: Send SMS via Twilio for notifications and alerts ✨
+- **Payment processing**: Accept payments via Stripe with refund support ✨
+- **Approval workflows**: User approval required for paid or risky actions ✨
+- **Cost estimation**: Know the cost before executing any action ✨
+- **Rollback support**: Undo actions when possible (refunds, deletions) ✨
+- **Risk assessment**: LOW/MEDIUM/HIGH/CRITICAL risk levels with 2FA for critical actions ✨
+- **Audit logging**: Complete trail of all action attempts and approvals ✨
+- **Dry-run mode**: Test actions without actually executing them ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

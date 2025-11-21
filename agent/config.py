@@ -377,6 +377,47 @@ class MemoryConfig:
 
 
 @dataclass
+class ActionToolsConfig:
+    """
+    PHASE 7.4: Action execution tools configuration.
+
+    Configuration for tools that interact with external services to perform
+    real-world actions (domain purchases, deployments, payments, SMS).
+    """
+
+    # Approval settings
+    require_approval_for_paid_actions: bool = True  # Require approval for any action with cost > $0
+    require_2fa_above_usd: float = 100.0  # Require 2FA for actions costing more than this
+    approval_timeout_seconds: int = 300  # Maximum time to wait for approval (5 minutes)
+
+    # Cost limits
+    daily_spending_limit_usd: float = 500.0  # Maximum spending per day (0 = no limit)
+    per_action_limit_usd: float = 200.0  # Maximum cost per action (0 = no limit)
+
+    # Rollback settings
+    auto_rollback_on_failure: bool = True  # Automatically attempt rollback if action fails
+    rollback_timeout_seconds: int = 60  # Maximum time for rollback attempt
+
+    # API credentials (from environment)
+    # These should be set as environment variables for security
+    namecheap_api_key: str = field(default_factory=lambda: os.getenv("NAMECHEAP_API_KEY", ""))
+    namecheap_api_user: str = field(default_factory=lambda: os.getenv("NAMECHEAP_API_USER", ""))
+    vercel_token: str = field(default_factory=lambda: os.getenv("VERCEL_TOKEN", ""))
+    github_token: str = field(default_factory=lambda: os.getenv("GITHUB_TOKEN", ""))
+    twilio_account_sid: str = field(default_factory=lambda: os.getenv("TWILIO_ACCOUNT_SID", ""))
+    twilio_auth_token: str = field(default_factory=lambda: os.getenv("TWILIO_AUTH_TOKEN", ""))
+    twilio_phone_number: str = field(default_factory=lambda: os.getenv("TWILIO_PHONE_NUMBER", ""))
+    stripe_api_key: str = field(default_factory=lambda: os.getenv("STRIPE_API_KEY", ""))
+
+    # Sandbox/testing mode
+    use_sandbox_apis: bool = False  # Use sandbox/test APIs when available
+
+    # Audit logging
+    log_all_action_attempts: bool = True  # Log all action attempts (approved and declined)
+    log_approval_decisions: bool = True  # Log user approval decisions
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -429,6 +470,9 @@ class Config:
 
     # PHASE 7.3: Business memory
     memory: MemoryConfig = field(default_factory=MemoryConfig)
+
+    # PHASE 7.4: Action execution tools
+    action_tools: ActionToolsConfig = field(default_factory=ActionToolsConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

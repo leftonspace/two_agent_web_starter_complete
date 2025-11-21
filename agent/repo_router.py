@@ -15,6 +15,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# Import paths module for consistent path resolution
+try:
+    import paths as paths_module
+    PATHS_AVAILABLE = True
+except ImportError:
+    paths_module = None
+    PATHS_AVAILABLE = False
+
 
 def get_repos_from_config(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
@@ -52,8 +60,16 @@ def get_repos_from_config(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     # Fallback to project_subdir (older format)
     project_subdir = config.get("project_subdir")
     if project_subdir:
-        # Construct path relative to sites/
-        return [{"name": "default", "path": f"../sites/{project_subdir}"}]
+        # Use paths module for consistent absolute path resolution
+        if PATHS_AVAILABLE and paths_module:
+            abs_path = paths_module.resolve_project_path(project_subdir)
+            return [{"name": "default", "path": str(abs_path)}]
+        else:
+            # Fallback: construct absolute path from this file's location
+            agent_dir = Path(__file__).resolve().parent
+            root_dir = agent_dir.parent
+            abs_path = root_dir / "sites" / project_subdir
+            return [{"name": "default", "path": str(abs_path)}]
 
     # No repo config found
     return []

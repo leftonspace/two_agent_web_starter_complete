@@ -649,8 +649,20 @@ def chat_json(
     if not expect_json:
         return {"raw": content}
 
+    # Strip markdown code blocks if present (common with LLMs)
+    stripped_content = content.strip()
+    if stripped_content.startswith("```"):
+        # Remove opening code fence (```json or ```)
+        lines = stripped_content.split("\n")
+        if lines[0].startswith("```"):
+            lines = lines[1:]  # Remove first line
+        # Remove closing code fence
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        stripped_content = "\n".join(lines).strip()
+
     try:
-        parsed_response = json.loads(content)
+        parsed_response = json.loads(stripped_content)
 
         # PHASE 5.2: Store successful response in cache
         if LLM_CACHE_AVAILABLE and cache_key:

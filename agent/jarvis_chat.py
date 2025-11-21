@@ -134,10 +134,11 @@ class JarvisChat:
         # Initialize memory components if available
         if memory_enabled and SessionManager:
             try:
-                self.session_manager = SessionManager(
-                    VectorMemoryStore(persist_directory="data/chat_memory")
-                )
                 self.vector_store = VectorMemoryStore(persist_directory="data/chat_memory")
+                self.session_manager = SessionManager(
+                    vector_store=self.vector_store,
+                    user_id="default_user"  # Default user for single-user mode
+                )
                 self.context_retriever = ContextRetriever(self.vector_store)
             except Exception as e:
                 print(f"[Jarvis] Memory initialization failed: {e}")

@@ -418,6 +418,47 @@ class ActionToolsConfig:
 
 
 @dataclass
+class MeetingConfig:
+    """
+    PHASE 7A.1: Meeting platform integration configuration.
+
+    Configuration for meeting bots that join Zoom, Teams, and other platforms
+    to capture audio and participate in real-time conversations.
+    """
+
+    # Core settings
+    enabled: bool = True  # Enable meeting bot integration
+    auto_join_scheduled: bool = False  # Automatically join scheduled meetings from calendar
+    send_join_notification: bool = True  # Send chat message when joining meeting
+
+    # Platform credentials (from environment)
+    # Zoom
+    zoom_api_key: str = field(default_factory=lambda: os.getenv("ZOOM_API_KEY", ""))
+    zoom_api_secret: str = field(default_factory=lambda: os.getenv("ZOOM_API_SECRET", ""))
+    zoom_sdk_key: str = field(default_factory=lambda: os.getenv("ZOOM_SDK_KEY", ""))
+    zoom_sdk_secret: str = field(default_factory=lambda: os.getenv("ZOOM_SDK_SECRET", ""))
+
+    # Microsoft Teams
+    azure_tenant_id: str = field(default_factory=lambda: os.getenv("AZURE_TENANT_ID", ""))
+    azure_client_id: str = field(default_factory=lambda: os.getenv("AZURE_CLIENT_ID", ""))
+    azure_client_secret: str = field(default_factory=lambda: os.getenv("AZURE_CLIENT_SECRET", ""))
+
+    # Audio settings
+    audio_sample_rate: int = 16000  # Audio sample rate (Hz)
+    audio_channels: int = 1  # Mono audio
+    audio_chunk_duration_ms: int = 1000  # Chunk size in milliseconds
+
+    # Behavior settings
+    leave_after_minutes: int = 0  # Auto-leave after N minutes (0 = stay until meeting ends)
+    max_meeting_duration_hours: int = 4  # Maximum meeting duration to handle
+    record_audio: bool = True  # Capture audio stream for transcription
+
+    # Privacy settings
+    announce_recording: bool = True  # Announce that meeting is being recorded
+    obfuscate_participant_info: bool = False  # Hide participant email/details in logs
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -473,6 +514,9 @@ class Config:
 
     # PHASE 7.4: Action execution tools
     action_tools: ActionToolsConfig = field(default_factory=ActionToolsConfig)
+
+    # PHASE 7A.1: Meeting platform integration
+    meetings: MeetingConfig = field(default_factory=MeetingConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

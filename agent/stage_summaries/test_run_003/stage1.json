@@ -2,7 +2,7 @@
   "run_id": "test_run_003",
   "stage_id": "stage1",
   "stage_name": "Test Stage",
-  "started_at": 1763501115.5279586,
+  "started_at": 1763528471.2820702,
   "completed_at": null,
   "status": "in_progress",
   "files_changed": [
@@ -27,7 +27,7 @@
       "introduced_in_stage": null,
       "resolved_in_stage": null,
       "resolution_note": null,
-      "created_at": 1763501115.5286613
+      "created_at": 1763528471.283543
     }
   ],
   "regression_detected": false,

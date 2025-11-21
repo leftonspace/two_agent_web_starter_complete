@@ -10,10 +10,43 @@ STAGE 7: Created for web dashboard integration.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any, Dict, Optional
+from pathlib import Path
 
+# Make sure these imports exist; adjust if you already import them elsewhere.
+from orchestrator import main as orchestrator_main
+from orchestrator_2loop import main as orchestrator_2loop_main
+
+
+def run_3loop_orchestrator(
+    project_dir: Path,
+    config: Dict[str, Any],
+    run_summary: Optional[Any] = None,
+) -> Any:
+    """
+    Thin wrapper used by tests and web/API layer.
+    Delegates to the standard 3-loop orchestrator.
+    """
+    return orchestrator_main(project_dir=project_dir, config=config, run_summary=run_summary)
+
+
+def run_2loop_orchestrator(
+    project_dir: Path,
+    config: Dict[str, Any],
+    run_summary: Optional[Any] = None,
+) -> Any:
+    """
+    Thin wrapper for the 2-loop orchestrator.
+    """
+    return orchestrator_2loop_main(project_dir=project_dir, config=config, run_summary=run_summary)
+
+
+# STAGE 12: Import brain module
+import brain
 import cost_tracker
+
+# STAGE 10: Import QA module
+import qa
 from cost_estimator import estimate_run_cost
 from run_logger import RunSummary, finalize_run, log_iteration, save_run_summary, start_run
 from status_codes import (
@@ -21,13 +54,9 @@ from status_codes import (
     EXCEPTION,
     ITER_EXCEPTION,
     ITER_INTERRUPTED,
-    USER_ABORT,
     UNKNOWN,
+    USER_ABORT,
 )
-# STAGE 10: Import QA module
-import qa
-# STAGE 12: Import brain module
-import brain
 
 
 def run_project(config: Dict[str, Any]) -> RunSummary:
@@ -356,66 +385,65 @@ def list_run_history(limit: int = 50) -> list[Dict[str, Any]]:
 
 def get_run_details(run_id: str) -> Optional[Dict[str, Any]]:
     """
-    Get detailed information about a specific run.
+    Load stored run_summary.json for the given run_id from run_logs/.
 
-    Args:
-        run_id: Run identifier
+    The layout expected by the tests is:
 
-    Returns:
-        Run summary dict, or None if run not found
+        <root>/
+          run_logs/
+            <run_id>/
+              run_summary.json
     """
-    agent_dir = Path(__file__).resolve().parent
-    project_root = agent_dir.parent
-    run_logs_dir = project_root / "run_logs"
+    # tests patch runner.Path so that resolve().parent.parent == tmp_path
+    root = Path(__file__).resolve().parent.parent
+    run_logs_dir = root / "run_logs"
     run_dir = run_logs_dir / run_id
-    summary_file = run_dir / "run_summary.json"
+    summary_path = run_dir / "run_summary.json"
 
-    if not summary_file.exists():
+    if not summary_path.exists():
         return None
 
-    try:
-        with summary_file.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
+    return json.loads(summary_path.read_text(encoding="utf-8"))
 
 
-def run_qa_only(project_path: Path, qa_config_dict: Optional[Dict[str, Any]] = None) -> qa.QAReport:
+
+def run_qa_only(project_path: Path | str, qa_config_dict: Optional[Dict[str, Any]] = None) -> qa.QAReport:
     """
     Run QA checks on an existing project without re-running the orchestrator.
 
-    This allows on-demand quality checking of any project in the sites/ directory.
-
     Args:
-        project_path: Path to the project directory
-        qa_config_dict: Optional QA configuration dict. If None, uses defaults from project_config.json
+        project_path: Path or string to the project directory.
+        qa_config_dict: Optional QA configuration dict. If None, uses defaults
+                        from agent/project_config.json ("qa" section).
 
     Returns:
-        QAReport with quality check results
+        QAReport with quality check results.
 
     Raises:
-        FileNotFoundError: If project directory doesn't exist
-        Exception: If QA execution fails
+        FileNotFoundError: If project directory doesn't exist.
+        Exception: If QA execution fails.
     """
+    # Accept both str and Path
+    if isinstance(project_path, str):
+        project_path = Path(project_path)
+
     if not project_path.exists() or not project_path.is_dir():
         raise FileNotFoundError(f"Project directory not found: {project_path}")
 
-    # Load QA config
+    # If no explicit QA config, load from project_config.json (agent root)
     if qa_config_dict is None:
-        # Try to load from project_config.json
-        agent_dir = Path(__file__).resolve().parent
-        config_file = agent_dir / "project_config.json"
-        if config_file.exists():
-            with open(config_file, "r", encoding="utf-8") as f:
-                full_config = json.load(f)
-                qa_config_dict = full_config.get("qa", {})
-        else:
-            qa_config_dict = {}
+        # tests patch runner.Path and its resolve().parent.parent to control this
+        agent_root = Path(__file__).resolve().parent
+        config_path = agent_root / "project_config.json"
 
-    # Create QA config object
-    qa_config = qa.QAConfig.from_dict(qa_config_dict)
+        qa_config_dict = {}
+        if config_path.exists():
+            raw = json.loads(config_path.read_text(encoding="utf-8"))
+            qa_config_dict = (raw.get("qa") or {}) if isinstance(raw, dict) else {}
 
-    # Run QA checks
-    qa_report = qa.run_qa_for_project(project_path, qa_config)
+    # Build a QAConfig instance from dict
+    qa_config = qa.QAConfig.from_dict(qa_config_dict or {})
 
-    return qa_report
+    # Delegate to QA engine (tests will patch this)
+    report = qa.run_qa_for_project(project_path, qa_config)
+    return report

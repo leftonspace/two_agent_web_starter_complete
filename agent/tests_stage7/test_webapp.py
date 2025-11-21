@@ -6,7 +6,6 @@ STAGE 7: Tests web interface routes and responses.
 
 from __future__ import annotations
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -140,8 +139,9 @@ def test_start_run_missing_fields(client):
 
 def test_start_run_invalid_project(client):
     """Test POST /run with non-existent project (Stage 8: job created but fails)."""
-    from jobs import Job
     from datetime import datetime
+
+    from jobs import Job
 
     # Stage 8: Job is created successfully, but will fail in background
     mock_job = Job(
@@ -178,8 +178,9 @@ def test_start_run_invalid_project(client):
 
 def test_start_run_invalid_config(client):
     """Test POST /run with invalid configuration (Stage 8: job created but fails)."""
-    from jobs import Job
     from datetime import datetime
+
+    from jobs import Job
 
     # Stage 8: Job is created successfully, but will fail in background
     mock_job = Job(
@@ -216,8 +217,9 @@ def test_start_run_invalid_config(client):
 
 def test_start_run_success(client):
     """Test successful POST /run creates a background job (Stage 8 behavior)."""
-    from jobs import Job
     from datetime import datetime
+
+    from jobs import Job
 
     # Mock job manager and job creation
     mock_job = Job(
@@ -258,8 +260,9 @@ def test_start_run_success(client):
 
 def test_start_run_creates_job_in_manager(client):
     """Test that POST /run actually creates a job in the job manager."""
-    from jobs import Job
     from datetime import datetime
+
+    from jobs import Job
 
     mock_job = Job(
         id="job_456",

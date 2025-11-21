@@ -1,113 +1,64 @@
-# orchestrator.py
+# orchestrator_phase3.py
+"""
+PHASE 3: Adaptive Multi-Agent Orchestrator
+
+This orchestrator implements the full Phase 3 architecture with:
+- Dynamic roadmap management (merge, split, reorder, skip, reopen stages)
+- Adaptive stage flow (auto-advance on 0 findings, intelligent fix cycles)
+- Horizontal agent communication (inter-agent bus)
+- Stage-level persistent memory
+- Regression detection and automatic stage reopening
+- Comprehensive Phase 3 logging
+
+KEY DIFFERENCES FROM STAGE 2 orchestrator.py:
+- Uses WorkflowManager instead of fixed phase list
+- Implements stage-based loop instead of iteration loop
+- Auto-advances on clean supervisor audits
+- Detects regressions and reopens earlier stages
+- Uses inter_agent_bus for horizontal messaging
+- Persists stage memory and summaries
+- Emits all Phase 3 log events
+
+BACKWARD COMPATIBILITY:
+- Maintains all Stage 1-2 features (safety checks, cost tracking, git, etc.)
+- Can run in parallel with orchestrator.py (different mode in run_mode.py)
+- Uses same config format with optional Phase 3 settings
+"""
+
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# PHASE 1.5: Import dependency injection context
-from orchestrator_context import OrchestratorContext
-
-# STAGE 2.2: Import core logging for main run events
 import core_logging
 import cost_tracker
-
-# PHASE 1.3: Import prompt security for injection defense
-import prompt_security
-
-# PHASE 1.4: Import artifacts for mission logging
-try:
-    import artifacts
-    ARTIFACTS_AVAILABLE = True
-except ImportError:
-    ARTIFACTS_AVAILABLE = False
-
-# PHASE 0.3: Import new config and paths modules
-try:
-    import config as config_module
-    import paths as paths_module
-    CONFIG_AVAILABLE = True
-except ImportError:
-    CONFIG_AVAILABLE = False
-
-# PHASE 1.1: Import domain router for domain-aware prompting
-try:
-    import domain_router
-    DOMAIN_ROUTER_AVAILABLE = True
-except ImportError:
-    DOMAIN_ROUTER_AVAILABLE = False
-
-# PHASE 2.2: Import project_stats for risk analysis
-try:
-    import project_stats
-    PROJECT_STATS_AVAILABLE = True
-except ImportError:
-    PROJECT_STATS_AVAILABLE = False
-
-# PHASE 4: Import specialist system for expert agent routing
-try:
-    import specialists
-    import specialist_market
-    import company_ops
-    SPECIALISTS_AVAILABLE = True
-except ImportError:
-    SPECIALISTS_AVAILABLE = False
-
-# PHASE 5: Import overseer system for meta-orchestration
-try:
-    import overseer
-    import self_refinement
-    import feedback_analyzer
-    OVERSEER_AVAILABLE = True
-except ImportError:
-    OVERSEER_AVAILABLE = False
-
-# STAGE 3: Import dynamic workflow and memory systems
-try:
-    import workflow_manager
-    import memory_store
-    import inter_agent_bus
-    STAGE3_AVAILABLE = True
-except ImportError:
-    STAGE3_AVAILABLE = False
-    print("[Stage3] Warning: Stage 3 modules not available - using fixed iteration flow")
-
-# STAGE 4: Import merge manager and multi-repo routing
-import merge_manager
-from exec_safety import run_safety_checks
-
-# STAGE 2.1: Import tool registry for metadata
 from exec_tools import get_tool_metadata
-from git_utils import commit_all, ensure_repo
+from git_utils import ensure_repo
+from inter_agent_bus import get_bus, reset_bus
 from llm import chat_json
-
-# STAGE 5: Import model router
-from model_router import estimate_complexity, is_stage_important
+from memory_store import create_memory_store
 from prompts import load_prompts
-from repo_router import resolve_repo_path
-
-# STAGE 2: Import new run logging API
-# NOTE: We maintain TWO parallel logging systems:
-# 1. Legacy logging (run_logger.py) - writes to agent/run_logs/<project>_<mode>.jsonl
-#    - Used for backward compatibility with existing tooling
-#    - Appends high-level run summaries
-# 2. Core logging (core_logging.py) - writes to agent/run_logs_main/<run_id>.jsonl
-#    - New structured event logging system (STAGE 2)
-#    - Provides granular event tracking (LLM calls, file writes, etc.)
-#
-# PHASE 1.6: Legacy run_logger imports removed - now using core_logging only
-# RunSummary kept for type annotations only (STAGE 2 structured API)
-from run_logger import RunSummary
-# PHASE 1.6: Removed unused legacy imports:
-# from run_logger import finish_run_legacy as finish_run
-# from run_logger import log_iteration as log_iteration_new
-# from run_logger import log_iteration_legacy as log_iteration_dict
-# from run_logger import start_run_legacy as start_run
-from site_tools import (
-    analyze_site,
-    load_existing_files,
-    summarize_files_for_manager,
+from run_logger import (
+    RunSummary,
 )
+from run_logger import (
+    finish_run_legacy as finish_run,
+)
+from run_logger import (
+    log_iteration as log_iteration_new,
+)
+from run_logger import (
+    start_run_legacy as start_run,
+)
+from site_tools import (
+    load_existing_files,
+)
+from stage_summaries import create_tracker
+
+# PHASE 3: Import new systems
+from workflow_manager import create_workflow
 
 
 def _load_config() -> Dict[str, Any]:
@@ -242,6 +193,17 @@ def _ensure_out_dir(cfg: Dict[str, Any]) -> Path:
         return out_dir
 
 
+def _build_supervisor_sys(base: str) -> str:
+    """Build supervisor system prompt with phasing instructions."""
+    return (
+        base
+        + "\n\nYour task: break the manager's plan into 3–7 sequential phases.\n"
+        + "Each phase should group related work.\n"
+        + "OUTPUT RULES: Respond ONLY in JSON.\n"
+        + 'Use this structure: {"phases": [{"name": "...", "categories": [...], "plan_steps": [...]}, ...]}\n'
+    )
+
+
 def _run_simple_tests(out_dir: Path, task: str) -> Dict[str, Any]:
     """Very small sanity checks on the generated site."""
     index_path = out_dir / "index.html"
@@ -272,86 +234,35 @@ def _run_simple_tests(out_dir: Path, task: str) -> Dict[str, Any]:
 
 
 def _build_safety_feedback(safety_result: Dict[str, Any]) -> List[str]:
-    """
-    Build human-readable feedback from safety check results.
-
-    STAGE 1 AUDIT FIX: Prefixes all safety feedback with "SAFETY:" to make
-    it easy for the manager model to parse and distinguish from other feedback.
-
-    Args:
-        safety_result: Result from run_safety_checks()
-
-    Returns:
-        List of feedback strings for the manager, each prefixed with "SAFETY:"
-    """
+    """Build human-readable feedback from safety check results with SAFETY: prefix."""
     feedback = []
 
-    # Add header (prefixed for easy parsing)
-    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
+    # Header
+    feedback.append("SAFETY: " + "=" * 60)
     feedback.append("SAFETY: SAFETY CHECKS FAILED - The following issues must be fixed:")
-    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
+    feedback.append("SAFETY: " + "=" * 60)
 
-    # Static analysis issues
-    static_issues = safety_result.get("static_issues", [])
-    if static_issues:
-        # Group by severity
-        errors = [i for i in static_issues if i.get("severity") == "error"]
-        warnings = [i for i in static_issues if i.get("severity") == "warning"]
+    # Static analysis errors
+    static_issues = safety_result.get("static_analysis", {}).get("issues", [])
+    errors = [i for i in static_issues if i.get("severity") == "error"]
+    if errors:
+        feedback.append(f"SAFETY: Static Analysis ERRORS ({len(errors)} found):")
+        for issue in errors[:10]:
+            loc = f"{issue.get('file', 'unknown')}:{issue.get('line', '?')}"
+            feedback.append(f"SAFETY:   - {loc} - {issue.get('message', 'Unknown error')}")
 
-        if errors:
-            feedback.append(f"SAFETY: Static Analysis ERRORS ({len(errors)} found):")
-            for issue in errors[:5]:  # Show first 5
-                feedback.append(
-                    f"SAFETY:   - {issue['file']}:{issue['line']} - {issue['message']}"
-                )
-            if len(errors) > 5:
-                feedback.append(f"SAFETY:   ... and {len(errors) - 5} more errors")
+    # Dependency errors
+    dep_issues = safety_result.get("dependency_scan", {}).get("vulnerabilities", [])
+    critical = [v for v in dep_issues if v.get("severity") in ("CRITICAL", "HIGH")]
+    if critical:
+        feedback.append(f"SAFETY: Dependency ERRORS ({len(critical)} found - CRITICAL/HIGH):")
+        for vuln in critical[:10]:
+            pkg = vuln.get("package", "unknown")
+            ver = vuln.get("version", "?")
+            cve = vuln.get("id", "?")
+            feedback.append(f"SAFETY:   - {pkg} ({ver}): {cve}")
 
-        if warnings:
-            feedback.append(f"SAFETY: Static Analysis WARNINGS ({len(warnings)} found - should be fixed):")
-            for issue in warnings[:3]:  # Show first 3
-                feedback.append(
-                    f"SAFETY:   - {issue['file']}:{issue['line']} - {issue['message']}"
-                )
-            if len(warnings) > 3:
-                feedback.append(f"SAFETY:   ... and {len(warnings) - 3} more warnings")
-
-    # Dependency issues
-    # STAGE 1 AUDIT FIX: Now uses consistent severity mapping (error/warning/info)
-    dep_issues = safety_result.get("dependency_issues", [])
-    if dep_issues:
-        # Group by severity (now using error/warning/info)
-        errors = [i for i in dep_issues if i.get("severity") == "error"]
-        warnings = [i for i in dep_issues if i.get("severity") == "warning"]
-
-        if errors:
-            feedback.append(f"SAFETY: Dependency ERRORS ({len(errors)} found - CRITICAL/HIGH vulnerabilities):")
-            for issue in errors[:3]:  # Show first 3
-                feedback.append(
-                    f"SAFETY:   - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
-                )
-            if len(errors) > 3:
-                feedback.append(f"SAFETY:   ... and {len(errors) - 3} more error-level issues")
-
-        if warnings:
-            feedback.append(f"SAFETY: Dependency WARNINGS ({len(warnings)} found - MEDIUM vulnerabilities, should review):")
-            for issue in warnings[:2]:  # Show first 2
-                feedback.append(
-                    f"SAFETY:   - {issue['package']} ({issue.get('version', 'unknown')}): {issue['summary']}"
-                )
-            if len(warnings) > 2:
-                feedback.append(f"SAFETY:   ... and {len(warnings) - 2} more warning-level issues")
-
-    # Docker tests
-    docker = safety_result.get("docker_tests", {})
-    if docker.get("status") == "failed":
-        feedback.append(f"SAFETY: Docker/Runtime Tests FAILED: {docker.get('details', 'No details')}")
-
-    # Footer for clarity
-    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
-    feedback.append("SAFETY: All ERROR-level issues must be fixed before approval.")
-    feedback.append("SAFETY: ══════════════════════════════════════════════════════")
-
+    feedback.append("SAFETY: " + "=" * 60)
     return feedback
 
 
@@ -430,39 +341,18 @@ def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:
         return True
 
     total_cost = cost_tracker.get_total_cost_usd()
-    max_cost = float(cfg.get("max_cost_usd", 0.0) or 0.0)
+    warning_threshold = float(cfg.get("cost_warning_usd", 0) or 0)
 
-    print("\n[Cost Check] Stage:", stage_label)
-    print(f"  Current estimated cost so far: ~${total_cost:.4f} USD")
-    if max_cost:
-        print(f"  Configured cost cap:           ${max_cost:.4f} USD")
+    if mode == "once" and checkpoint != "after_planning_and_supervisor":
+        return True
 
-    answer = input("Continue with this run? [y/N]: ").strip().lower()
-    return answer in ("y", "yes")
+    if total_cost < warning_threshold:
+        return True
 
-
-def _build_supervisor_sys(manager_plan_sys: str) -> str:
-    """
-    Build a supervisor system prompt from the base manager planning prompt.
-    The supervisor's job is to turn the plan into phases with categories.
-    """
-    return (
-        manager_plan_sys
-        + "\n\nYou are now acting as a SUPERVISOR.\n"
-        + "Your task:\n"
-        + "- Take the manager's plan and acceptance criteria.\n"
-        + "- Break the work into 3–6 sequential phases.\n"
-        + "- Each phase should list:\n"
-        + "  * name: short descriptive name.\n"
-        + "  * categories: tags like layout_structure, visual_design, content_ux,\n"
-        + "    interaction_logic, qa_docs, performance_seo.\n"
-        + "  * plan_steps: indices of steps from the original plan that belong here.\n\n"
-        + "OUTPUT RULES:\n"
-        + "- Respond ONLY in JSON.\n"
-        + "- Structure:\n"
-        + "  { \"phases\": [ { \"name\": \"...\", \"categories\": [\"...\"], \"plan_steps\": [0, 1] }, ... ] }\n"
-        + "- No other top-level keys."
-    )
+    print(f"\n[Cost] Current cost: ~${total_cost:.4f} USD")
+    print(f"[Cost] Checkpoint: {checkpoint}")
+    response = input("[Cost] Continue? (y/n): ").strip().lower()
+    return response == "y"
 
 
 def main(
@@ -472,7 +362,7 @@ def main(
     context: Optional[OrchestratorContext] = None,
 ) -> Dict[str, Any]:
     """
-    Main 3-loop orchestrator function.
+    PHASE 3: Main adaptive multi-agent orchestrator.
 
     PHASE 1.5: Now supports dependency injection for easier testing.
 
@@ -543,7 +433,7 @@ def main(
 
     max_cost_usd: float = float(cfg.get("max_cost_usd", 0.0) or 0.0)
     cost_warning_usd: float = float(cfg.get("cost_warning_usd", 0.0) or 0.0)
-    interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
+    _interactive_cost_mode: str = cfg.get("interactive_cost_mode", "off")
     use_git: bool = bool(cfg.get("use_git", False))
 
     # PHASE 1.4: Git secret scanning configuration
@@ -554,26 +444,41 @@ def main(
     run_safety_before_final: bool = bool(safety_config.get("run_safety_before_final", True))
     allow_extra_iteration_on_failure: bool = bool(safety_config.get("allow_extra_iteration_on_failure", True))
 
-    print("=== PROJECT CONFIG (3-loop) ===")
+    print("=== PHASE 3 ORCHESTRATOR ===")
+    print(f"Run ID: {core_run_id}")
     print(f"Project folder: {out_dir}")
     print(f"Task: {task}")
+    print(f"Max audits per stage: {max_audits_per_stage}")
     print(f"use_visual_review: {use_visual_review}")
-    print(f"max_rounds: {max_rounds}")
     print(f"prompts_file: {prompts_file}")
     print(f"max_cost_usd: {max_cost_usd}")
     print(f"cost_warning_usd: {cost_warning_usd}")
-    print(f"interactive_cost_mode: {interactive_cost_mode}")
     print(f"use_git: {use_git}")
     print(f"git_secret_scanning_enabled: {git_secret_scanning_enabled}")
     print(f"run_safety_before_final: {run_safety_before_final}")
-    print(f"allow_extra_iteration_on_failure: {allow_extra_iteration_on_failure}")
 
-    # snapshots
+    # STAGE 3.3: Validate API connectivity before starting work
+    print("\n[API] Validating OpenAI API connectivity...")
+    from llm import validate_api_connectivity
+    is_valid, error_message = validate_api_connectivity()
+
+    if not is_valid:
+        print(f"\n❌ API VALIDATION FAILED: {error_message}")
+        print("\nPossible solutions:")
+        print("  1. Check your OPENAI_API_KEY environment variable")
+        print("  2. Verify network connectivity to api.openai.com")
+        print("  3. Check OpenAI service status at status.openai.com")
+        print("  4. Try using mode='3loop_legacy' for offline testing")
+        print("\nAborting run due to API connectivity issues.")
+        raise RuntimeError(f"API validation failed: {error_message}")
+
+    print("[API] ✅ OpenAI API is accessible\n")
+
+    # Snapshots
     snapshots_root = out_dir / ".history"
     snapshots_root.mkdir(parents=True, exist_ok=True)
 
     # Git
-    git_ready = False
     if use_git:
         git_ready = context.git_utils.ensure_repo(out_dir)
 
@@ -585,7 +490,6 @@ def main(
     manager_plan_sys = prompts["manager_plan_sys"]
     manager_review_sys = prompts["manager_review_sys"]
     employee_sys_base = prompts["employee_sys"]
-
     supervisor_sys = _build_supervisor_sys(manager_plan_sys)
 
     # PHASE 1.1: Domain classification and domain-specific prompting
@@ -737,7 +641,6 @@ def main(
 
     tool_metadata_json = json.dumps(tool_metadata, indent=2, ensure_ascii=False)
 
-    # STAGE 2.1: Inject tool metadata into agent prompts
     tools_section = (
         "\n\n=== AVAILABLE TOOLS ===\n"
         "You have access to the following tools (you may request the orchestrator to call them on your behalf):\n\n"
@@ -745,7 +648,7 @@ def main(
         "======================\n"
     )
 
-    # Append to prompts (this gives agents awareness of tools)
+    # Inject tools into prompts
     manager_plan_sys = manager_plan_sys + tools_section
     manager_review_sys = manager_review_sys + tools_section
     employee_sys_base = employee_sys_base + tools_section
@@ -761,17 +664,19 @@ def main(
         project_folder=str(out_dir),
         task_description=task,
         config={
-            "max_rounds": max_rounds,
-            "use_visual_review": use_visual_review,
             "mode": mode,
+            "max_audits_per_stage": max_audits_per_stage,
+            "use_visual_review": use_visual_review,
             "run_safety_before_final": run_safety_before_final,
             "allow_extra_iteration_on_failure": allow_extra_iteration_on_failure,
         }
     )
 
-    # 1) Manager planning
+    # ══════════════════════════════════════════════════════════════
+    # 1) MANAGER PLANNING
+    # ══════════════════════════════════════════════════════════════
+
     print("\n====== MANAGER PLANNING ======")
-    print(f"[CoreLog] Run ID: {core_run_id}")
 
     # STAGE 5: Use model router for manager planning
     manager_model = _choose_model_for_agent(
@@ -824,7 +729,7 @@ def main(
     if run_summary is not None:
         context.run_logger.log_iteration(
             run_summary,
-            index=0,  # Planning phase (pre-iteration)
+            index=0,
             role="manager",
             status="ok",
             notes="Manager created initial plan and acceptance criteria",
@@ -843,7 +748,7 @@ def main(
     )
 
     if max_cost_usd and total_cost > max_cost_usd:
-        print("[Cost] Max cost exceeded during planning. Aborting run.")
+        print("[Cost] Max cost exceeded during planning. Aborting.")
         final_status = "aborted_cost_cap_planning"
         final_cost_summary = context.cost_tracker.get_summary()
         # PHASE 1.6: core_logging.log_final_status() handles this now
@@ -857,7 +762,10 @@ def main(
         )
         return
 
-    # 2) Supervisor phasing
+    # ══════════════════════════════════════════════════════════════
+    # 2) SUPERVISOR PHASING
+    # ══════════════════════════════════════════════════════════════
+
     print("\n====== SUPERVISOR PHASING ======")
     sup_payload = {
         "task": task,
@@ -896,6 +804,14 @@ def main(
         config=cfg,
         max_cost_usd=max_cost_usd,
     )
+
+    # STAGE 3.3: Check for LLM failure during phasing
+    if phases.get("llm_failure") or phases.get("status") == "llm_failure":
+        reason = phases.get("reason", "Unknown LLM error")
+        print(f"\n❌ SUPERVISOR PHASING FAILED: {reason}")
+        print("Cannot proceed without supervisor phases.")
+        raise RuntimeError(f"Supervisor LLM call failed during phasing: {reason}")
+
     print("\n-- Supervisor Phases --")
     print(json.dumps(phases, indent=2, ensure_ascii=False))
 
@@ -978,17 +894,25 @@ def main(
         )
         return
 
-    # Track last review status/tests to drive model choice
-    last_status: Optional[str] = None
-    last_tests: Optional[Dict[str, Any]] = None
-    last_feedback: Optional[Any] = None
+    # ══════════════════════════════════════════════════════════════
+    # 3) PHASE 3: INITIALIZE WORKFLOW SYSTEMS
+    # ══════════════════════════════════════════════════════════════
 
-    # STAGE 3: Cost tracking flags
-    cost_warning_shown = False  # Prevent spamming warning
+    print("\n====== PHASE 3: INITIALIZING WORKFLOW SYSTEMS ======")
 
-    # STAGE 1: Safety failure tracking for final iteration policy
-    safety_failed_on_final = False  # Track if safety fails on last planned iteration
-    extra_iteration_granted = False  # Prevent infinite loops
+    # Create workflow manager
+    workflow = create_workflow(
+        run_id=core_run_id,
+        plan_steps=plan.get("plan", []),
+        supervisor_phases=phase_list,
+        task=task
+    )
+
+    # Create memory store
+    memory = create_memory_store(core_run_id)
+
+    # Create stage summary tracker
+    tracker = create_tracker(core_run_id)
 
     # STAGE 5.2: Track cumulative file count for complexity estimation
     cumulative_files_written = 0
@@ -1035,9 +959,11 @@ def main(
         # STAGE 2.2: Log iteration begin
         context.logger.log_iteration_begin(
             core_run_id,
-            iteration=iteration,
-            mode=mode,
-            max_rounds=max_rounds
+            message.id,
+            message.from_agent,
+            message.to_agent,
+            message.message_type.value,
+            message.subject
         )
 
         # STAGE 5: Use model router for employee
@@ -1060,20 +986,56 @@ def main(
         else:
             print("[Files] No existing files loaded; starting from scratch.")
 
-        for phase_index, phase in enumerate(phase_list, start=1):
-            print(
-                f"\n====== EMPLOYEE PHASES (iteration {iteration}) ======\n"
-                f"[Phase {phase_index}] {phase.get('name', 'Unnamed phase')} "
-                f"categories={phase.get('categories', [])}"
-            )
 
-            phase_payload = {
+        # Log stage start
+        core_logging.log_stage_started(
+            core_run_id,
+            next_stage.id,
+            next_stage.name,
+            stage_number=stages_processed,
+            total_stages=len(workflow.state.current_roadmap.stages)
+        )
+
+        # Build context from previous stages
+        prev_stage_summary = memory.get_previous_stage_summary(next_stage.id)
+        context_notes = []
+        if prev_stage_summary:
+            context_notes.append(f"Previous stage summary: {prev_stage_summary}")
+
+        # ────────────────────────────────────────────────────────
+        # ADAPTIVE FIX CYCLE LOOP (max_audits_per_stage)
+        # ────────────────────────────────────────────────────────
+
+        audit_cycle = 0
+        last_feedback: Optional[List[str]] = None
+
+        while audit_cycle < max_audits_per_stage:
+            audit_cycle += 1
+
+            print(f"\n--- Audit Cycle {audit_cycle}/{max_audits_per_stage} ---")
+
+            # Start fix cycle tracking
+            tracker.start_fix_cycle(next_stage.id, audit_cycle, employee_model="gpt-5")
+            memory.increment_iterations(next_stage.id)
+
+            # ────────────────────────────────────────────────────
+            # EMPLOYEE: Build stage
+            # ────────────────────────────────────────────────────
+
+            existing_files = load_existing_files(out_dir)
+
+            employee_payload = {
                 "task": task,
                 "plan": plan,
-                "phase": phase,
+                "phase": {
+                    "name": next_stage.name,
+                    "categories": next_stage.categories,
+                    "plan_steps": next_stage.plan_steps,
+                },
                 "previous_files": existing_files,
                 "feedback": last_feedback,
-                "iteration": iteration,
+                "context_notes": context_notes,
+                "iteration": audit_cycle,
             }
 
             employee_sys_phase = employee_sys_base
@@ -1087,11 +1049,11 @@ def main(
             context.logger.log_llm_call(
                 core_run_id,
                 role="employee",
-                model=employee_model,
-                prompt_length=len(employee_sys_phase) + len(json.dumps(phase_payload)),
-                iteration=iteration,
-                phase_index=phase_index,
-                phase_name=phase.get('name', 'Unnamed phase')
+                model="gpt-5",
+                prompt_length=len(employee_sys_base) + len(json.dumps(employee_payload)),
+                iteration=audit_cycle,
+                phase_index=stages_processed,
+                phase_name=next_stage.name
             )
 
             emp = context.llm.chat_json(
@@ -1106,11 +1068,59 @@ def main(
                 max_cost_usd=max_cost_usd,
             )
 
+            # STAGE 3.3: Check for LLM failure
+            if emp.get("llm_failure") or emp.get("status") == "llm_failure":
+                reason = emp.get("reason", "Unknown LLM error")
+                original_model = emp.get("original_model", "unknown")
+                print(f"\n❌ EMPLOYEE LLM CALL FAILED: {reason}")
+                print(f"[Stage3] Model: {original_model}")
+
+                # Check if fallback was used
+                fallback_used = emp.get("_fallback_used", False)
+                if fallback_used:
+                    fallback_model = emp.get("_fallback_model", "unknown")
+                    print(f"[Stage3] ⚠️  Even fallback model ({fallback_model}) failed")
+                    # Log model fallback event
+                    core_logging.log_model_fallback(
+                        core_run_id,
+                        next_stage.id,
+                        "employee",
+                        original_model,
+                        fallback_model,
+                        "Primary model failed, fallback also failed"
+                    )
+
+                # STAGE 3.3 FIX: Use log_llm_failure helper (proper payload dict)
+                core_logging.log_llm_failure(
+                    core_run_id,
+                    stage_id=next_stage.id,
+                    stage_name=next_stage.name,
+                    role="employee",
+                    reason=reason,
+                    retry_count=5,  # From llm.MAX_RETRIES
+                    model=original_model
+                )
+
+                # STAGE 3.3: Mark as pending_retry instead of hard failure
+                print("[Stage3] Marking stage as pending_retry for later revisit")
+                memory.set_final_status(next_stage.id, "pending_retry")
+                tracker.complete_stage(next_stage.id, "pending_retry", reason)
+
+                # Log pending retry
+                core_logging.log_stage_pending_retry(
+                    core_run_id,
+                    next_stage.id,
+                    next_stage.name,
+                    reason=f"Employee LLM failure: {reason}"
+                )
+
+                # Don't complete or reopen - just move to next stage
+                # The retry pass will revisit this stage
+                break  # Exit audit loop
+
             files_dict = emp.get("files", {})
             if not isinstance(files_dict, dict):
-                raise RuntimeError(
-                    f"Employee response 'files' must be an object/dict, got {type(files_dict)}"
-                )
+                raise RuntimeError(f"Employee response 'files' must be dict, got {type(files_dict)}")
 
             # STAGE 4.3: Determine target repo for this phase
             phase_repo_path = resolve_repo_path(cfg, stage=phase)
@@ -1143,7 +1153,16 @@ def main(
             # PHASE 2.1a: Track unique files for knowledge graph
             all_files_modified.update(written_files)
 
-            # STAGE 2.2: Log file writes
+                # Track file changes
+                tracker.add_file_change(
+                    next_stage.id,
+                    rel_path,
+                    change_type="modified",  # Could be "created" if new
+                    lines_added=len(content.split('\n')),
+                    size_bytes=len(content)
+                )
+
+            # Log file writes
             if written_files:
                 context.logger.log_file_write(
                     core_run_id,
@@ -1382,11 +1401,32 @@ def main(
 
                 context.logger.log_safety_check(
                     core_run_id,
-                    summary_status=iteration_safety_status,
-                    error_count=error_count,
-                    warning_count=warning_count,
-                    safety_run_id=safety_result.get("run_id", ""),
-                    iteration=iteration
+                    next_stage.id,
+                    next_stage.name,
+                    reason=f"Supervisor LLM failure: {reason}"
+                )
+
+                # Don't complete or reopen - just move to next stage
+                # The retry pass will revisit this stage
+                break  # Exit audit loop
+
+            findings = audit_result.get("findings", [])
+            print(f"[Supervisor] Found {len(findings)} issues")
+
+            # Record findings in memory and tracker
+            for idx, finding in enumerate(findings):
+                issue_id = f"{next_stage.id}_issue_{audit_cycle}_{idx}"
+                severity = finding.get("severity", "warning")
+                category = finding.get("category", "general")
+                description = finding.get("description", "No description")
+                file_path = finding.get("file_path")
+
+                memory.add_finding(
+                    next_stage.id,
+                    severity=severity,
+                    category=category,
+                    description=description,
+                    file_path=file_path
                 )
 
                 if iteration_safety_status == "failed":
@@ -1532,10 +1572,12 @@ def main(
         # STAGE 2.2: Log iteration end
         context.logger.log_iteration_end(
             core_run_id,
-            iteration=iteration,
-            status=status,
-            tests_all_passed=test_results.get("all_passed", False),
-            safety_status=iteration_safety_status
+            next_stage.id,
+            next_stage.name,
+            status="completed",
+            iterations=audit_cycle,
+            audit_count=audit_cycle,
+            duration_seconds=stage_duration
         )
 
         # PHASE 1.4: Log iteration end artifact
@@ -1581,19 +1623,12 @@ def main(
 
         # Show warning once when crossing cost_warning_usd
         if cost_warning_usd and total_cost > cost_warning_usd and not cost_warning_shown:
-            print(
-                f"\n⚠️  [Cost] WARNING: total cost ~${total_cost:.4f} exceeds warning "
-                f"threshold ${cost_warning_usd:.4f}"
-            )
+            print(f"\n⚠️  [Cost] Warning threshold exceeded: ${total_cost:.4f} > ${cost_warning_usd:.4f}")
             cost_warning_shown = True
 
-        # Hard stop if max_cost_usd exceeded
         if max_cost_usd and total_cost > max_cost_usd:
-            print(
-                f"\n❌ [Cost] HARD CAP EXCEEDED (~${total_cost:.4f} > ${max_cost_usd:.4f}). "
-                "Stopping further iterations."
-            )
-            last_status = "cost_cap_exceeded"
+            print(f"\n[Cost] ❌ Max cost cap exceeded: ${total_cost:.4f} > ${max_cost_usd:.4f}")
+            print("[Cost] Aborting run.")
             break
 
         if status == "approved":
@@ -1627,20 +1662,18 @@ def main(
                     print(f"[Stage3] Warning: Failed to complete/advance stage: {e}")
 
             break
-        else:
-            print("\n[Manager] Requested changes – will continue if rounds remain.")
 
-    # ─────────────────────────────────────────────────────────────
-    # STAGE 1: Final safety failure handling
-    # ─────────────────────────────────────────────────────────────
-    # If safety failed on the extra iteration we granted, we've exhausted
-    # all options. Mark the run as failed with unresolved safety issues.
-    final_status = last_status or "completed_no_status"
+        print(f"\n{'='*70}")
+        print(f"RETRY PASS #{retry_pass}")
+        print(f"Stages pending retry: {len(pending_stages)}")
+        print(f"{'='*70}")
 
-    if safety_failed_on_final and extra_iteration_granted and last_status == "needs_changes":
-        print("\n⚠️  [Safety] Safety checks failed even after extra iteration")
-        print("[Safety] Run ended with UNRESOLVED SAFETY ISSUES")
-        final_status = "failed_safety_unresolved"
+        # Log retry pass start
+        core_logging.log_stage_retry_pass_start(
+            core_run_id,
+            pass_number=retry_pass,
+            pending_stage_count=len(pending_stages)
+        )
 
     final_cost_summary = context.cost_tracker.get_summary()
 
@@ -1758,12 +1791,13 @@ def main(
     context.logger.log_final_status(
         core_run_id,
         status=final_status,
-        reason=f"Run completed with status: {final_status}",
-        iterations=max_rounds,
-        total_cost_usd=final_cost_summary.get("total_usd", 0.0)
+        reason="All stages completed" if all_completed else "Partial completion",
+        iterations=stages_processed
     )
 
-    print(f"\n[CoreLog] Main run logs written to: run_logs_main/{core_run_id}.jsonl")
+
+# For backward compatibility with run_mode.py
+main = main_phase3
 
     # PHASE 1.4: Log final result artifact if mission_id provided
     if mission_id and ARTIFACTS_AVAILABLE:
@@ -1885,4 +1919,4 @@ def run(
 
 
 if __name__ == "__main__":
-    main()
+    main_phase3()

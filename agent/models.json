@@ -131,9 +131,9 @@
     "high_complexity": "openai/gpt-4o",
     "reasoning": "openai/o1",
     "reasoning_mini": "openai/o1-mini",
-    "cost_optimized": "anthropic/claude-haiku-4",
-    "balanced": "anthropic/claude-sonnet-4",
-    "premium": "anthropic/claude-opus-4"
+    "cost_optimized": "openai/gpt-4o-mini",
+    "balanced": "openai/gpt-4o",
+    "premium": "openai/gpt-4o"
   },
 
   "role_defaults": {

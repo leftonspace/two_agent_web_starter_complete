@@ -37,9 +37,9 @@ def _sanitize_json_escapes(content: str) -> str:
     """
     Sanitize invalid JSON escape sequences from LLM responses.
 
-    LLMs sometimes generate invalid escape sequences like \@ (for @media in CSS)
+    LLMs sometimes generate invalid escape sequences like \\@ (for @media in CSS)
     which are not valid JSON escapes. This function fixes them by:
-    1. Identifying invalid escape sequences (e.g., \@, \#, \!, etc.)
+    1. Identifying invalid escape sequences (e.g., \\@, \\#, \\!, etc.)
     2. Removing the backslash before characters that don't need escaping
 
     Valid JSON escapes are: \" \\\\ \\/ \\b \\f \\n \\r \\t \\uXXXX

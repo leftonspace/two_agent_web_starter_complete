@@ -1772,17 +1772,8 @@ def main(
 
             break
 
-        print(f"\n{'='*70}")
-        print(f"RETRY PASS #{retry_pass}")
-        print(f"Stages pending retry: {len(pending_stages)}")
-        print(f"{'='*70}")
-
-        # Log retry pass start
-        core_logging.log_stage_retry_pass_start(
-            core_run_id,
-            pass_number=retry_pass,
-            pending_stage_count=len(pending_stages)
-        )
+        # If not approved, continue to next iteration (needs_changes)
+        print(f"\n[Iteration] Status: {status} - continuing to next iteration...")
 
     final_cost_summary = context.cost_tracker.get_summary()
 

@@ -27,6 +27,7 @@ BACKWARD COMPATIBILITY:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import time
 from pathlib import Path
@@ -558,7 +559,12 @@ def main(
 
     # STAGE 3.3: Validate API connectivity before starting work
     print("\n[API] Validating OpenAI API connectivity...")
-    from llm import validate_api_connectivity
+    # Load llm.py explicitly to bypass llm/ package shadowing (Phase 9)
+    llm_file = Path(__file__).parent / "llm.py"
+    spec = importlib.util.spec_from_file_location("llm_module", llm_file)
+    llm_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(llm_module)
+    validate_api_connectivity = llm_module.validate_api_connectivity
     is_valid, error_message = validate_api_connectivity()
 
     if not is_valid:

@@ -99,6 +99,14 @@ if static_dir.exists():
 app.include_router(auth_router)
 app.include_router(api_keys_router)
 
+# JARVIS CHAT: Include chat API router
+try:
+    from chat_api import router as chat_router
+    app.include_router(chat_router)
+    print("[Startup] Jarvis chat API loaded")
+except ImportError as e:
+    print(f"[Startup] Chat API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 
@@ -1854,6 +1862,20 @@ async def api_delete_integration(connector_id: str):
 # ══════════════════════════════════════════════════════════════════════
 # PHASE 7.1: Conversational Agent Endpoints
 # ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/jarvis", response_class=HTMLResponse)
+async def jarvis_chat_page(request: Request):
+    """
+    Serve Jarvis conversational interface.
+
+    NEW: Modern chat interface with intelligent task routing.
+    Routes to multi-agent orchestrator for complex tasks.
+    """
+    return templates.TemplateResponse(
+        "jarvis.html",
+        {"request": request}
+    )
 
 
 @app.get("/chat", response_class=HTMLResponse)

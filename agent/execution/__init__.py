@@ -6,12 +6,14 @@ PHASE 7B.2: Direct execution mode for simple tasks.
 PHASE 7B.3: Task routing logic with retry and escalation.
 PHASE 7C.1: Employee AI pool management for parallel execution.
 PHASE 7C.2: Parallel task distribution with priority queuing.
+PHASE 7C.3: Supervisor review queue with quality gates.
 
 Decides HOW to execute tasks based on complexity, risk, and cost.
 Executes simple tasks directly without multi-agent review.
 Routes tasks to appropriate executors with automatic retry and escalation.
 Manages multiple concurrent Employee agents for parallel task execution.
 Distributes tasks intelligently with priority, dependencies, and load balancing.
+Reviews Employee work with quality gates and automated approval.
 """
 
 from agent.execution.strategy_decider import (
@@ -40,6 +42,15 @@ from agent.execution.task_distributor import (
     TaskRequest,
     TaskResult
 )
+from agent.execution.review_queue import (
+    ReviewQueueManager,
+    RiskLevel,
+    WorkType,
+    ReviewStatus,
+    ReviewItem,
+    ReviewResult,
+    QualityGateResult
+)
 
 __all__ = [
     "StrategyDecider",
@@ -57,5 +68,12 @@ __all__ = [
     "TaskDistributor",
     "TaskPriority",
     "TaskRequest",
-    "TaskResult"
+    "TaskResult",
+    "ReviewQueueManager",
+    "RiskLevel",
+    "WorkType",
+    "ReviewStatus",
+    "ReviewItem",
+    "ReviewResult",
+    "QualityGateResult"
 ]

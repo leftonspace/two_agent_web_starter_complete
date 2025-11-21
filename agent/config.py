@@ -533,6 +533,43 @@ class MeetingIntelligenceConfig:
 
 
 @dataclass
+class ExecutionStrategyConfig:
+    """
+    PHASE 7B.1: Execution strategy configuration.
+
+    Configuration for intelligent execution strategy selection.
+    """
+
+    # Core settings
+    enabled: bool = True  # Enable intelligent strategy selection
+    use_llm_analysis: bool = True  # Use LLM to analyze tasks (vs. heuristics only)
+
+    # LLM settings for analysis
+    analysis_model: str = "gpt-4o"  # Model for task analysis
+    analysis_temperature: float = 0.1  # Low temperature for consistent analysis
+
+    # Strategy thresholds
+    complexity_threshold_reviewed: float = 4.0  # Complexity score requiring review
+    complexity_threshold_full_loop: float = 7.0  # Complexity score requiring full loop
+    risk_threshold_reviewed: float = 4.0  # Risk score requiring review
+    risk_threshold_human_approval: float = 7.0  # Risk score requiring human approval
+
+    # Cost settings
+    estimated_cost_per_llm_call: float = 0.15  # USD per LLM call (GPT-4o average)
+    max_cost_direct_execution: float = 0.50  # Max cost for direct execution (USD)
+
+    # Timeout settings (seconds)
+    timeout_direct: int = 30
+    timeout_reviewed: int = 120
+    timeout_full_loop: int = 180
+    timeout_human_approval: int = 300
+
+    # Override settings
+    allow_urgency_override: bool = True  # Allow urgent tasks to skip review
+    allow_manual_overrides: bool = True  # Allow manual strategy overrides
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -597,6 +634,9 @@ class Config:
 
     # PHASE 7A.4: Meeting intelligence
     meeting_intelligence: MeetingIntelligenceConfig = field(default_factory=MeetingIntelligenceConfig)
+
+    # PHASE 7B.1: Execution strategy
+    execution_strategy: ExecutionStrategyConfig = field(default_factory=ExecutionStrategyConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

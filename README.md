@@ -104,6 +104,18 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Meeting summaries**: Generates comprehensive summaries with action items, decisions, questions ✨
 - **Safety controls**: Configurable limits on actions per meeting and confirmation requirements ✨
 
+### Execution Strategy Decider (Phase 7B.1) 🎯
+- **Intelligent strategy selection**: Analyzes tasks to choose optimal execution approach ✨
+- **4 execution modes**: Direct (JARVIS solo), Reviewed (Employee+Supervisor), Full Loop (Manager+Employee+Supervisor), Human Approval ✨
+- **Complexity analysis**: Scores tasks 0-10 based on code generation, APIs, file changes, steps ✨
+- **Risk assessment**: Evaluates production impact, reversibility, security, downtime risk ✨
+- **Cost estimation**: Predicts LLM API costs before execution ✨
+- **Manual overrides**: Predefined patterns for known tasks (deploy→approval, query→direct) ✨
+- **Urgency handling**: Immediate tasks skip review (unless high risk) ✨
+- **Conservative by default**: Overestimates complexity/risk for safety ✨
+- **Decision rationale**: Explains why each strategy was chosen ✨
+- **Timeout suggestions**: Recommends appropriate timeouts per complexity level ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

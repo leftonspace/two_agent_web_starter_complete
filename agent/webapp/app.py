@@ -123,7 +123,19 @@ async def startup_event():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """
-    Home page with project selection form and run history.
+    Redirect to Jarvis chat interface.
+
+    The new default interface is the conversational Jarvis chat.
+    For the old orchestrator dashboard, use /dashboard
+    """
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/jarvis")
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """
+    Orchestrator dashboard with project selection form and run history.
 
     Shows:
     - Form to configure and start a new run
@@ -2076,9 +2088,11 @@ if __name__ == "__main__":
     import uvicorn
 
     print("=" * 60)
-    print("  AI Dev Team Dashboard")
+    print("  🤖 Jarvis AI Assistant")
     print("=" * 60)
-    print("  Starting web server on http://127.0.0.1:8000")
+    print("  Chat Interface:  http://127.0.0.1:8000/jarvis")
+    print("  Orchestrator:    http://127.0.0.1:8000/dashboard")
+    print()
     print("  Press Ctrl+C to stop")
     print("=" * 60)
     print()

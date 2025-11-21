@@ -29,8 +29,16 @@ except ImportError:
 # Import orchestrator
 try:
     from orchestrator import main as orchestrator_main
+    from orchestrator_context import OrchestratorContext
 except ImportError:
     orchestrator_main = None
+    OrchestratorContext = None
+
+# Import existing LLM infrastructure
+try:
+    from llm import chat as llm_chat
+except ImportError:
+    llm_chat = None
 
 
 class IntentType(Enum):
@@ -93,11 +101,9 @@ class JarvisChat:
 
     def __init__(
         self,
-        openai_api_key: Optional[str] = None,
         memory_enabled: bool = True
     ):
         """Initialize Jarvis chat"""
-        self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         self.memory_enabled = memory_enabled
 
         # Initialize memory components if available
@@ -114,25 +120,12 @@ class JarvisChat:
         else:
             self.memory_enabled = False
 
-        # Initialize OpenAI client
-        self._init_llm_client()
+        # Use existing LLM infrastructure
+        self.llm_available = llm_chat is not None
 
         # Conversation state
         self.current_session = None
         self.conversation_history: List[ChatMessage] = []
-
-    def _init_llm_client(self):
-        """Initialize OpenAI client"""
-        try:
-            import openai
-            if self.openai_api_key:
-                self.llm_client = openai.OpenAI(api_key=self.openai_api_key)
-            else:
-                # Try to use default from environment
-                self.llm_client = openai.OpenAI()
-        except Exception as e:
-            print(f"[Jarvis] OpenAI client initialization failed: {e}")
-            self.llm_client = None
 
     async def start_session(self, user_id: str = "default_user") -> str:
         """Start a new conversation session"""
@@ -228,7 +221,7 @@ class JarvisChat:
 
         Uses LLM to classify the request type.
         """
-        if not self.llm_client:
+        if not self.llm_available:
             # Fallback: simple heuristics
             return self._fallback_intent_analysis(message)
 
@@ -276,13 +269,14 @@ Return ONLY valid JSON (no markdown):
   "project_name": "optional_project_name"
 }}"""
 
-            response = self.llm_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
+            # Use existing LLM infrastructure
+            result_text = await asyncio.to_thread(
+                llm_chat,
+                role="employee",
+                system_prompt="You are a task classification assistant. Return valid JSON only.",
+                user_content=prompt,
                 temperature=0.3
             )
-
-            result_text = response.choices[0].message.content.strip()
 
             # Remove markdown code blocks if present
             if result_text.startswith("```"):
@@ -290,7 +284,7 @@ Return ONLY valid JSON (no markdown):
                 if result_text.startswith("json"):
                     result_text = result_text[4:]
 
-            result_json = json.loads(result_text)
+            result_json = json.loads(result_text.strip())
             return Intent.from_json(result_json)
 
         except Exception as e:
@@ -343,7 +337,7 @@ Return ONLY valid JSON (no markdown):
         context: Optional[Dict]
     ) -> Dict[str, Any]:
         """Handle simple questions - direct LLM response"""
-        if not self.llm_client:
+        if not self.llm_available:
             return {
                 "content": "I apologize, but I cannot process queries without an LLM client configured.",
                 "metadata": {"error": True}
@@ -351,32 +345,30 @@ Return ONLY valid JSON (no markdown):
 
         try:
             # Build conversation context
-            messages = [
-                {"role": "system", "content": "You are Jarvis, a helpful AI assistant. Answer questions clearly and concisely."}
-            ]
-
-            # Add recent conversation history
+            history_text = ""
             for msg in self.conversation_history[-10:]:
-                messages.append({
-                    "role": msg.role,
-                    "content": msg.content
-                })
+                history_text += f"{msg.role}: {msg.content}\n"
 
-            # Add current message
-            messages.append({"role": "user", "content": message})
+            full_prompt = f"""Previous conversation:
+{history_text}
 
-            response = self.llm_client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=messages,
+User: {message}
+
+Jarvis:"""
+
+            # Use existing LLM infrastructure
+            response_text = await asyncio.to_thread(
+                llm_chat,
+                role="employee",
+                system_prompt="You are Jarvis, a helpful AI assistant. Answer questions clearly and concisely.",
+                user_content=full_prompt,
                 temperature=0.7
             )
 
             return {
-                "content": response.choices[0].message.content,
+                "content": response_text,
                 "metadata": {
-                    "type": "simple_query",
-                    "model": "gpt-4-turbo-preview",
-                    "tokens": response.usage.total_tokens
+                    "type": "simple_query"
                 }
             }
 
@@ -410,9 +402,13 @@ Return ONLY valid JSON (no markdown):
             }
 
             # Run orchestrator if available
-            if orchestrator_main:
+            if orchestrator_main and OrchestratorContext:
                 print("[Jarvis] Running multi-agent orchestrator...")
-                result = await asyncio.to_thread(orchestrator_main, config)
+
+                # Create orchestrator context
+                orch_context = OrchestratorContext.create_default(config)
+
+                result = await asyncio.to_thread(orchestrator_main, orch_context)
 
                 # Format response
                 files_created = result.get("files_modified", [])
@@ -576,7 +572,7 @@ Could you provide more details about what changes you'd like me to make?"""
         context: Optional[Dict] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """Stream response tokens as they're generated"""
-        if not self.llm_client:
+        if not self.llm_available:
             yield {
                 "type": "error",
                 "content": "LLM client not configured",
@@ -585,29 +581,36 @@ Could you provide more details about what changes you'd like me to make?"""
             return
 
         try:
-            messages = [
-                {"role": "system", "content": "You are Jarvis, a helpful AI assistant."}
-            ]
-
+            # Build conversation context
+            history_text = ""
             for msg in self.conversation_history[-10:]:
-                messages.append({"role": msg.role, "content": msg.content})
+                history_text += f"{msg.role}: {msg.content}\n"
 
-            messages.append({"role": "user", "content": message})
+            full_prompt = f"""Previous conversation:
+{history_text}
 
-            response = self.llm_client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=messages,
-                temperature=0.7,
-                stream=True
+User: {message}
+
+Jarvis:"""
+
+            # Get full response (streaming not supported with current infrastructure)
+            response_text = await asyncio.to_thread(
+                llm_chat,
+                role="employee",
+                system_prompt="You are Jarvis, a helpful AI assistant.",
+                user_content=full_prompt,
+                temperature=0.7
             )
 
-            for chunk in response:
-                if chunk.choices[0].delta.content:
-                    yield {
-                        "type": "token",
-                        "content": chunk.choices[0].delta.content,
-                        "timestamp": time.time()
-                    }
+            # Simulate streaming by chunking the response
+            words = response_text.split()
+            for i, word in enumerate(words):
+                yield {
+                    "type": "token",
+                    "content": word + (" " if i < len(words) - 1 else ""),
+                    "timestamp": time.time()
+                }
+                await asyncio.sleep(0.02)  # Small delay for smoother effect
 
             yield {
                 "type": "complete",

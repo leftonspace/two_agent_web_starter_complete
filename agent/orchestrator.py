@@ -1080,6 +1080,7 @@ def main(
         context.logger.log_iteration_begin(
             core_run_id,
             iteration=iteration,
+            mode=mode,  # "3loop" for Phase 3 orchestrator
             stage_name=phase_list[current_stage_idx].get("name", f"Stage {current_stage_idx}") if current_stage_idx < len(phase_list) else "Unknown"
         )
 

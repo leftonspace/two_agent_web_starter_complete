@@ -418,22 +418,33 @@ Jarvis:"""
             project_name = intent.project_name or self._extract_project_name(message)
             project_path = Path("sites") / project_name
 
-            # Prepare orchestrator config
+            # Prepare orchestrator config - must include project_subdir for orchestrator
             config = {
                 "task": message,
-                "project_path": str(project_path),
+                "project_subdir": project_name,  # Key field for orchestrator
                 "max_rounds": 3,
-                "mode": "3-loop",
+                "max_cost_usd": 1.5,
+                "cost_warning_usd": 0.8,
+                "use_git": True,
+                "use_visual_review": False,
+                "prompts_file": "prompts_default.json",
             }
 
             # Run orchestrator if available
             if orchestrator_main and OrchestratorContext:
                 print("[Jarvis] Running multi-agent orchestrator...")
 
-                # Create orchestrator context
+                # Create orchestrator context with config
                 orch_context = OrchestratorContext.create_default(config)
 
-                result = await asyncio.to_thread(orchestrator_main, orch_context)
+                # Pass config as cfg_override and context properly using keyword args
+                result = await asyncio.to_thread(
+                    orchestrator_main,
+                    run_summary=None,
+                    mission_id=None,
+                    cfg_override=config,
+                    context=orch_context
+                )
 
                 # Format response
                 files_created = result.get("files_modified", [])

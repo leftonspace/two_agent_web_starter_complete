@@ -116,6 +116,18 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Decision rationale**: Explains why each strategy was chosen ✨
 - **Timeout suggestions**: Recommends appropriate timeouts per complexity level ✨
 
+### Direct Execution Mode (Phase 7B.2) ⚡
+- **Fast path execution**: JARVIS executes simple tasks immediately without multi-agent review ✨
+- **7 action types**: query_database, search_info, create_document, send_message, calculate, api_call, file_read ✨
+- **Safety-first design**: Only whitelisted actions, read-only by default ✨
+- **Database safety**: Blocks UPDATE, DELETE, INSERT, DROP, ALTER, CREATE - allows SELECT only ✨
+- **API safety**: Blocks POST, PUT, PATCH, DELETE - allows GET and HEAD only ✨
+- **File safety**: Blocks access to system directories (/etc, /sys, /proc, C:\Windows) ✨
+- **Timeout protection**: 30-second max execution time prevents hung tasks ✨
+- **Automatic validation**: Validates results before returning ✨
+- **LLM-powered planning**: Uses GPT-4o-mini for fast action planning ✨
+- **Error handling**: Graceful failures with detailed error messages ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

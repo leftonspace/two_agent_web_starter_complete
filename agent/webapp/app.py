@@ -17,27 +17,28 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
-import qa
+
+# Make sure both the repo root and agent/ are on sys.path
+agent_dir = Path(__file__).resolve().parent.parent      # .../agent
+project_root = agent_dir.parent                        # .../two_agent_web_starter_clean_new
+
+for p in (project_root, agent_dir):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+import qa  # now Python can see agent/qa.py
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# Add agent/ to path to import our modules
-agent_dir = Path(__file__).resolve().parent.parent
-if str(agent_dir) not in sys.path:
-    sys.path.insert(0, str(agent_dir))
-
 import analytics  # noqa: E402
 import brain  # noqa: E402
 import file_explorer  # noqa: E402
 from jobs import get_job_manager  # noqa: E402
-from runner import run_qa_only  # noqa: E402
 from runner import get_run_details, list_projects, list_run_history, run_qa_only  # noqa: E402
 
-# PHASE 7.1: Conversational Agent
-from conversational_agent import ConversationalAgent
 
 # PHASE 1.1: Authentication
 from agent.webapp.auth import (
@@ -52,6 +53,31 @@ from agent.webapp.auth_routes import (
     api_keys_router,
     initialize_auth_system,
 )
+
+class ConversationalAgent:
+    """
+    Temporary stub so the web UI can run even if conversational_agent.py is broken.
+    """
+
+    async def chat(self, message: str):
+        # Simple placeholder response
+        return "Conversational agent is not fully configured yet, but the dashboard is running."
+
+    def get_active_tasks(self):
+        return []
+
+    def get_task_status(self, task_id: str):
+        return None
+
+    def get_agent_messages(self, since_id: Optional[str] = None):
+        return []
+
+    def get_pending_agent_responses(self):
+        return []
+
+    def respond_to_agent(self, message_id: str, response: str):
+        return False
+
 
 # Initialize FastAPI app
 app = FastAPI(

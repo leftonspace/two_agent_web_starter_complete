@@ -445,13 +445,12 @@ Use the business context if relevant to answer the question accurately."""
         msg_lower = user_message.lower()
 
         if any(g in msg_lower for g in greetings):
-            return """Hello! I'm the System-1.2 conversational agent. I can help you:
-- Execute tasks (format code, run tests, git operations)
-- Build complex systems
-- Answer questions about the platform
-- Automate workflows
+            return (
+    "Hello! I'm the System-1.2 conversational agent. "
+    "I can help you run coding tasks, manage jobs, explore projects, "
+    "and tune your AI workflows."
+)
 
-What would you like to do?"""
 
         elif any(f in msg_lower for f in farewells):
             return "Goodbye! Feel free to return anytime you need assistance."

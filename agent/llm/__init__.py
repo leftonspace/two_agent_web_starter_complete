@@ -27,3 +27,23 @@ __all__ = [
     "HybridStrategy",
     "TaskComplexity",
 ]
+
+# ----------------------------------------------------------------------
+# Backwards compatibility: expose chat_json from legacy llm.py
+# so imports like `from llm import chat_json` keep working.
+# ----------------------------------------------------------------------
+try:
+    import importlib.util
+    from pathlib import Path as _Path
+
+    _legacy_llm_path = _Path(__file__).resolve().parent.parent / "llm.py"
+    if _legacy_llm_path.exists():
+        spec = importlib.util.spec_from_file_location("legacy_llm", _legacy_llm_path)
+        legacy_llm = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(legacy_llm)  # type: ignore[arg-type]
+        # Re-export for callers
+        chat_json = legacy_llm.chat_json  # type: ignore[attr-defined]
+except Exception:
+    # If anything goes wrong, don't crash import; callers will see normal errors.
+    pass

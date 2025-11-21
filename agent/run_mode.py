@@ -292,6 +292,12 @@ def main() -> None:
             # 2loop doesn't support run_summary yet
             main_2loop()
             final_status = COMPLETED
+        elif mode == "phase3":
+            # PHASE 3: Adaptive multi-agent orchestrator
+            from orchestrator_phase3 import main_phase3
+            # Pass run_summary to enable STAGE 2 logging
+            main_phase3(run_summary=run_summary)
+            final_status = COMPLETED
         else:
             # Default to 3-loop if anything else
             from orchestrator import main as main_3loop

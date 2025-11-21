@@ -182,6 +182,20 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Async review processing**: Non-blocking submission and result retrieval ✨
 - **Configurable thresholds**: Set auto-approval risk threshold and batch timeouts ✨
 
+### Code Execution Engine (Phase 8.1) 🚀
+- **Multi-language support**: Python, JavaScript (Node.js), and shell command execution ✨
+- **Sandboxed execution**: Isolated subprocess execution for security ✨
+- **Import validation**: Whitelist of safe Python modules, dangerous modules blocked ✨
+- **Shell command whitelist**: Only safe read-only commands allowed (ls, cat, grep, etc.) ✨
+- **Timeout protection**: Configurable execution timeout (default 30s, max 5min) ✨
+- **Output capture**: Captures stdout, stderr, and return codes ✨
+- **Security validation**: Pre-execution checks for dangerous patterns ✨
+- **Resource limits**: Memory and CPU limits (max 1GB memory) ✨
+- **Dangerous pattern blocking**: Blocks eval(), exec(), subprocess, file operations ✨
+- **Network isolation**: Network access disabled by default ✨
+- **Automatic cleanup**: Temp files automatically deleted after execution ✨
+- **Comprehensive logging**: All execution attempts logged with violations ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

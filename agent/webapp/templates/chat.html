@@ -374,6 +374,14 @@ async function sendMessage() {
     }
 }
 
+function addMessage(role, content) {
+    const messagesDiv = document.getElementById('messages');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${role}`;
+
+    const roleDiv = document.createElement('div');
+    roleDiv.className = 'message-role';
+    roleDiv.textContent = role.charAt(0).toUpperCase() + role.slice(1);
 // PHASE 7.2: Track last seen agent message ID for polling
 let lastAgentMessageId = null;
 

@@ -210,6 +210,20 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 - **Flexible authentication**: Per-request header override support ✨
 - **Comprehensive logging**: All requests logged with timing and status ✨
 
+### File System Operations (Phase 8.3) 📁
+- **Workspace restrictions**: All operations confined to workspace directory ✨
+- **Path validation**: Prevents directory traversal attacks (../, absolute paths) ✨
+- **System file protection**: Blocks access to /etc, /sys, /proc, Windows system dirs ✨
+- **Async file I/O**: Non-blocking read/write operations with aiofiles ✨
+- **Directory operations**: Create, delete, list directories with recursion support ✨
+- **File management**: Read, write, append, copy, move, delete files ✨
+- **Glob patterns**: List files with wildcard patterns (*.py, **/*.txt) ✨
+- **File metadata**: Get size, timestamps, type information ✨
+- **Size limits**: Configurable max file size (default 10MB) ✨
+- **Git integration**: Full repository management (init, commit, push, branches) ✨
+- **Git operations**: Add, commit, push, pull, branch management, status, diff, log ✨
+- **Safe git commands**: All git operations through validated async subprocess calls ✨
+
 ### Self-Optimization (Stage 12) 🆕
 - **Project profiling**: Historical behavior analysis per project ✨
 - **Intelligent recommendations**: Data-driven optimization suggestions ✨

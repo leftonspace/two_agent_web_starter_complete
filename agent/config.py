@@ -498,6 +498,41 @@ class TranscriptionConfig:
 
 
 @dataclass
+class MeetingIntelligenceConfig:
+    """
+    PHASE 7A.4: Meeting intelligence configuration.
+
+    Configuration for real-time meeting analysis and action execution.
+    """
+
+    # Core settings
+    enabled: bool = True  # Enable meeting intelligence
+    analysis_interval_seconds: int = 30  # How often to analyze transcript segments
+
+    # LLM settings for analysis
+    analysis_model: str = "gpt-4o"  # Model for extracting action items/decisions
+    analysis_temperature: float = 0.1  # Low temperature for consistent extraction
+
+    # Action execution settings
+    enable_real_time_actions: bool = True  # Execute actions during meetings
+    execute_immediate_actions: bool = True  # Execute immediate urgency actions
+    execute_during_meeting_actions: bool = True  # Execute during-meeting urgency actions
+    defer_after_meeting_actions: bool = True  # Defer after-meeting actions
+
+    # Safety settings
+    max_actions_per_meeting: int = 10  # Maximum actions JARVIS can take in one meeting
+    require_action_confirmation: bool = False  # Require confirmation before executing
+
+    # Chat integration
+    announce_actions_in_chat: bool = True  # Announce actions in meeting chat
+    send_summary_to_chat: bool = False  # Send summary at end of meeting
+
+    # Storage settings
+    save_meeting_summaries: bool = True  # Save summaries to disk
+    summaries_directory: str = "./meetings/summaries"  # Where to save summaries
+
+
+@dataclass
 class Config:
     """
     Main configuration container.
@@ -559,6 +594,9 @@ class Config:
 
     # PHASE 7A.2: Real-time transcription
     transcription: TranscriptionConfig = field(default_factory=TranscriptionConfig)
+
+    # PHASE 7A.4: Meeting intelligence
+    meeting_intelligence: MeetingIntelligenceConfig = field(default_factory=MeetingIntelligenceConfig)
 
     # Project-specific
     project_name: str = "Unknown Project"

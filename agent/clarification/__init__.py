@@ -33,12 +33,14 @@ from .generator import (
     QuestionSet,
     QuestionPriority,
     QuestionCategory,
+    QuestionType,
 )
 
 from .manager import (
     ClarificationManager,
     ClarificationSession,
     SessionStatus,
+    ClarificationPhase,
     Answer,
     clarify_request,
 )
@@ -71,11 +73,13 @@ __all__ = [
     'QuestionSet',
     'QuestionPriority',
     'QuestionCategory',
+    'QuestionType',
 
     # Manager
     'ClarificationManager',
     'ClarificationSession',
     'SessionStatus',
+    'ClarificationPhase',
     'Answer',
     'clarify_request',
 

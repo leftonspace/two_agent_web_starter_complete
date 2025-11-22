@@ -319,6 +319,1104 @@ class CustomAgent(ConversableAgent):
 
 ---
 
+# Part 1B: The Council System - Meta-Orchestration Architecture
+
+## 1B.1 Council System Overview
+
+The Council system is a **gamified meta-orchestration layer** that transforms Jarvis from a simple orchestrator into an intelligent, adaptive system with incentive alignment.
+
+**Core Concept:**
+- **Jarvis** becomes the **Council Leader** - a meta-orchestrator managing a pool of specialists
+- **Supervisors + Employees** become **Councillors** - specialists who vote on decisions
+- Performance metrics affect **vote weight** - high performers have more influence
+- **Happiness levels** affect quality - unhappy agents perform worse
+- **Fire/Spawn mechanics** - continuously improve the agent pool
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE COUNCIL ARCHITECTURE                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│                        ┌─────────────────────┐                               │
+│                        │   COUNCIL LEADER    │                               │
+│                        │      (Jarvis)       │                               │
+│                        │  ┌───────────────┐  │                               │
+│                        │  │ Happiness: 85 │  │                               │
+│                        │  │ Bonus Pool: $ │  │                               │
+│                        │  │ Team Score: A │  │                               │
+│                        │  └───────────────┘  │                               │
+│                        └──────────┬──────────┘                               │
+│                                   │                                          │
+│                    ┌──────────────┼──────────────┐                          │
+│                    │              │              │                          │
+│           ┌────────▼────────┐ ┌──▼───────────┐ ┌▼─────────────┐           │
+│           │  COUNCILLOR #1  │ │ COUNCILLOR #2│ │ COUNCILLOR #3│           │
+│           │    (Coder)      │ │  (Designer)  │ │  (Reviewer)  │           │
+│           │ ┌─────────────┐ │ │┌────────────┐│ │┌────────────┐│           │
+│           │ │Perf: 92%    │ │ ││Perf: 78%   ││ ││Perf: 88%   ││           │
+│           │ │Vote: 1.84x  │ │ ││Vote: 1.0x  ││ ││Vote: 1.56x ││           │
+│           │ │Happy: 90    │ │ ││Happy: 65   ││ ││Happy: 85   ││           │
+│           │ │Spec: Python │ │ ││Spec: CSS   ││ ││Spec: QA    ││           │
+│           │ └─────────────┘ │ │└────────────┘│ │└────────────┘│           │
+│           └─────────────────┘ └──────────────┘ └──────────────┘           │
+│                    │              │              │                          │
+│                    │         VOTE ON TASK        │                          │
+│                    │              │              │                          │
+│                    ▼              ▼              ▼                          │
+│              ┌─────────────────────────────────────┐                        │
+│              │          WEIGHTED DECISION          │                        │
+│              │  Winner = Sum(Vote × Weight × Conf) │                        │
+│              └─────────────────────────────────────┘                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 1B.2 Core Data Models
+
+### Councillor Model
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict
+from enum import Enum
+from datetime import datetime
+
+class Specialization(str, Enum):
+    CODING = "coding"
+    DESIGN = "design"
+    ARCHITECTURE = "architecture"
+    TESTING = "testing"
+    DOCUMENTATION = "documentation"
+    RESEARCH = "research"
+    PLANNING = "planning"
+    REVIEW = "review"
+
+class CouncillorStatus(str, Enum):
+    ACTIVE = "active"
+    PROBATION = "probation"  # New or underperforming
+    SUSPENDED = "suspended"  # Temporarily inactive
+    TERMINATED = "terminated"  # Fired
+
+class PerformanceMetrics(BaseModel):
+    """Track councillor performance over time"""
+    tasks_completed: int = 0
+    tasks_failed: int = 0
+    quality_scores: List[float] = Field(default_factory=list)  # 0-100
+    speed_scores: List[float] = Field(default_factory=list)    # Relative to expected
+    feedback_scores: List[float] = Field(default_factory=list) # User ratings
+
+    # Rolling averages (last 20 tasks)
+    avg_quality: float = 75.0
+    avg_speed: float = 1.0
+    avg_feedback: float = 75.0
+
+    # Derived metrics
+    success_rate: float = 0.0
+    consistency_score: float = 0.0  # Low variance = high consistency
+
+    def update(self, quality: float, speed: float, feedback: float, success: bool):
+        """Update metrics after task completion"""
+        self.quality_scores.append(quality)
+        self.speed_scores.append(speed)
+        self.feedback_scores.append(feedback)
+
+        if success:
+            self.tasks_completed += 1
+        else:
+            self.tasks_failed += 1
+
+        # Keep last 20 for rolling average
+        self.quality_scores = self.quality_scores[-20:]
+        self.speed_scores = self.speed_scores[-20:]
+        self.feedback_scores = self.feedback_scores[-20:]
+
+        # Recalculate averages
+        self.avg_quality = sum(self.quality_scores) / len(self.quality_scores)
+        self.avg_speed = sum(self.speed_scores) / len(self.speed_scores)
+        self.avg_feedback = sum(self.feedback_scores) / len(self.feedback_scores)
+
+        total_tasks = self.tasks_completed + self.tasks_failed
+        self.success_rate = self.tasks_completed / total_tasks if total_tasks > 0 else 0.0
+
+        # Consistency = inverse of standard deviation
+        if len(self.quality_scores) > 1:
+            import statistics
+            variance = statistics.variance(self.quality_scores)
+            self.consistency_score = max(0, 100 - variance)  # Higher = more consistent
+
+    @property
+    def overall_performance(self) -> float:
+        """Calculate overall performance score (0-100)"""
+        return (
+            self.avg_quality * 0.4 +
+            self.avg_feedback * 0.3 +
+            self.success_rate * 100 * 0.2 +
+            self.consistency_score * 0.1
+        )
+
+class Councillor(BaseModel):
+    """A specialist agent in the Council"""
+    id: str
+    name: str
+    specialization: Specialization
+    model: str = "gpt-4o"  # LLM model to use
+
+    # Core attributes
+    status: CouncillorStatus = CouncillorStatus.ACTIVE
+    created_at: datetime = Field(default_factory=datetime.now)
+
+    # Performance
+    metrics: PerformanceMetrics = Field(default_factory=PerformanceMetrics)
+
+    # Happiness (0-100)
+    happiness: float = 75.0
+    happiness_factors: Dict[str, float] = Field(default_factory=dict)
+
+    # Vote weight (calculated from performance)
+    base_vote_weight: float = 1.0
+
+    # Task history
+    recent_tasks: List[str] = Field(default_factory=list)
+
+    # Personality/Style (affects prompt)
+    personality_traits: List[str] = Field(default_factory=list)
+    communication_style: str = "professional"
+
+    @property
+    def vote_weight(self) -> float:
+        """Calculate vote weight based on performance"""
+        performance = self.metrics.overall_performance
+
+        # Performance coefficient: 0.5x to 2.0x multiplier
+        # 50% performance = 0.5x weight
+        # 80% performance = 1.0x weight (baseline)
+        # 100% performance = 2.0x weight
+        if performance < 80:
+            coefficient = 0.5 + (performance / 80) * 0.5
+        else:
+            coefficient = 1.0 + ((performance - 80) / 20) * 1.0
+
+        # Happiness modifier: unhappy councillors are less effective
+        happiness_modifier = 0.7 + (self.happiness / 100) * 0.3
+
+        return self.base_vote_weight * coefficient * happiness_modifier
+
+    @property
+    def should_be_fired(self) -> bool:
+        """Check if councillor should be terminated"""
+        # Fire if:
+        # 1. Performance below 40% for sustained period
+        # 2. More than 5 consecutive failures
+        # 3. Happiness below 20% (will quit/sabotage)
+
+        if self.metrics.overall_performance < 40 and self.metrics.tasks_completed > 10:
+            return True
+        if self.metrics.tasks_failed >= 5 and self.tasks_completed == 0:
+            return True
+        if self.happiness < 20:
+            return True
+        return False
+
+    def update_happiness(self, delta: float, reason: str):
+        """Update happiness with tracking"""
+        self.happiness_factors[reason] = delta
+        self.happiness = max(0, min(100, self.happiness + delta))
+```
+
+### Council Leader Model
+
+```python
+class BonusPool(BaseModel):
+    """Track bonus allocation"""
+    total_available: float = 1000.0  # Abstract points
+    allocated: Dict[str, float] = Field(default_factory=dict)
+    pending_bonuses: List[Dict] = Field(default_factory=list)
+
+    def allocate_bonus(self, councillor_id: str, amount: float, reason: str):
+        """Allocate bonus to councillor"""
+        if amount <= self.total_available:
+            self.pending_bonuses.append({
+                "councillor_id": councillor_id,
+                "amount": amount,
+                "reason": reason,
+                "timestamp": datetime.now().isoformat()
+            })
+            self.total_available -= amount
+            self.allocated[councillor_id] = self.allocated.get(councillor_id, 0) + amount
+
+class CouncilLeader(BaseModel):
+    """Jarvis as the Council Leader"""
+    name: str = "Jarvis"
+
+    # Council state
+    councillors: Dict[str, Councillor] = Field(default_factory=dict)
+    max_councillors: int = 10
+    min_councillors: int = 3
+
+    # Leader metrics
+    happiness: float = 80.0  # Leader's happiness affects bonus pool
+    team_performance: float = 0.0
+    tasks_orchestrated: int = 0
+
+    # Bonus system
+    bonus_pool: BonusPool = Field(default_factory=BonusPool)
+
+    # Boss satisfaction (external - from user)
+    boss_satisfaction: float = 75.0  # Affects bonus pool replenishment
+
+    # Decision history
+    decision_log: List[Dict] = Field(default_factory=list)
+
+    @property
+    def active_councillors(self) -> List[Councillor]:
+        """Get all active councillors"""
+        return [c for c in self.councillors.values()
+                if c.status == CouncillorStatus.ACTIVE]
+
+    def calculate_team_performance(self) -> float:
+        """Calculate overall team performance"""
+        active = self.active_councillors
+        if not active:
+            return 0.0
+        return sum(c.metrics.overall_performance for c in active) / len(active)
+
+    def replenish_bonus_pool(self):
+        """Replenish bonus pool based on boss satisfaction"""
+        # Higher boss satisfaction = more bonus budget
+        replenish_rate = 100 * (self.boss_satisfaction / 100)
+        self.bonus_pool.total_available += replenish_rate
+
+    def update_leader_happiness(self):
+        """Update leader happiness based on team metrics"""
+        team_perf = self.calculate_team_performance()
+        avg_councillor_happiness = sum(c.happiness for c in self.active_councillors) / len(self.active_councillors)
+
+        # Leader is happy when:
+        # - Team performs well (40%)
+        # - Councillors are happy (30%)
+        # - Boss is satisfied (30%)
+        self.happiness = (
+            team_perf * 0.4 +
+            avg_councillor_happiness * 0.3 +
+            self.boss_satisfaction * 0.3
+        )
+```
+
+---
+
+## 1B.3 Weighted Voting System
+
+```python
+from dataclasses import dataclass
+from typing import List, Tuple, Optional, Callable
+import asyncio
+
+@dataclass
+class Vote:
+    """A councillor's vote on a decision"""
+    councillor_id: str
+    option: str
+    confidence: float  # 0-1, how confident in this choice
+    reasoning: str
+    weight: float  # Calculated vote weight
+
+    @property
+    def weighted_score(self) -> float:
+        return self.confidence * self.weight
+
+class VotingSession:
+    """Manage a voting session for a decision"""
+
+    def __init__(
+        self,
+        council_leader: CouncilLeader,
+        question: str,
+        options: List[str],
+        required_specializations: Optional[List[Specialization]] = None,
+        timeout_seconds: int = 30
+    ):
+        self.council_leader = council_leader
+        self.question = question
+        self.options = options
+        self.required_specs = required_specializations
+        self.timeout = timeout_seconds
+        self.votes: List[Vote] = []
+
+    def get_eligible_voters(self) -> List[Councillor]:
+        """Get councillors eligible to vote"""
+        active = self.council_leader.active_councillors
+
+        if self.required_specs:
+            # Filter by specialization
+            return [c for c in active if c.specialization in self.required_specs]
+        return active
+
+    async def collect_vote(self, councillor: Councillor, llm_client) -> Vote:
+        """Get a single councillor's vote via LLM"""
+        prompt = f"""You are {councillor.name}, a specialist in {councillor.specialization.value}.
+
+Your personality: {', '.join(councillor.personality_traits) or 'Professional and thorough'}
+
+QUESTION: {self.question}
+
+OPTIONS:
+{chr(10).join(f'- {opt}' for opt in self.options)}
+
+Based on your expertise, vote for ONE option and explain why.
+
+Respond in JSON:
+{{
+    "vote": "<option>",
+    "confidence": <0.0-1.0>,
+    "reasoning": "<brief explanation>"
+}}"""
+
+        response = await llm_client.chat(
+            messages=[{"role": "user", "content": prompt}],
+            model=councillor.model
+        )
+
+        # Parse response
+        import json
+        data = json.loads(response)
+
+        return Vote(
+            councillor_id=councillor.id,
+            option=data["vote"],
+            confidence=data["confidence"],
+            reasoning=data["reasoning"],
+            weight=councillor.vote_weight
+        )
+
+    async def conduct_vote(self, llm_client) -> Dict:
+        """Conduct the full voting session"""
+        voters = self.get_eligible_voters()
+
+        if not voters:
+            return {"error": "No eligible voters"}
+
+        # Collect votes in parallel
+        vote_tasks = [self.collect_vote(c, llm_client) for c in voters]
+        self.votes = await asyncio.gather(*vote_tasks)
+
+        # Tally results
+        results = self.tally_votes()
+
+        # Log decision
+        self.council_leader.decision_log.append({
+            "question": self.question,
+            "options": self.options,
+            "votes": [v.__dict__ for v in self.votes],
+            "result": results,
+            "timestamp": datetime.now().isoformat()
+        })
+
+        return results
+
+    def tally_votes(self) -> Dict:
+        """Calculate weighted vote results"""
+        scores = {opt: 0.0 for opt in self.options}
+        vote_counts = {opt: 0 for opt in self.options}
+        reasonings = {opt: [] for opt in self.options}
+
+        for vote in self.votes:
+            if vote.option in scores:
+                scores[vote.option] += vote.weighted_score
+                vote_counts[vote.option] += 1
+                reasonings[vote.option].append({
+                    "councillor": vote.councillor_id,
+                    "reasoning": vote.reasoning,
+                    "confidence": vote.confidence
+                })
+
+        # Find winner
+        winner = max(scores, key=scores.get)
+        total_weight = sum(scores.values())
+
+        return {
+            "winner": winner,
+            "scores": scores,
+            "vote_counts": vote_counts,
+            "confidence": scores[winner] / total_weight if total_weight > 0 else 0,
+            "reasonings": reasonings,
+            "total_voters": len(self.votes),
+            "consensus": vote_counts[winner] == len(self.votes)  # Unanimous?
+        }
+```
+
+---
+
+## 1B.4 Happiness & Bonus System
+
+```python
+class HappinessManager:
+    """Manage councillor happiness and bonuses"""
+
+    # Happiness impact factors
+    HAPPINESS_IMPACTS = {
+        "task_success": +5,
+        "task_failure": -8,
+        "bonus_received": +15,
+        "criticism": -10,
+        "praise": +8,
+        "overworked": -12,  # Too many consecutive tasks
+        "idle": -3,  # No tasks for a while
+        "vote_won": +3,
+        "vote_ignored": -5,  # Voted differently than outcome
+        "colleague_fired": -8,
+        "new_colleague": +2,
+    }
+
+    def __init__(self, council_leader: CouncilLeader):
+        self.council = council_leader
+
+    def process_task_result(
+        self,
+        councillor: Councillor,
+        success: bool,
+        quality_score: float,
+        user_feedback: Optional[str] = None
+    ):
+        """Process task completion and update happiness/metrics"""
+
+        # Update metrics
+        councillor.metrics.update(
+            quality=quality_score,
+            speed=1.0,  # Would calculate from actual time
+            feedback=self._parse_feedback_score(user_feedback),
+            success=success
+        )
+
+        # Update happiness
+        if success:
+            councillor.update_happiness(
+                self.HAPPINESS_IMPACTS["task_success"],
+                "task_success"
+            )
+
+            # Bonus for high quality
+            if quality_score > 90:
+                self._award_bonus(councillor, 50, "exceptional_quality")
+        else:
+            councillor.update_happiness(
+                self.HAPPINESS_IMPACTS["task_failure"],
+                "task_failure"
+            )
+
+        # Check for overwork
+        if len(councillor.recent_tasks) > 5:
+            councillor.update_happiness(
+                self.HAPPINESS_IMPACTS["overworked"],
+                "overworked"
+            )
+
+    def _award_bonus(self, councillor: Councillor, amount: float, reason: str):
+        """Award bonus to councillor"""
+        self.council.bonus_pool.allocate_bonus(councillor.id, amount, reason)
+        councillor.update_happiness(
+            self.HAPPINESS_IMPACTS["bonus_received"],
+            f"bonus_{reason}"
+        )
+
+    def process_vote_result(self, vote_result: Dict, votes: List[Vote]):
+        """Update happiness based on voting outcome"""
+        winner = vote_result["winner"]
+
+        for vote in votes:
+            councillor = self.council.councillors.get(vote.councillor_id)
+            if not councillor:
+                continue
+
+            if vote.option == winner:
+                councillor.update_happiness(
+                    self.HAPPINESS_IMPACTS["vote_won"],
+                    "vote_won"
+                )
+            else:
+                councillor.update_happiness(
+                    self.HAPPINESS_IMPACTS["vote_ignored"],
+                    "vote_ignored"
+                )
+
+    def _parse_feedback_score(self, feedback: Optional[str]) -> float:
+        """Convert text feedback to numeric score"""
+        if not feedback:
+            return 75.0  # Neutral
+
+        feedback_lower = feedback.lower()
+
+        if any(word in feedback_lower for word in ["excellent", "perfect", "amazing"]):
+            return 95.0
+        elif any(word in feedback_lower for word in ["good", "great", "nice"]):
+            return 85.0
+        elif any(word in feedback_lower for word in ["okay", "fine", "acceptable"]):
+            return 70.0
+        elif any(word in feedback_lower for word in ["bad", "poor", "wrong"]):
+            return 40.0
+        elif any(word in feedback_lower for word in ["terrible", "awful", "useless"]):
+            return 20.0
+
+        return 75.0  # Default neutral
+```
+
+---
+
+## 1B.5 Fire/Spawn Mechanics
+
+```python
+import random
+from typing import Optional
+
+class CouncillorFactory:
+    """Create and manage councillor lifecycle"""
+
+    # Templates for new councillors
+    COUNCILLOR_TEMPLATES = {
+        Specialization.CODING: {
+            "names": ["Ada", "Linus", "Grace", "Alan", "Margaret"],
+            "traits": ["meticulous", "efficient", "pragmatic"],
+            "models": ["claude-3-5-sonnet", "gpt-4o", "deepseek-chat"]
+        },
+        Specialization.DESIGN: {
+            "names": ["Dieter", "Jony", "Paula", "Massimo", "April"],
+            "traits": ["creative", "detail-oriented", "user-focused"],
+            "models": ["gpt-4o", "claude-3-5-sonnet"]
+        },
+        Specialization.TESTING: {
+            "names": ["Murphy", "Edge", "Chaos", "Validator", "Assert"],
+            "traits": ["skeptical", "thorough", "systematic"],
+            "models": ["gpt-4o-mini", "deepseek-chat"]
+        },
+        Specialization.REVIEW: {
+            "names": ["Critic", "Sage", "Mentor", "Guardian", "Oracle"],
+            "traits": ["analytical", "constructive", "experienced"],
+            "models": ["claude-3-5-sonnet", "gpt-4o"]
+        },
+        Specialization.ARCHITECTURE: {
+            "names": ["Blueprint", "Scaffold", "Foundation", "Pillar"],
+            "traits": ["strategic", "big-picture", "systematic"],
+            "models": ["gpt-4o", "claude-3-5-sonnet"]
+        }
+    }
+
+    def __init__(self, council_leader: CouncilLeader):
+        self.council = council_leader
+        self._id_counter = 0
+
+    def spawn_councillor(
+        self,
+        specialization: Specialization,
+        name: Optional[str] = None,
+        inherit_from: Optional[Councillor] = None
+    ) -> Councillor:
+        """Create a new councillor"""
+
+        template = self.COUNCILLOR_TEMPLATES.get(specialization, {})
+
+        # Generate unique ID
+        self._id_counter += 1
+        councillor_id = f"councillor_{specialization.value}_{self._id_counter}"
+
+        # Choose name
+        if not name:
+            used_names = {c.name for c in self.council.councillors.values()}
+            available_names = [n for n in template.get("names", ["Agent"])
+                            if n not in used_names]
+            name = random.choice(available_names) if available_names else f"Agent_{self._id_counter}"
+
+        # Choose model
+        model = random.choice(template.get("models", ["gpt-4o"]))
+
+        # Choose traits
+        traits = random.sample(template.get("traits", []), min(2, len(template.get("traits", []))))
+
+        councillor = Councillor(
+            id=councillor_id,
+            name=name,
+            specialization=specialization,
+            model=model,
+            status=CouncillorStatus.PROBATION,  # New councillors start on probation
+            personality_traits=traits,
+            happiness=70.0  # Slightly nervous starting happiness
+        )
+
+        # Inherit some knowledge from predecessor
+        if inherit_from:
+            councillor.recent_tasks = inherit_from.recent_tasks[-5:]  # Learn from last 5 tasks
+            # Start with slightly better metrics if learning from good performer
+            if inherit_from.metrics.overall_performance > 70:
+                councillor.metrics.avg_quality = 70.0
+
+        # Add to council
+        self.council.councillors[councillor_id] = councillor
+
+        # Notify other councillors
+        for c in self.council.active_councillors:
+            if c.id != councillor_id:
+                c.update_happiness(
+                    HappinessManager.HAPPINESS_IMPACTS["new_colleague"],
+                    f"new_colleague_{councillor_id}"
+                )
+
+        return councillor
+
+    def fire_councillor(self, councillor: Councillor, reason: str) -> Optional[Councillor]:
+        """Terminate a councillor and optionally spawn replacement"""
+
+        # Update status
+        councillor.status = CouncillorStatus.TERMINATED
+
+        # Notify other councillors
+        for c in self.council.active_councillors:
+            c.update_happiness(
+                HappinessManager.HAPPINESS_IMPACTS["colleague_fired"],
+                f"fired_{councillor.id}"
+            )
+
+        # Log termination
+        self.council.decision_log.append({
+            "action": "termination",
+            "councillor": councillor.id,
+            "reason": reason,
+            "performance": councillor.metrics.overall_performance,
+            "timestamp": datetime.now().isoformat()
+        })
+
+        # Spawn replacement if below minimum
+        replacement = None
+        if len(self.council.active_councillors) < self.council.min_councillors:
+            replacement = self.spawn_councillor(
+                councillor.specialization,
+                inherit_from=councillor
+            )
+
+        return replacement
+
+    def evaluate_all_councillors(self) -> List[Dict]:
+        """Evaluate all councillors and fire underperformers"""
+
+        actions = []
+
+        for councillor in list(self.council.councillors.values()):
+            if councillor.status != CouncillorStatus.ACTIVE:
+                continue
+
+            if councillor.should_be_fired:
+                reason = self._get_termination_reason(councillor)
+                replacement = self.fire_councillor(councillor, reason)
+                actions.append({
+                    "action": "fired",
+                    "councillor": councillor.name,
+                    "reason": reason,
+                    "replacement": replacement.name if replacement else None
+                })
+
+            # Promote from probation after 10 successful tasks
+            elif (councillor.status == CouncillorStatus.PROBATION and
+                  councillor.metrics.tasks_completed >= 10 and
+                  councillor.metrics.overall_performance > 60):
+                councillor.status = CouncillorStatus.ACTIVE
+                actions.append({
+                    "action": "promoted",
+                    "councillor": councillor.name,
+                    "from": "probation",
+                    "to": "active"
+                })
+
+        return actions
+
+    def _get_termination_reason(self, councillor: Councillor) -> str:
+        """Generate termination reason"""
+        if councillor.metrics.overall_performance < 40:
+            return f"Sustained poor performance ({councillor.metrics.overall_performance:.1f}%)"
+        if councillor.happiness < 20:
+            return "Voluntary departure due to low morale"
+        if councillor.metrics.tasks_failed >= 5:
+            return "Too many consecutive failures"
+        return "Performance below standards"
+```
+
+---
+
+## 1B.6 Council Orchestration Integration
+
+```python
+class CouncilOrchestrator:
+    """Orchestrate tasks through the Council system"""
+
+    def __init__(
+        self,
+        council_leader: CouncilLeader,
+        llm_client,
+        happiness_manager: HappinessManager,
+        councillor_factory: CouncillorFactory
+    ):
+        self.council = council_leader
+        self.llm = llm_client
+        self.happiness = happiness_manager
+        self.factory = councillor_factory
+
+    async def process_task(self, task: str, task_type: str) -> Dict:
+        """Process a task through the Council"""
+
+        self.council.tasks_orchestrated += 1
+
+        # Step 1: Task Analysis Vote
+        analysis_vote = VotingSession(
+            council_leader=self.council,
+            question=f"How should we approach this task?\n\n{task}",
+            options=[
+                "Simple: Single councillor can handle",
+                "Standard: Needs planning then execution",
+                "Complex: Needs multi-councillor collaboration",
+                "Unclear: Need more information from user"
+            ]
+        )
+
+        approach_result = await analysis_vote.conduct_vote(self.llm)
+        self.happiness.process_vote_result(approach_result, analysis_vote.votes)
+
+        # Step 2: Select executor(s) based on approach
+        if approach_result["winner"] == "Unclear: Need more information from user":
+            return {
+                "status": "clarification_needed",
+                "reasoning": approach_result["reasonings"]["Unclear: Need more information from user"]
+            }
+
+        # Step 3: Assign councillors
+        assignees = self._select_councillors_for_task(task, task_type, approach_result)
+
+        # Step 4: Execute with selected councillors
+        results = await self._execute_with_councillors(task, assignees)
+
+        # Step 5: Review vote (if multiple councillors)
+        if len(assignees) > 1:
+            review_vote = VotingSession(
+                council_leader=self.council,
+                question=f"Review these results:\n{results}\n\nIs this acceptable?",
+                options=["Approve", "Needs revision", "Reject and restart"],
+                required_specializations=[Specialization.REVIEW]
+            )
+            review_result = await review_vote.conduct_vote(self.llm)
+            self.happiness.process_vote_result(review_result, review_vote.votes)
+
+            if review_result["winner"] != "Approve":
+                # Handle revision/restart
+                pass
+
+        # Step 6: Update metrics and happiness
+        for councillor in assignees:
+            self.happiness.process_task_result(
+                councillor,
+                success=True,  # Would be based on actual result
+                quality_score=85.0  # Would be calculated
+            )
+
+        # Step 7: Periodic evaluation
+        if self.council.tasks_orchestrated % 10 == 0:
+            actions = self.factory.evaluate_all_councillors()
+            if actions:
+                results["council_actions"] = actions
+
+        # Step 8: Update leader happiness
+        self.council.update_leader_happiness()
+
+        return results
+
+    def _select_councillors_for_task(
+        self,
+        task: str,
+        task_type: str,
+        approach: Dict
+    ) -> List[Councillor]:
+        """Select best councillors for the task"""
+
+        active = self.council.active_councillors
+
+        # Map task types to specializations
+        type_to_spec = {
+            "coding": Specialization.CODING,
+            "design": Specialization.DESIGN,
+            "testing": Specialization.TESTING,
+            "architecture": Specialization.ARCHITECTURE,
+            "documentation": Specialization.DOCUMENTATION
+        }
+
+        primary_spec = type_to_spec.get(task_type, Specialization.CODING)
+
+        # Sort by vote weight (performance * happiness)
+        specialists = [c for c in active if c.specialization == primary_spec]
+        specialists.sort(key=lambda c: c.vote_weight, reverse=True)
+
+        # For complex tasks, add reviewer
+        if "Complex" in approach["winner"]:
+            reviewers = [c for c in active if c.specialization == Specialization.REVIEW]
+            if reviewers:
+                specialists.append(max(reviewers, key=lambda c: c.vote_weight))
+
+        return specialists[:3] if specialists else active[:1]
+
+    async def _execute_with_councillors(
+        self,
+        task: str,
+        councillors: List[Councillor]
+    ) -> Dict:
+        """Execute task with assigned councillors"""
+
+        results = {}
+
+        for councillor in councillors:
+            prompt = f"""You are {councillor.name}, specialist in {councillor.specialization.value}.
+Your traits: {', '.join(councillor.personality_traits)}
+
+TASK: {task}
+
+Complete this task according to your expertise. Be thorough but efficient."""
+
+            response = await self.llm.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=councillor.model
+            )
+
+            results[councillor.id] = {
+                "name": councillor.name,
+                "specialization": councillor.specialization.value,
+                "response": response
+            }
+
+            councillor.recent_tasks.append(task[:100])
+
+        return results
+```
+
+---
+
+## 1B.7 Implementation Prompt
+
+```
+Implement the Council System for Jarvis multi-agent orchestration.
+
+Requirements:
+
+1. Create data models:
+   - Councillor: id, name, specialization, performance metrics, happiness, vote weight
+   - CouncilLeader: manages councillors, tracks team performance, bonus pool
+   - PerformanceMetrics: quality, speed, feedback, success rate, consistency
+
+2. Implement weighted voting:
+   - VotingSession class that collects votes from eligible councillors
+   - Vote weight = base_weight × performance_coefficient × happiness_modifier
+   - Performance coefficient: 0.5x (50% perf) to 2.0x (100% perf)
+   - Support parallel vote collection with asyncio
+
+3. Happiness system:
+   - Track happiness factors (success: +5, failure: -8, bonus: +15, etc.)
+   - Unhappy councillors have reduced vote weight
+   - Very unhappy councillors (< 20%) trigger termination
+
+4. Bonus system:
+   - Bonus pool replenished by boss satisfaction
+   - Award bonuses for exceptional performance (quality > 90)
+   - Bonuses increase happiness
+
+5. Fire/Spawn mechanics:
+   - Fire if: performance < 40%, 5+ consecutive failures, happiness < 20%
+   - Spawn replacements to maintain min_councillors
+   - New councillors start on probation
+   - Promote after 10 successful tasks with > 60% performance
+
+6. Integration:
+   - CouncilOrchestrator processes tasks through voting and assignment
+   - Tasks go through: analysis vote → assignment → execution → review vote
+   - Periodic evaluation every 10 tasks
+
+Files to create:
+- agent/council/models.py (Councillor, CouncilLeader, PerformanceMetrics)
+- agent/council/voting.py (Vote, VotingSession)
+- agent/council/happiness.py (HappinessManager)
+- agent/council/factory.py (CouncillorFactory)
+- agent/council/orchestrator.py (CouncilOrchestrator)
+```
+
+---
+
+## 1B.8 Backtest Verification
+
+```python
+# tests/test_council_system.py
+import pytest
+from council.models import Councillor, CouncilLeader, Specialization, PerformanceMetrics
+from council.voting import VotingSession, Vote
+from council.happiness import HappinessManager
+from council.factory import CouncillorFactory
+
+class TestPerformanceMetrics:
+    def test_overall_performance_calculation(self):
+        metrics = PerformanceMetrics()
+        metrics.avg_quality = 90
+        metrics.avg_feedback = 85
+        metrics.success_rate = 0.9
+        metrics.consistency_score = 80
+
+        # (90*0.4) + (85*0.3) + (90*0.2) + (80*0.1) = 36 + 25.5 + 18 + 8 = 87.5
+        assert metrics.overall_performance == pytest.approx(87.5, rel=0.01)
+
+    def test_metrics_update(self):
+        metrics = PerformanceMetrics()
+        metrics.update(quality=90, speed=1.0, feedback=85, success=True)
+
+        assert metrics.tasks_completed == 1
+        assert metrics.tasks_failed == 0
+        assert metrics.avg_quality == 90
+
+class TestCouncillor:
+    def test_vote_weight_high_performer(self):
+        councillor = Councillor(
+            id="test_1",
+            name="Ada",
+            specialization=Specialization.CODING,
+            happiness=100.0
+        )
+        councillor.metrics.avg_quality = 95
+        councillor.metrics.avg_feedback = 95
+        councillor.metrics.success_rate = 1.0
+        councillor.metrics.consistency_score = 90
+
+        # High performance + high happiness = ~2.0x weight
+        assert councillor.vote_weight > 1.8
+
+    def test_vote_weight_low_performer(self):
+        councillor = Councillor(
+            id="test_2",
+            name="Bob",
+            specialization=Specialization.CODING,
+            happiness=50.0
+        )
+        councillor.metrics.avg_quality = 50
+        councillor.metrics.avg_feedback = 50
+        councillor.metrics.success_rate = 0.5
+        councillor.metrics.consistency_score = 40
+
+        # Low performance + low happiness = ~0.5x weight
+        assert councillor.vote_weight < 0.7
+
+    def test_should_be_fired_poor_performance(self):
+        councillor = Councillor(
+            id="test_3",
+            name="Charlie",
+            specialization=Specialization.TESTING
+        )
+        councillor.metrics.avg_quality = 30
+        councillor.metrics.avg_feedback = 30
+        councillor.metrics.tasks_completed = 15
+
+        assert councillor.should_be_fired == True
+
+    def test_should_not_be_fired_good_performer(self):
+        councillor = Councillor(
+            id="test_4",
+            name="Diana",
+            specialization=Specialization.DESIGN,
+            happiness=80.0
+        )
+        councillor.metrics.avg_quality = 85
+        councillor.metrics.avg_feedback = 85
+
+        assert councillor.should_be_fired == False
+
+class TestVotingSession:
+    @pytest.mark.asyncio
+    async def test_tally_votes_weighted(self):
+        # Create mock votes
+        votes = [
+            Vote(councillor_id="c1", option="A", confidence=0.9, reasoning="...", weight=2.0),
+            Vote(councillor_id="c2", option="B", confidence=0.8, reasoning="...", weight=1.0),
+            Vote(councillor_id="c3", option="A", confidence=0.7, reasoning="...", weight=1.5),
+        ]
+
+        session = VotingSession(
+            council_leader=CouncilLeader(),
+            question="Test?",
+            options=["A", "B"]
+        )
+        session.votes = votes
+
+        result = session.tally_votes()
+
+        # A: (0.9 * 2.0) + (0.7 * 1.5) = 1.8 + 1.05 = 2.85
+        # B: (0.8 * 1.0) = 0.8
+        assert result["winner"] == "A"
+        assert result["vote_counts"]["A"] == 2
+        assert result["vote_counts"]["B"] == 1
+
+class TestHappinessManager:
+    def test_task_success_increases_happiness(self):
+        council = CouncilLeader()
+        councillor = Councillor(
+            id="test",
+            name="Test",
+            specialization=Specialization.CODING,
+            happiness=70.0
+        )
+        council.councillors[councillor.id] = councillor
+
+        manager = HappinessManager(council)
+        manager.process_task_result(councillor, success=True, quality_score=85)
+
+        assert councillor.happiness > 70.0
+
+    def test_task_failure_decreases_happiness(self):
+        council = CouncilLeader()
+        councillor = Councillor(
+            id="test",
+            name="Test",
+            specialization=Specialization.CODING,
+            happiness=70.0
+        )
+        council.councillors[councillor.id] = councillor
+
+        manager = HappinessManager(council)
+        manager.process_task_result(councillor, success=False, quality_score=40)
+
+        assert councillor.happiness < 70.0
+
+class TestCouncillorFactory:
+    def test_spawn_councillor(self):
+        council = CouncilLeader()
+        factory = CouncillorFactory(council)
+
+        councillor = factory.spawn_councillor(Specialization.CODING)
+
+        assert councillor.status == CouncillorStatus.PROBATION
+        assert councillor.specialization == Specialization.CODING
+        assert councillor.id in council.councillors
+
+    def test_fire_councillor_spawns_replacement(self):
+        council = CouncilLeader(min_councillors=3)
+        factory = CouncillorFactory(council)
+
+        # Spawn 3 councillors
+        c1 = factory.spawn_councillor(Specialization.CODING)
+        c2 = factory.spawn_councillor(Specialization.DESIGN)
+        c3 = factory.spawn_councillor(Specialization.TESTING)
+
+        # Activate them
+        c1.status = CouncillorStatus.ACTIVE
+        c2.status = CouncillorStatus.ACTIVE
+        c3.status = CouncillorStatus.ACTIVE
+
+        # Fire one
+        replacement = factory.fire_councillor(c1, "poor performance")
+
+        # Should have spawned replacement
+        assert replacement is not None
+        assert len(council.active_councillors) >= council.min_councillors
+```
+
+---
+
 # Part 2: Jarvis 2.0 Architecture
 
 ## 2.1 Proposed Architecture Diagram

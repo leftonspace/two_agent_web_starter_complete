@@ -324,6 +324,124 @@ workflow.add_conditional_edges("tools", should_continue)
 | **3. Developer Experience** | Code-first with visual option, not the reverse | Developers want control, not just no-code |
 | **4. Vertical Specialization** | Pre-tuned for web development initially | Competitors are horizontal, we're deep |
 | **5. Open Architecture** | Works with any LLM provider (OpenAI, Anthropic, local) | No vendor lock-in |
+| **6. Council System** | Gamified meta-orchestration with adaptive agent pool | **UNIQUE** - No competitor has this |
+
+---
+
+## Part 5B: The Council System - Jarvis's Killer Differentiator
+
+### 5B.1 What is the Council System?
+
+The Council System is a **gamified meta-orchestration layer** that transforms Jarvis from a static orchestrator into an intelligent, self-improving system. No competitor offers anything like this.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    THE COUNCIL vs COMPETITORS                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  TRADITIONAL (CrewAI, AutoGen, IBM watsonx):                                │
+│  ┌──────────┐     ┌──────────┐     ┌──────────┐                            │
+│  │ Agent A  │ ──► │ Agent B  │ ──► │ Agent C  │  (Fixed roles, no feedback)│
+│  └──────────┘     └──────────┘     └──────────┘                            │
+│                                                                              │
+│  JARVIS COUNCIL:                                                             │
+│  ┌───────────────────────────────────────────────────────────┐              │
+│  │              COUNCIL LEADER (Jarvis)                       │              │
+│  │  Happiness: 85% │ Team Score: A │ Bonus Pool: 500         │              │
+│  └───────────────────────────────────────────────────────────┘              │
+│         │              │              │              │                       │
+│  ┌──────▼──────┐ ┌─────▼─────┐ ┌─────▼─────┐ ┌─────▼─────┐                │
+│  │ Ada (Code)  │ │ Jony (UX) │ │Sage(Review│ │ NEW HIRE  │                │
+│  │ Perf: 92%   │ │ Perf: 78% │ │ Perf: 88% │ │Probation  │                │
+│  │ Vote: 1.84x │ │ Vote: 1.0x│ │ Vote: 1.56│ │           │                │
+│  │ Happy: 90   │ │ Happy: 65 │ │ Happy: 85 │ │           │                │
+│  │ ★ TOP ★    │ │ ⚠ WARN   │ │           │ │           │                │
+│  └─────────────┘ └───────────┘ └───────────┘ └───────────┘                │
+│      ↑                ↑              ↑                                       │
+│      │     WEIGHTED VOTING (Performance affects influence)                  │
+│      │                                                                       │
+│  Fire underperformers ◄─── Hire replacements ◄─── Continuous improvement    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5B.2 Competitive Advantage Analysis
+
+| Feature | IBM watsonx | Copilot Studio | CrewAI | AutoGen | **Jarvis Council** |
+|---------|-------------|----------------|--------|---------|-------------------|
+| Agent Performance Tracking | No | No | No | No | **Yes** |
+| Weighted Voting | No | No | No | No | **Yes** |
+| Agent Happiness/Motivation | No | No | No | No | **Yes** |
+| Fire/Hire Mechanics | No | No | No | No | **Yes** |
+| Bonus System | No | No | No | No | **Yes** |
+| Self-Improving Pool | No | No | No | No | **Yes** |
+| Boss Satisfaction Loop | No | No | No | No | **Yes** |
+
+### 5B.3 Key Council Mechanics
+
+**1. Performance-Weighted Voting**
+```
+Vote Weight = Base × Performance_Coefficient × Happiness_Modifier
+
+Where:
+- Performance < 80%: Coefficient = 0.5 to 1.0x
+- Performance ≥ 80%: Coefficient = 1.0 to 2.0x
+- Happiness affects output: 0.7 + (happiness/100) × 0.3
+```
+
+High performers have up to **4x more influence** than poor performers.
+
+**2. Happiness System**
+| Event | Impact |
+|-------|--------|
+| Task Success | +5 |
+| Task Failure | -8 |
+| Bonus Received | +15 |
+| Vote Won | +3 |
+| Vote Ignored | -5 |
+| Colleague Fired | -8 |
+| Overworked | -12 |
+
+**3. Fire/Spawn Mechanics**
+- **Fire triggers:** Performance < 40%, 5+ failures, Happiness < 20%
+- **Replacement:** Automatically spawn new councillor with inherited knowledge
+- **Probation:** New hires must complete 10 tasks with > 60% performance
+
+**4. Boss (User) Satisfaction Loop**
+- Boss satisfaction affects bonus pool replenishment
+- Happy boss = more bonuses = happier councillors = better performance
+- Creates positive feedback loop
+
+### 5B.4 Why This Matters for Competition
+
+**Against IBM watsonx:**
+> "IBM gives you static agents. Jarvis gives you a self-improving team that gets better with every task."
+
+**Against Microsoft Copilot:**
+> "Copilot's agents don't learn or adapt. Jarvis's Council continuously evolves based on performance."
+
+**Against Open Source:**
+> "CrewAI and AutoGen are fire-and-forget. Jarvis's Council creates accountability and continuous improvement."
+
+### 5B.5 Market Positioning with Council
+
+```
+                    AGENT ADAPTABILITY
+                    Static ─────────────── Adaptive
+                    │                           │
+         High      │  IBM       │   watsonx    │
+                   │  Copilot   │   (future)   │
+    ENTERPRISE     │────────────┼──────────────│
+    READINESS      │            │              │
+                   │            │  ★ JARVIS ★  │ ← Council System
+         Low       │            │   COUNCIL    │
+                   │────────────┼──────────────│
+                   │  CrewAI    │              │
+                   │  AutoGen   │              │
+                    ───────────────────────────
+```
+
+The Council System positions Jarvis as the **only adaptive AI orchestration platform** in the market
 
 ### 5.4 Feature Roadmap to Compete
 
@@ -588,6 +706,12 @@ The $10K self-hosted option becomes a key differentiator as API costs rise and d
 | Safety scanning | Yes | Yes | No | No | No | **Built-in** |
 | Follow-up questions | Yes | Yes | Manual | Manual | Manual | **Planned** |
 | Mid-task modification | Limited | Limited | No | No | No | **Planned** |
+| **Council System** | No | No | No | No | No | **UNIQUE** |
+| Agent Performance Tracking | No | No | No | No | No | **Built-in** |
+| Weighted Voting | No | No | No | No | No | **Built-in** |
+| Agent Happiness/Motivation | No | No | No | No | No | **Built-in** |
+| Fire/Hire Mechanics | No | No | No | No | No | **Built-in** |
+| Self-Improving Agent Pool | No | No | No | No | No | **Built-in** |
 
 ## Appendix B: Hardware Cost Breakdown
 
@@ -641,4 +765,5 @@ The $10K self-hosted option becomes a key differentiator as API costs rise and d
 ---
 
 *Report prepared for strategic planning purposes*
-*Last updated: November 21, 2025*
+*Last updated: November 22, 2025*
+*Council System added: November 22, 2025*

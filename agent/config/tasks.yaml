@@ -1,0 +1,116 @@
+# JARVIS Task Configuration
+# This file defines the tasks to be executed by agents.
+# Use {variable} syntax for variable substitution.
+
+research_task:
+  name: "Market Research"
+  description: >
+    Conduct thorough research on {topic}.
+    Analyze current trends, key players, and future projections.
+    Include data from multiple reliable sources.
+  expected_output: >
+    A comprehensive research report with:
+    - Executive summary
+    - Market overview
+    - Key findings (10+ bullet points)
+    - Trend analysis
+    - Recommendations
+    - Citations and sources
+  agent: researcher
+  backup_agents:
+    - writer
+  priority: high
+  output_format: markdown
+  output_file: research_report.md
+  timeout_seconds: 600
+  success_criteria:
+    - "Contains at least 10 key findings"
+    - "Includes data from 5+ sources"
+    - "Has executive summary"
+    - "Provides actionable recommendations"
+  context:
+    depth: detailed
+    focus_areas:
+      - market_size
+      - growth_rate
+      - competition
+      - opportunities
+
+content_creation:
+  name: "Create Content"
+  description: >
+    Transform the research findings into engaging blog post content.
+    Make it accessible to a general audience while maintaining accuracy.
+  expected_output: >
+    A polished blog post (1500-2000 words) with:
+    - Compelling headline
+    - Introduction that hooks readers
+    - Well-structured body with subheadings
+    - Conclusion with call-to-action
+    - SEO optimization
+  agent: writer
+  depends_on:
+    - research_task
+  priority: medium
+  output_format: html
+  output_file: blog_post.html
+  success_criteria:
+    - "Word count between 1500-2000"
+    - "Contains at least 5 subheadings"
+    - "Includes introduction and conclusion"
+    - "SEO-friendly"
+
+code_implementation:
+  name: "Implement Solution"
+  description: >
+    Create a {language} implementation based on the research findings.
+    Include proper documentation and tests.
+  expected_output: >
+    Working code with:
+    - Clean, modular structure
+    - Comprehensive documentation
+    - Unit tests with >80% coverage
+    - README with setup instructions
+  agent: coder
+  depends_on:
+    - research_task
+  priority: high
+  output_format: file
+  output_file: implementation.py
+  timeout_seconds: 900
+  success_criteria:
+    - "Code runs without errors"
+    - "Includes documentation"
+    - "Has test coverage"
+    - "Follows best practices"
+  variables:
+    language: python
+
+quality_review:
+  name: "Quality Review"
+  description: >
+    Review all deliverables for quality, accuracy, and completeness.
+    Provide detailed feedback and approval status.
+  expected_output: >
+    Quality review report with:
+    - Review summary for each deliverable
+    - Identified issues (if any)
+    - Recommendations for improvement
+    - Final approval status
+  agent: reviewer
+  depends_on:
+    - content_creation
+    - code_implementation
+  priority: critical
+  output_format: json
+  output_file: review_report.json
+  success_criteria:
+    - "Reviews all deliverables"
+    - "Provides specific feedback"
+    - "Includes approval status"
+  output_validation:
+    required_fields:
+      - summary
+      - issues
+      - recommendations
+      - approval_status

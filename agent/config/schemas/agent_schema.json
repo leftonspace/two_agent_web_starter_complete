@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jarvis.ai/schemas/agent_schema.json",
+  "title": "JARVIS Agent Configuration Schema",
+  "description": "JSON Schema for validating agent configurations",
+  "oneOf": [
+    {
+      "type": "object",
+      "description": "Agents as top-level keys",
+      "additionalProperties": {
+        "$ref": "#/definitions/agent"
+      }
+    },
+    {
+      "type": "object",
+      "description": "Agents in a list under 'agents' key",
+      "properties": {
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/agentWithName"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["agents"]
+    },
+    {
+      "type": "array",
+      "description": "Direct list of agents",
+      "items": {
+        "$ref": "#/definitions/agentWithName"
+      },
+      "minItems": 1
+    }
+  ],
+  "definitions": {
+    "llmModel": {
+      "type": "string",
+      "enum": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "claude-3-5-sonnet",
+        "deepseek-chat",
+        "llama-3.1:70b"
+      ],
+      "description": "Supported LLM models"
+    },
+    "tool": {
+      "type": "string",
+      "enum": [
+        "web_search",
+        "file_read",
+        "file_write",
+        "code_execute",
+        "database_query",
+        "api_call",
+        "git_operations",
+        "image_generation"
+      ],
+      "description": "Available tools"
+    },
+    "agent": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Agent's role description"
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the agent aims to achieve"
+        },
+        "backstory": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Agent's background and expertise"
+        },
+        "llm": {
+          "$ref": "#/definitions/llmModel"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 2.0,
+          "description": "LLM temperature setting"
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum iterations allowed"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8000,
+          "description": "Maximum tokens per response"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/tool"
+          },
+          "description": "Available tools for the agent"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Agent capabilities"
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "Enable verbose output"
+        },
+        "allow_delegation": {
+          "type": "boolean",
+          "description": "Can delegate to other agents"
+        },
+        "require_approval": {
+          "type": "boolean",
+          "description": "Require human approval for actions"
+        },
+        "custom_attributes": {
+          "type": "object",
+          "description": "Custom key-value attributes"
+        },
+        "variables": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Variables for substitution"
+        }
+      },
+      "required": ["role", "goal", "backstory"]
+    },
+    "agentWithName": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/agent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "description": "Unique agent identifier"
+            }
+          },
+          "required": ["name"]
+        }
+      ]
+    }
+  }
+}

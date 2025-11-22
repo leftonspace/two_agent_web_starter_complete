@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jarvis.ai/schemas/task_schema.json",
+  "title": "JARVIS Task Configuration Schema",
+  "description": "JSON Schema for validating task configurations",
+  "oneOf": [
+    {
+      "type": "object",
+      "description": "Tasks as top-level keys",
+      "additionalProperties": {
+        "$ref": "#/definitions/task"
+      }
+    },
+    {
+      "type": "object",
+      "description": "Tasks in a list under 'tasks' key",
+      "properties": {
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/taskWithId"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["tasks"]
+    },
+    {
+      "type": "array",
+      "description": "Direct list of tasks",
+      "items": {
+        "$ref": "#/definitions/taskWithId"
+      },
+      "minItems": 1
+    }
+  ],
+  "definitions": {
+    "taskPriority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Task priority level"
+    },
+    "taskStatus": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "completed", "failed", "cancelled"],
+      "description": "Task execution status"
+    },
+    "outputFormat": {
+      "type": "string",
+      "enum": ["text", "json", "markdown", "html", "file"],
+      "description": "Output format type"
+    },
+    "task": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Task name"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What needs to be done"
+        },
+        "expected_output": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expected result description"
+        },
+        "agent": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Assigned agent name"
+        },
+        "backup_agents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Fallback agents"
+        },
+        "priority": {
+          "$ref": "#/definitions/taskPriority"
+        },
+        "status": {
+          "$ref": "#/definitions/taskStatus"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Maximum retry attempts"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Execution timeout in seconds"
+        },
+        "output_format": {
+          "$ref": "#/definitions/outputFormat"
+        },
+        "output_file": {
+          "type": "string",
+          "description": "Save output to file"
+        },
+        "output_validation": {
+          "type": "object",
+          "properties": {
+            "required_fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "min_length": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_length": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "description": "Output validation rules"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Task IDs this depends on"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Task IDs this blocks"
+        },
+        "context": {
+          "type": "object",
+          "description": "Additional context"
+        },
+        "variables": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Variable substitutions"
+        },
+        "success_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Success conditions"
+        },
+        "quality_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Quality threshold (0.0 to 1.0)"
+        }
+      },
+      "required": ["name", "description", "expected_output", "agent"]
+    },
+    "taskWithId": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/task"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Unique task identifier"
+            }
+          },
+          "required": ["id"]
+        }
+      ]
+    }
+  }
+}

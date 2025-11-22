@@ -29,6 +29,16 @@ class QuestionCategory(Enum):
     TECHNICAL = "technical"
 
 
+class QuestionType(Enum):
+    """Type of question input"""
+    TEXT = "text"                      # Free-form text input
+    MULTIPLE_CHOICE = "multiple_choice"  # Single selection from options
+    SELECTION = "selection"            # Multiple selection from options
+    BOOLEAN = "boolean"                # Yes/No question
+    NUMBER = "number"                  # Numeric input
+    SCALE = "scale"                    # Rating scale (1-5, 1-10)
+
+
 @dataclass
 class ClarifyingQuestion:
     """A clarifying question to ask the user"""
@@ -40,18 +50,37 @@ class ClarifyingQuestion:
     default: Optional[str] = None
     hint: str = ""
     follow_up: Optional[str] = None
+    question_type: QuestionType = QuestionType.TEXT
+    required: bool = True
+    context: str = ""
+
+    # Alias for compatibility
+    @property
+    def id(self) -> str:
+        """Alias for related_detail"""
+        return self.related_detail
+
+    @property
+    def text(self) -> str:
+        """Alias for question"""
+        return self.question
 
     def to_dict(self) -> Dict:
         """Convert to dictionary"""
         return {
+            "id": self.id,
             "question": self.question,
-            "category": self.category.value,
-            "priority": self.priority.value,
+            "text": self.text,
+            "category": self.category.value if isinstance(self.category, QuestionCategory) else self.category,
+            "priority": self.priority.value if isinstance(self.priority, QuestionPriority) else self.priority,
+            "question_type": self.question_type.value if isinstance(self.question_type, QuestionType) else self.question_type,
             "related_detail": self.related_detail,
             "options": self.options,
             "default": self.default,
             "hint": self.hint,
-            "follow_up": self.follow_up
+            "follow_up": self.follow_up,
+            "required": self.required,
+            "context": self.context
         }
 
 
@@ -351,7 +380,8 @@ class QuestionGenerator:
                     priority=template["priority"],
                     related_detail=detail,
                     options=template.get("options", []),
-                    hint=template.get("hint", "").format(type=type_name)
+                    hint=template.get("hint", "").format(type=type_name),
+                    question_type=QuestionType.MULTIPLE_CHOICE if template.get("options") else QuestionType.TEXT
                 )
                 questions.append(question)
 
@@ -380,6 +410,84 @@ class QuestionGenerator:
             clarity_level=analysis.clarity_level,
             summary=summary
         )
+
+    async def generate_questions(
+        self,
+        analysis: ClarityAnalysis,
+        max_questions: int = 10,
+        prioritize_missing: bool = True
+    ) -> List[ClarifyingQuestion]:
+        """Async method to generate clarifying questions
+
+        Args:
+            analysis: ClarityAnalysis from detector
+            max_questions: Maximum number of questions
+            prioritize_missing: Whether to prioritize missing details
+
+        Returns:
+            List of ClarifyingQuestion
+        """
+        question_set = self.generate(analysis)
+        questions = question_set.questions
+
+        if prioritize_missing and analysis.missing_details:
+            # Ensure questions about missing details come first
+            missing_questions = [q for q in questions if q.related_detail in analysis.missing_details]
+            other_questions = [q for q in questions if q.related_detail not in analysis.missing_details]
+            questions = missing_questions + other_questions
+
+        return questions[:max_questions]
+
+    def format_questions_for_display(
+        self,
+        questions: List[ClarifyingQuestion],
+        format_type: str = "text"
+    ) -> str:
+        """Format questions for display with various formats
+
+        Args:
+            questions: List of questions to format
+            format_type: Output format ('text', 'html', 'markdown')
+
+        Returns:
+            Formatted string
+        """
+        if format_type == "html":
+            lines = ['<div class="clarification-questions">']
+            for q in questions:
+                lines.append(f'<div class="question" data-id="{q.id}">')
+                lines.append(f'<label>{q.question}</label>')
+                if q.context:
+                    lines.append(f'<p class="context">{q.context}</p>')
+                if q.question_type == QuestionType.MULTIPLE_CHOICE:
+                    for opt in q.options:
+                        required = 'required' if q.required else ''
+                        lines.append(f'<input type="radio" name="{q.id}" value="{opt}" {required}> {opt}<br>')
+                elif q.question_type == QuestionType.SELECTION:
+                    for opt in q.options:
+                        required = 'required' if q.required else ''
+                        lines.append(f'<input type="checkbox" name="{q.id}" value="{opt}" {required}> {opt}<br>')
+                else:
+                    required = 'required' if q.required else ''
+                    lines.append(f'<input type="text" name="{q.id}" {required}>')
+                lines.append('</div>')
+            lines.append('</div>')
+            return "\n".join(lines)
+
+        elif format_type == "markdown":
+            return self.format_questions(questions, "markdown")
+
+        else:  # text
+            lines = []
+            for i, q in enumerate(questions, 1):
+                lines.append(f"{i}. {q.question}")
+                if q.context:
+                    lines.append(f"   {q.context}")
+                if q.options:
+                    for j, opt in enumerate(q.options):
+                        letter = chr(ord('a') + j)
+                        lines.append(f"   {letter}) {opt}")
+            return "\n".join(lines)
 
     def _generate_summary(self, analysis: ClarityAnalysis, questions: List[ClarifyingQuestion]) -> str:
         """Generate a summary of needed clarifications"""

@@ -23,6 +23,15 @@ class SessionStatus(Enum):
     EXPIRED = "expired"           # Session timed out
 
 
+class ClarificationPhase(Enum):
+    """Phase of clarification process (alias for compatibility)"""
+    ASKING = "asking"             # Currently asking questions
+    READY = "ready"               # All required questions answered
+    SKIPPED = "skipped"           # User skipped clarification
+    TIMEOUT = "timeout"           # Session timed out
+    COMPLETE = "complete"         # Session completed
+
+
 @dataclass
 class Answer:
     """A user's answer to a clarifying question"""
@@ -86,6 +95,48 @@ class ClarificationSession:
     def is_complete(self) -> bool:
         """Check if session is complete"""
         return self.status == SessionStatus.COMPLETED or self.critical_remaining == 0
+
+    @property
+    def phase(self) -> ClarificationPhase:
+        """Get current phase (alias for compatibility)"""
+        if self.status == SessionStatus.COMPLETED:
+            return ClarificationPhase.READY
+        elif self.status == SessionStatus.CANCELLED:
+            return ClarificationPhase.SKIPPED
+        elif self.status == SessionStatus.EXPIRED:
+            return ClarificationPhase.TIMEOUT
+        elif self.status == SessionStatus.IN_PROGRESS or self.status == SessionStatus.PENDING:
+            return ClarificationPhase.ASKING
+        return ClarificationPhase.ASKING
+
+    @phase.setter
+    def phase(self, value: ClarificationPhase):
+        """Set phase (updates status)"""
+        if value == ClarificationPhase.READY or value == ClarificationPhase.COMPLETE:
+            self.status = SessionStatus.COMPLETED
+        elif value == ClarificationPhase.SKIPPED:
+            self.status = SessionStatus.CANCELLED
+        elif value == ClarificationPhase.TIMEOUT:
+            self.status = SessionStatus.EXPIRED
+        elif value == ClarificationPhase.ASKING:
+            self.status = SessionStatus.IN_PROGRESS
+
+    @property
+    def enhanced_request(self) -> Optional[str]:
+        """Get enhanced request with clarifications"""
+        if not self.answers:
+            return None
+        return self.get_clarified_request()
+
+    @enhanced_request.setter
+    def enhanced_request(self, value: str):
+        """Set enhanced request (stored in metadata)"""
+        self.metadata['enhanced_request'] = value
+
+    @property
+    def questions(self) -> List[ClarifyingQuestion]:
+        """Get list of questions (alias for question_set.questions)"""
+        return self.question_set.questions
 
     def get_clarified_request(self) -> str:
         """Get the original request enriched with clarifications"""
@@ -151,12 +202,28 @@ class ClarificationManager:
 
         # Active sessions
         self._sessions: Dict[str, ClarificationSession] = {}
+        self._active_session_id: Optional[str] = None
+
+        # Settings for test compatibility
+        self.allow_skip: bool = True
+        self.timeout_minutes: float = 30.0
+        self.auto_proceed_on_timeout: bool = False
 
         # Event callbacks
         self._on_session_start: List[Callable] = []
         self._on_question_asked: List[Callable] = []
         self._on_answer_received: List[Callable] = []
         self._on_session_complete: List[Callable] = []
+
+    @property
+    def sessions(self) -> Dict[str, ClarificationSession]:
+        """Get all sessions"""
+        return self._sessions
+
+    @property
+    def active_session_id(self) -> Optional[str]:
+        """Get active session ID"""
+        return self._active_session_id
 
     def should_clarify(self, request: str) -> tuple[bool, ClarityAnalysis]:
         """Check if a request needs clarification
@@ -191,20 +258,38 @@ class ClarificationManager:
 
         return should_clarify, analysis
 
-    def start_session(self, request: str) -> ClarificationSession:
+    def start_session(
+        self,
+        request: str,
+        analysis: Optional[ClarityAnalysis] = None,
+        questions: Optional[List[ClarifyingQuestion]] = None,
+        session_id: Optional[str] = None
+    ) -> ClarificationSession:
         """Start a new clarification session
 
         Args:
             request: User's request text
+            analysis: Optional pre-computed analysis
+            questions: Optional pre-defined questions
+            session_id: Optional session ID
 
         Returns:
             New ClarificationSession
         """
-        # Analyze request
-        analysis = self.detector.analyze(request)
+        # Use provided analysis or analyze request
+        if analysis is None:
+            analysis = self.detector.analyze(request)
 
-        # Generate questions
-        question_set = self.generator.generate(analysis)
+        # Use provided questions or generate them
+        if questions is not None:
+            question_set = QuestionSet(
+                questions=questions,
+                request_type=analysis.detected_type,
+                clarity_level=analysis.clarity_level,
+                summary="Custom questions provided"
+            )
+        else:
+            question_set = self.generator.generate(analysis)
 
         # Limit questions
         if len(question_set.questions) > self.max_questions:
@@ -212,7 +297,7 @@ class ClarificationManager:
 
         # Create session
         session = ClarificationSession(
-            session_id=str(uuid.uuid4()),
+            session_id=session_id or str(uuid.uuid4()),
             original_request=request,
             analysis=analysis,
             question_set=question_set,
@@ -221,6 +306,7 @@ class ClarificationManager:
 
         # Store session
         self._sessions[session.session_id] = session
+        self._active_session_id = session.session_id
 
         # Trigger callbacks
         for callback in self._on_session_start:
@@ -433,6 +519,200 @@ class ClarificationManager:
 
         for session_id in to_remove:
             del self._sessions[session_id]
+
+    def process_answer(
+        self,
+        response: str,
+        question_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Process an answer for the active session
+
+        Args:
+            response: User's response
+            question_id: Optional specific question ID
+
+        Returns:
+            Dict with status and next question info
+        """
+        if not self._active_session_id:
+            return {"status": "error", "message": "No active session"}
+
+        session = self._sessions.get(self._active_session_id)
+        if not session:
+            return {"status": "error", "message": "Session not found"}
+
+        # Handle skip
+        if response.lower() == "skip" and self.allow_skip:
+            # Apply defaults for remaining questions
+            for q in session.remaining_questions:
+                if q.default:
+                    session.answers.append(Answer(question=q, response=q.default))
+            session.status = SessionStatus.CANCELLED
+            return {"status": "skipped"}
+
+        # Get current question or find by ID
+        if question_id:
+            question = next((q for q in session.question_set.questions if q.id == question_id), None)
+        else:
+            question = session.current_question
+
+        if not question:
+            return {"status": "error", "message": "No current question"}
+
+        # Parse response based on question type
+        from .generator import QuestionType
+        parsed_response = response
+
+        if question.question_type == QuestionType.MULTIPLE_CHOICE and question.options:
+            # Handle letter selection (a, b, c)
+            if len(response) == 1 and response.lower() in 'abcdefghij':
+                idx = ord(response.lower()) - ord('a')
+                if idx < len(question.options):
+                    parsed_response = question.options[idx]
+            # Handle number selection (1, 2, 3)
+            elif response.isdigit():
+                idx = int(response) - 1
+                if 0 <= idx < len(question.options):
+                    parsed_response = question.options[idx]
+            # Direct match
+            elif response in question.options:
+                parsed_response = response
+
+        elif question.question_type == QuestionType.SELECTION and question.options:
+            # Handle comma-separated selections
+            selected = [s.strip() for s in response.split(',')]
+            valid_selections = [s for s in selected if s in question.options]
+            parsed_response = valid_selections if valid_selections else selected
+
+        # Store answer (use dict-like access for test compatibility)
+        if not hasattr(session, '_answers_dict'):
+            session._answers_dict = {}
+        session._answers_dict[question.id] = parsed_response
+
+        # Also store as Answer object
+        answer = Answer(question=question, response=str(parsed_response))
+        if question_id:
+            # Find and update existing or add new
+            existing = next((i for i, a in enumerate(session.answers) if a.question.id == question_id), None)
+            if existing is not None:
+                session.answers[existing] = answer
+            else:
+                session.answers.append(answer)
+        else:
+            session.answers.append(answer)
+            session.current_question_index += 1
+
+        session.updated_at = datetime.now()
+
+        # Update status
+        if session.status == SessionStatus.PENDING:
+            session.status = SessionStatus.IN_PROGRESS
+
+        # Check if all required questions answered
+        required_unanswered = [
+            q for q in session.remaining_questions
+            if q.required and q.id not in session._answers_dict
+        ]
+
+        if not required_unanswered or session.is_complete:
+            session.status = SessionStatus.COMPLETED
+            # Generate enhanced request
+            self._generate_enhanced_request(session)
+            return {"status": "complete", "next_question": None}
+
+        return {
+            "status": "continue",
+            "next_question": session.current_question
+        }
+
+    def _generate_enhanced_request(self, session: ClarificationSession):
+        """Generate enhanced request from session answers"""
+        parts = [session.original_request, "\n\n## Clarifications:"]
+
+        # Use _answers_dict if available, otherwise use answers list
+        if hasattr(session, '_answers_dict') and session._answers_dict:
+            for key, value in session._answers_dict.items():
+                if isinstance(value, list):
+                    value = ", ".join(value)
+                parts.append(f"- {key.replace('_', ' ').title()}: {value}")
+        else:
+            for answer in session.answers:
+                parts.append(f"- {answer.question.related_detail.replace('_', ' ').title()}: {answer.response}")
+
+        parts.append(f"\n## Project Type: {session.analysis.detected_type.value}")
+        session.metadata['enhanced_request'] = "\n".join(parts)
+
+    def complete_clarification(self) -> Dict[str, Any]:
+        """Complete the active clarification session
+
+        Returns:
+            Dict with completion info
+        """
+        if not self._active_session_id:
+            return {"status": "error", "message": "No active session"}
+
+        session = self._sessions.get(self._active_session_id)
+        if not session:
+            return {"status": "error", "message": "Session not found"}
+
+        session.status = SessionStatus.COMPLETED
+        self._generate_enhanced_request(session)
+
+        for callback in self._on_session_complete:
+            callback(session)
+
+        return {
+            "status": "complete",
+            "enhanced_request": session.enhanced_request
+        }
+
+    def timeout_check(self) -> List[str]:
+        """Check for timed out sessions
+
+        Returns:
+            List of timed out session IDs
+        """
+        now = datetime.now()
+        timed_out = []
+
+        for session_id, session in self._sessions.items():
+            if session.status in [SessionStatus.PENDING, SessionStatus.IN_PROGRESS]:
+                age_minutes = (now - session.created_at).total_seconds() / 60
+                if age_minutes > self.timeout_minutes:
+                    session.status = SessionStatus.EXPIRED
+                    timed_out.append(session_id)
+
+                    # Auto-proceed with defaults if enabled
+                    if self.auto_proceed_on_timeout:
+                        for q in session.remaining_questions:
+                            if q.default:
+                                if not hasattr(session, '_answers_dict'):
+                                    session._answers_dict = {}
+                                session._answers_dict[q.id] = q.default
+
+        return timed_out
+
+    def get_session_summary(self, session_id: str) -> Dict[str, Any]:
+        """Get summary of a session
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Dict with session summary
+        """
+        session = self._sessions.get(session_id)
+        if not session:
+            return {"error": "Session not found"}
+
+        return {
+            "session_id": session_id,
+            "is_complete": session.is_complete,
+            "questions_total": len(session.question_set.questions),
+            "questions_answered": len(session.answers),
+            "phase": session.phase.value,
+            "enhanced_request": session.enhanced_request
+        }
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get manager statistics"""

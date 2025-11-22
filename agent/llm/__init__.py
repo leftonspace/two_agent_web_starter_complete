@@ -24,6 +24,31 @@ from .llm_router import LLMRouter, ModelTier
 from .performance_tracker import PerformanceTracker
 from .hybrid_strategy import HybridStrategy, TaskComplexity
 
+# Enhanced multi-provider support
+from .providers import (
+    LLMProvider,
+    OpenAIProvider,
+    AnthropicProvider,
+    OllamaProvider,
+    DeepSeekProvider,
+    QwenProvider,
+    ChatResponse,
+    ModelInfo,
+    ProviderStatus,
+    ProviderHealth,
+)
+
+from .enhanced_router import (
+    EnhancedModelRouter,
+    FallbackChain,
+    RouterConfig,
+    CostTracker,
+    RoutingStrategy,
+    TaskType,
+    Complexity,
+    create_router,
+)
+
 # Re-export functions from llm.py (the module file) to maintain backward compatibility
 # This is needed because the llm/ package shadows the llm.py module file
 import importlib.util
@@ -51,6 +76,26 @@ __all__ = [
     "chat_json",
     "chat",
     "validate_api_connectivity",
+    # Enhanced providers
+    "LLMProvider",
+    "OpenAIProvider",
+    "AnthropicProvider",
+    "OllamaProvider",
+    "DeepSeekProvider",
+    "QwenProvider",
+    "ChatResponse",
+    "ModelInfo",
+    "ProviderStatus",
+    "ProviderHealth",
+    # Enhanced router
+    "EnhancedModelRouter",
+    "FallbackChain",
+    "RouterConfig",
+    "CostTracker",
+    "RoutingStrategy",
+    "TaskType",
+    "Complexity",
+    "create_router",
 ]
 
 # ----------------------------------------------------------------------

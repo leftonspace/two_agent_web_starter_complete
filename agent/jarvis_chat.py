@@ -54,6 +54,22 @@ except ImportError:
     RequestClarity = None
     CLARIFICATION_AVAILABLE = False
 
+# Import adaptive user profile memory
+try:
+    from memory.user_profile import (
+        AdaptiveMemoryManager,
+        get_adaptive_memory,
+        MemoryCategory,
+        CommunicationStyle,
+    )
+    ADAPTIVE_MEMORY_AVAILABLE = True
+except ImportError:
+    AdaptiveMemoryManager = None
+    get_adaptive_memory = None
+    MemoryCategory = None
+    CommunicationStyle = None
+    ADAPTIVE_MEMORY_AVAILABLE = False
+
 # Import LLM module explicitly (bypass llm/ package shadowing)
 # The llm/ directory (Phase 9) shadows llm.py - we need to load llm.py explicitly
 llm_chat = None
@@ -187,12 +203,37 @@ class JarvisChat:
             self.clarification_manager = None
             self.active_clarification_session = None
 
+        # Initialize adaptive user memory for personalization
+        if ADAPTIVE_MEMORY_AVAILABLE and get_adaptive_memory:
+            try:
+                self.adaptive_memory = get_adaptive_memory()
+                print("[Jarvis] Adaptive memory initialized - personalization enabled")
+            except Exception as e:
+                print(f"[Jarvis] Adaptive memory failed: {e}")
+                self.adaptive_memory = None
+        else:
+            self.adaptive_memory = None
+
         # Conversation state
         self.current_session = None
+        self.current_user_id = "default_user"
         self.conversation_history: List[ChatMessage] = []
 
     async def start_session(self, user_id: str = "default_user") -> str:
         """Start a new conversation session"""
+        self.current_user_id = user_id
+
+        # Initialize user profile for adaptive personalization
+        if self.adaptive_memory:
+            try:
+                profile = self.adaptive_memory.get_or_create_profile(user_id)
+                if profile.display_name:
+                    print(f"[Jarvis] Welcome back, {profile.display_name}!")
+                else:
+                    print(f"[Jarvis] New user profile created: {user_id}")
+            except Exception as e:
+                print(f"[Jarvis] Profile load failed: {e}")
+
         if self.memory_enabled:
             try:
                 session = self.session_manager.start_session(metadata={"user": user_id})
@@ -230,6 +271,21 @@ class JarvisChat:
                 metadata=context
             )
             self.conversation_history.append(user_msg)
+
+            # Analyze message for adaptive learning and memory extraction
+            stored_memory = None
+            if self.adaptive_memory:
+                try:
+                    stored_memory, detected_traits = self.adaptive_memory.analyze_message(
+                        self.current_user_id,
+                        user_message
+                    )
+                    if stored_memory:
+                        print(f"[Jarvis] Memory stored: {stored_memory.category.value}")
+                    if detected_traits:
+                        print(f"[Jarvis] Traits detected: {list(detected_traits.keys())}")
+                except Exception as e:
+                    print(f"[Jarvis] Adaptive learning error: {e}")
 
             # Check if we're in an active clarification loop
             if self.clarification_manager and self.active_clarification_session:
@@ -294,6 +350,31 @@ class JarvisChat:
                     )
                     self.conversation_history.append(assistant_msg)
                     return response
+
+            # Check if user is explicitly asking JARVIS to remember something
+            # and provide immediate feedback
+            if stored_memory and self._is_explicit_memory_request(user_message):
+                memory_response = self._format_memory_confirmation(stored_memory)
+                assistant_msg = ChatMessage(
+                    role="assistant",
+                    content=memory_response,
+                    timestamp=time.time(),
+                    metadata={"type": "memory_stored", "category": stored_memory.category.value}
+                )
+                self.conversation_history.append(assistant_msg)
+                return {
+                    "content": memory_response,
+                    "metadata": {
+                        "type": "memory_stored",
+                        "category": stored_memory.category.value,
+                        "memory_id": stored_memory.id
+                    }
+                }
+
+            # Check for memory query commands (e.g., "what do you remember about me?")
+            if self._is_memory_query(user_message):
+                memory_response = await self._handle_memory_query(user_message)
+                return memory_response
 
             # Analyze intent
             intent = await self.analyze_intent(user_message, context or {})
@@ -525,9 +606,19 @@ Return ONLY valid JSON (no markdown):
             for msg in self.conversation_history[-10:]:
                 history_text += f"{msg.role}: {msg.content}\n"
 
+            # Get adaptive personalization context
+            adaptation_prompt = ""
+            if self.adaptive_memory:
+                try:
+                    adaptation_prompt = self.adaptive_memory.format_adaptation_prompt(
+                        self.current_user_id
+                    )
+                except Exception as e:
+                    print(f"[Jarvis] Adaptation context error: {e}")
+
             full_prompt = f"""Previous conversation:
 {history_text}
-
+{adaptation_prompt}
 User: {message}
 
 Jarvis:"""
@@ -726,6 +817,153 @@ Could you provide more details about what changes you'd like me to make?"""
 
         return "\n".join(f"  • {file}" for file in files[:10]) + \
                (f"\n  ... and {len(files) - 10} more" if len(files) > 10 else "")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # Adaptive Memory Management
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _is_explicit_memory_request(self, message: str) -> bool:
+        """Check if user is explicitly asking to remember something."""
+        message_lower = message.lower()
+        explicit_patterns = [
+            "remember that", "remember i", "remember my", "remember this",
+            "please note", "keep in mind", "don't forget",
+            "note that", "for future reference", "fyi",
+            "i prefer", "i always", "i usually"
+        ]
+        return any(pattern in message_lower for pattern in explicit_patterns)
+
+    def _is_memory_query(self, message: str) -> bool:
+        """Check if user is asking about their stored memories."""
+        message_lower = message.lower()
+        query_patterns = [
+            "what do you remember", "what do you know about me",
+            "show my memories", "show my profile", "my preferences",
+            "what have i told you", "recall my", "my information"
+        ]
+        return any(pattern in message_lower for pattern in query_patterns)
+
+    def _format_memory_confirmation(self, memory) -> str:
+        """Format confirmation message for stored memory."""
+        category_labels = {
+            "personal": "personal information",
+            "preferences": "your preferences",
+            "business": "business context",
+            "expertise": "your expertise",
+            "interaction": "interaction patterns",
+            "custom": "general notes"
+        }
+        category_label = category_labels.get(memory.category.value, "memory")
+
+        confirmations = [
+            f"Noted, sir. I've committed that to memory under {category_label}.",
+            f"Understood. I'll remember that as part of {category_label}.",
+            f"Very good, sir. That's now stored in my {category_label} records.",
+            f"Consider it remembered. I've filed that under {category_label}.",
+        ]
+        import random
+        return random.choice(confirmations)
+
+    async def _handle_memory_query(self, message: str) -> Dict[str, Any]:
+        """Handle user queries about their stored memories."""
+        if not self.adaptive_memory:
+            return {
+                "content": "I apologize, sir, but my memory systems are not currently active.",
+                "metadata": {"type": "memory_query", "error": True}
+            }
+
+        try:
+            profile = self.adaptive_memory.get_or_create_profile(self.current_user_id)
+            memories = self.adaptive_memory.get_memories(self.current_user_id, limit=20)
+
+            response_parts = ["Certainly, sir. Here's what I have in my records about you:\n"]
+
+            # Profile information
+            if profile.display_name:
+                response_parts.append(f"**Name:** {profile.display_name}")
+
+            response_parts.append(f"**Communication Style:** {profile.preferred_style.value}")
+            response_parts.append(f"**Total Interactions:** {profile.total_messages}")
+
+            # Detected traits
+            if profile.traits:
+                response_parts.append("\n**Detected Preferences:**")
+                for trait_type, trait in profile.traits.items():
+                    if trait.confidence > 0.3:
+                        response_parts.append(f"  • {trait_type}: {trait.value} (confidence: {trait.confidence:.0%})")
+
+            # Stored memories by category
+            if memories:
+                response_parts.append("\n**Stored Memories:**")
+                by_category = {}
+                for mem in memories:
+                    cat = mem.category.value
+                    if cat not in by_category:
+                        by_category[cat] = []
+                    by_category[cat].append(mem.content)
+
+                for category, items in by_category.items():
+                    response_parts.append(f"\n*{category.title()}:*")
+                    for item in items[:5]:
+                        response_parts.append(f"  • {item}")
+                    if len(items) > 5:
+                        response_parts.append(f"  ... and {len(items) - 5} more")
+
+            if not memories and not profile.traits:
+                response_parts.append("\nI don't have much stored yet, sir. Feel free to tell me things you'd like me to remember, such as your preferences, business context, or how you prefer to communicate.")
+
+            return {
+                "content": "\n".join(response_parts),
+                "metadata": {
+                    "type": "memory_query",
+                    "memories_count": len(memories),
+                    "traits_count": len(profile.traits)
+                }
+            }
+
+        except Exception as e:
+            print(f"[Jarvis] Memory query error: {e}")
+            return {
+                "content": "I encountered an error accessing my memory banks, sir. My apologies.",
+                "metadata": {"type": "memory_query", "error": True}
+            }
+
+    async def store_memory_explicit(
+        self,
+        content: str,
+        category: str = "custom",
+        tags: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Explicitly store a memory for the current user."""
+        if not self.adaptive_memory:
+            return {"success": False, "error": "Adaptive memory not available"}
+
+        try:
+            # Map string category to enum
+            category_map = {
+                "personal": MemoryCategory.PERSONAL,
+                "preferences": MemoryCategory.PREFERENCES,
+                "business": MemoryCategory.BUSINESS,
+                "expertise": MemoryCategory.EXPERTISE,
+                "custom": MemoryCategory.CUSTOM
+            }
+            mem_category = category_map.get(category, MemoryCategory.CUSTOM)
+
+            memory = self.adaptive_memory.store_memory(
+                user_id=self.current_user_id,
+                content=content,
+                category=mem_category,
+                tags=tags,
+                source="explicit"
+            )
+
+            return {
+                "success": True,
+                "memory_id": memory.id,
+                "category": memory.category.value
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     async def store_interaction(
         self,

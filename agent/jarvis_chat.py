@@ -115,6 +115,7 @@ class IntentType(Enum):
     COMPLEX_TASK = "complex_task"          # Build, create projects
     FILE_OPERATION = "file_operation"      # Edit, fix specific files
     CONVERSATION = "conversation"          # Casual chat
+    DOCUMENT_PROCESSING = "document_processing"  # Analyze/process attached documents
 
 
 @dataclass
@@ -439,6 +440,9 @@ class JarvisChat:
             if intent.type == IntentType.SIMPLE_QUERY:
                 response = await self.handle_simple_query(user_message, context)
 
+            elif intent.type == IntentType.DOCUMENT_PROCESSING:
+                response = await self.handle_document_processing(user_message, context, intent)
+
             elif intent.type == IntentType.COMPLEX_TASK:
                 response = await self.handle_complex_task(user_message, context, intent)
 
@@ -507,23 +511,29 @@ Classify as one of:
 1. "simple_query" - Questions, explanations, info lookup, definitions
    Examples: "What is Python?", "Explain recursion", "How do I use async?"
 
-2. "complex_task" - Building projects, creating applications, multi-step work
-   Examples: "Build a website", "Create a REST API", "Make a game"
+2. "complex_task" - Building projects, creating applications, multi-step CODE work
+   Examples: "Build a website", "Create a REST API", "Code a game"
+   Note: Use this ONLY for tasks that require writing code files
 
-3. "file_operation" - Editing, fixing, updating specific files
+3. "document_processing" - Analyze/process/transform attached documents into output
+   Examples: "Make me a resume from this document", "Summarize this file",
+   "Extract info from this PDF", "Create a report based on this data"
+   Note: Use when user attaches a file and wants analysis/transformation (NOT code)
+
+4. "file_operation" - Editing, fixing, updating specific files
    Examples: "Fix bug in login.js", "Update header color", "Add error handling"
 
-4. "conversation" - Casual chat, greetings, unclear requests
+5. "conversation" - Casual chat, greetings, unclear requests
    Examples: "Hello", "Thanks!", "Can you help?"
 
 Consider:
-- Complexity: Single answer vs multi-step process?
-- Scope: Conceptual question vs concrete file work?
-- Specificity: Vague vs specific files/project mentioned?
+- Does user have attached files that need analysis? -> document_processing
+- Is the output code/software? -> complex_task
+- Is it processing documents to produce documents? -> document_processing
 
 Return ONLY valid JSON (no markdown):
 {{
-  "type": "simple_query|complex_task|file_operation|conversation",
+  "type": "simple_query|complex_task|document_processing|file_operation|conversation",
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation",
   "requires_orchestrator": true|false,
@@ -553,13 +563,30 @@ Return ONLY valid JSON (no markdown):
             print(f"[Jarvis] Intent analysis error: {e}")
             return self._fallback_intent_analysis(message)
 
-    def _fallback_intent_analysis(self, message: str) -> Intent:
+    def _fallback_intent_analysis(self, message: str, context: Optional[Dict] = None) -> Intent:
         """Fallback intent analysis using heuristics"""
         message_lower = message.lower()
 
-        # Complex task keywords
+        # Document processing keywords (check first if files are attached)
+        has_attached_files = context and context.get("attached_files")
+        doc_processing_keywords = [
+            "resume", "summarize", "extract", "analyze", "report",
+            "from this", "based on this", "this document", "this file",
+            "convert", "transform"
+        ]
+
+        # If files are attached and document-related keywords present
+        if has_attached_files and any(kw in message_lower for kw in doc_processing_keywords):
+            return Intent(
+                type=IntentType.DOCUMENT_PROCESSING,
+                confidence=0.85,
+                reasoning="Detected document processing request with attached files",
+                requires_orchestrator=False
+            )
+
+        # Complex task keywords (for CODE generation)
         complex_keywords = [
-            "build", "create", "make", "develop", "implement",
+            "build", "code", "develop", "implement", "program",
             "website", "app", "application", "api", "system"
         ]
 
@@ -569,11 +596,12 @@ Return ONLY valid JSON (no markdown):
             "bug", ".py", ".js", ".css", ".html", "line"
         ]
 
-        if any(kw in message_lower for kw in complex_keywords):
+        # Only use complex_task for actual code-writing tasks
+        if any(kw in message_lower for kw in complex_keywords) and not has_attached_files:
             return Intent(
                 type=IntentType.COMPLEX_TASK,
                 confidence=0.7,
-                reasoning="Detected build/create keywords",
+                reasoning="Detected build/create keywords for code generation",
                 requires_orchestrator=True
             )
 
@@ -665,6 +693,186 @@ Jarvis:"""
                 "metadata": {"error": True}
             }
 
+    async def handle_document_processing(
+        self,
+        message: str,
+        context: Optional[Dict],
+        intent: Intent
+    ) -> Dict[str, Any]:
+        """Handle document processing tasks - analyze files and produce output"""
+        if not self.llm_available:
+            return {
+                "content": "I need an LLM client to process documents. Please ensure it's configured.",
+                "metadata": {"error": True}
+            }
+
+        try:
+            print("\n[Jarvis] 📄 Document processing request detected...")
+
+            # Check for attached files
+            if not context or not context.get("attached_files"):
+                return {
+                    "content": "I'd be happy to help with that! However, I don't see any attached files. Please attach the document you'd like me to process.",
+                    "metadata": {"type": "document_processing", "needs_file": True}
+                }
+
+            # Build document context
+            files_context = ""
+            file_names = []
+            for file_info in context["attached_files"]:
+                file_name = file_info.get("name", "unknown")
+                file_content = file_info.get("content", "")
+                file_names.append(file_name)
+                # Limit content to prevent token overflow
+                if len(file_content) > 20000:
+                    file_content = file_content[:20000] + "\n... (content truncated)"
+                files_context += f"\n=== {file_name} ===\n{file_content}\n"
+
+            print(f"[Jarvis] Processing {len(file_names)} document(s): {', '.join(file_names)}")
+
+            # Determine the type of document task
+            message_lower = message.lower()
+
+            # Check if user specified a format
+            format_keywords = {
+                "pdf": "PDF", "word": "Word (DOCX)", "docx": "Word (DOCX)",
+                "txt": "Plain Text", "text": "Plain Text", "markdown": "Markdown",
+                "html": "HTML"
+            }
+            requested_format = None
+            for fmt_key, fmt_name in format_keywords.items():
+                if fmt_key in message_lower:
+                    requested_format = fmt_name
+                    break
+
+            # Resume-specific handling
+            if "resume" in message_lower or "cv" in message_lower:
+                system_prompt = """You are JARVIS, an expert document processor and resume writer.
+Your task is to analyze the provided document(s) and create a professional resume.
+
+Guidelines:
+1. Extract ALL relevant information from the document (work experience, education, skills, achievements)
+2. Organize information in a clear, professional resume format
+3. Use bullet points for experience and achievements
+4. Highlight quantifiable achievements where possible
+5. Format the output as a clean, readable resume (not HTML/code)
+6. If information is missing, note what additional details would strengthen the resume
+
+Output a complete, formatted resume based on the document provided."""
+                is_document_creation = True
+
+            elif "summar" in message_lower:
+                system_prompt = """You are JARVIS, an expert document analyst.
+Your task is to summarize the provided document(s).
+
+Guidelines:
+1. Identify the main topics and key points
+2. Highlight important facts, figures, and conclusions
+3. Keep the summary concise but comprehensive
+4. Use bullet points for clarity
+5. Note any action items or important dates"""
+                is_document_creation = False  # Summary doesn't need format export
+
+            elif "extract" in message_lower or "info" in message_lower:
+                system_prompt = """You are JARVIS, an expert at information extraction.
+Your task is to extract specific information from the provided document(s).
+
+Guidelines:
+1. Identify and extract all relevant data points
+2. Organize information in a structured format
+3. Use tables or lists where appropriate
+4. Note any missing or unclear information"""
+                is_document_creation = False
+
+            elif any(word in message_lower for word in ["letter", "report", "proposal", "memo", "cover letter"]):
+                system_prompt = """You are JARVIS, an expert document creator.
+Your task is to create a professional document based on the provided source material.
+
+Guidelines:
+1. Extract relevant information from the source document(s)
+2. Create a well-structured, professional document
+3. Use appropriate tone and formatting for the document type
+4. Include all necessary sections and components
+5. Proofread for clarity and professionalism"""
+                is_document_creation = True
+
+            else:
+                system_prompt = """You are JARVIS, an expert document processor.
+Your task is to analyze and process the provided document(s) according to the user's request.
+
+Guidelines:
+1. Carefully read and understand the document content
+2. Process it according to the user's specific request
+3. Provide clear, well-organized output
+4. Ask clarifying questions if the request is unclear"""
+                is_document_creation = "create" in message_lower or "make" in message_lower or "generate" in message_lower
+
+            # Build the full prompt
+            full_prompt = f"""User Request: {message}
+
+DOCUMENTS PROVIDED:
+{files_context}
+
+Please process these document(s) according to the user's request. Provide a complete, well-formatted response."""
+
+            # Process with LLM
+            response_text = await asyncio.to_thread(
+                llm_chat,
+                role="employee",
+                system_prompt=system_prompt,
+                user_content=full_prompt,
+                temperature=0.5  # Lower temperature for more focused output
+            )
+
+            # Add format preference prompt for document creation tasks
+            if is_document_creation and not requested_format:
+                format_prompt = """
+
+---
+📄 **Output Format Options**
+
+I've prepared this document above. Would you like me to generate it in a specific format?
+- **PDF** - Professional, ready to print/share
+- **Word (DOCX)** - Editable document format
+- **Plain Text** - Simple text file
+- **Markdown** - Formatted text for web/docs
+
+Just let me know your preferred format and I'll create the file for you!"""
+                response_text += format_prompt
+                metadata = {
+                    "type": "document_processing",
+                    "files_processed": file_names,
+                    "awaiting_format": True,
+                    "document_type": "resume" if "resume" in message_lower or "cv" in message_lower else "document"
+                }
+            elif is_document_creation and requested_format:
+                # User already specified format - note it in metadata
+                metadata = {
+                    "type": "document_processing",
+                    "files_processed": file_names,
+                    "requested_format": requested_format
+                }
+                response_text += f"\n\n📁 *You requested {requested_format} format. I can generate this file for you - just say 'generate' or 'create the file'!*"
+            else:
+                metadata = {
+                    "type": "document_processing",
+                    "files_processed": file_names
+                }
+
+            return {
+                "content": response_text,
+                "metadata": metadata
+            }
+
+        except Exception as e:
+            print(f"[Jarvis] Document processing error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "content": f"I encountered an error processing your document: {str(e)}",
+                "metadata": {"error": True, "type": "document_processing"}
+            }
+
     async def handle_complex_task(
         self,
         message: str,
@@ -690,6 +898,22 @@ Jarvis:"""
                 "use_visual_review": False,
                 "prompts_file": "prompts_default.json",
             }
+
+            # Pass attached files to orchestrator if present
+            if context and context.get("attached_files"):
+                files_content = "\n\n=== ATTACHED FILES (User provided these for reference) ===\n"
+                for file_info in context["attached_files"]:
+                    file_name = file_info.get("name", "unknown")
+                    file_content = file_info.get("content", "")
+                    # Limit content to prevent token overflow
+                    if len(file_content) > 15000:
+                        file_content = file_content[:15000] + "\n... (content truncated)"
+                    files_content += f"\n--- {file_name} ---\n{file_content}\n"
+                files_content += "=== END ATTACHED FILES ===\n"
+
+                # Prepend file content to the task so orchestrator can see it
+                config["task"] = f"{message}\n{files_content}"
+                print(f"[Jarvis] Including {len(context['attached_files'])} attached file(s) in orchestrator task")
 
             # Run orchestrator if available
             if orchestrator_main and OrchestratorContext:

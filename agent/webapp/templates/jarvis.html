@@ -409,6 +409,220 @@
             animation: pulse 2s infinite;
         }
 
+        /* Image in Messages */
+        .message-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .message-image:hover {
+            transform: scale(1.02);
+        }
+
+        .message-image-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .message-image-preview img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        /* Image Upload Preview */
+        .upload-preview {
+            display: none;
+            padding: 10px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-preview.active {
+            display: flex;
+        }
+
+        .upload-preview img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #3498db;
+        }
+
+        .upload-preview .info {
+            flex: 1;
+        }
+
+        .upload-preview .filename {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .upload-preview .filesize {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .upload-preview .remove-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Camera Modal */
+        .camera-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-modal.active {
+            display: flex;
+        }
+
+        .camera-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 640px;
+            width: 90%;
+        }
+
+        .camera-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .camera-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .camera-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .camera-video-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #camera-video {
+            width: 100%;
+            display: block;
+        }
+
+        #camera-canvas {
+            display: none;
+        }
+
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .camera-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .camera-btn.capture {
+            background: #3498db;
+            color: white;
+        }
+
+        .camera-btn.switch {
+            background: #f0f0f0;
+        }
+
+        .camera-btn:hover {
+            opacity: 0.9;
+        }
+
+        .camera-permission-msg {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .camera-permission-msg button {
+            margin-top: 15px;
+            padding: 12px 24px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* Input area buttons */
+        .input-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .input-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .input-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .input-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        /* Hidden file input */
+        #image-input {
+            display: none;
+        }
+
         /* Messages */
         .messages-container {
             flex: 1;
@@ -744,10 +958,47 @@
                 </div>
             </div>
 
+            <!-- Image Upload Preview -->
+            <div class="upload-preview" id="upload-preview">
+                <img id="preview-image" src="" alt="Preview">
+                <div class="info">
+                    <div class="filename" id="preview-filename">image.jpg</div>
+                    <div class="filesize" id="preview-filesize">0 KB</div>
+                </div>
+                <button class="remove-btn" onclick="removeUploadedImage()">✕ Remove</button>
+            </div>
+
             <div class="input-area">
-                <button class="attach-btn" onclick="attachFile()" title="Attach file">📎</button>
+                <div class="input-actions">
+                    <input type="file" id="image-input" accept="image/*" onchange="handleImageSelect(event)">
+                    <button class="input-btn" onclick="document.getElementById('image-input').click()" title="Upload image">🖼️</button>
+                    <button class="input-btn" onclick="openCamera()" title="Camera">📷</button>
+                    <button class="input-btn" onclick="attachFile()" title="Attach file">📎</button>
+                </div>
                 <textarea id="message-input" placeholder="Message Jarvis..." rows="1" onkeydown="handleKeyPress(event)"></textarea>
                 <button class="send-btn" onclick="sendMessage()" id="send-btn">Send ➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div class="camera-modal" id="camera-modal">
+        <div class="camera-container">
+            <div class="camera-header">
+                <h3>📷 Camera</h3>
+                <button class="camera-close-btn" onclick="closeCamera()">✕</button>
+            </div>
+            <div class="camera-video-container">
+                <video id="camera-video" autoplay playsinline></video>
+                <canvas id="camera-canvas"></canvas>
+                <div class="camera-permission-msg" id="camera-permission-msg" style="display: none;">
+                    <p>JARVIS needs access to your camera to see what you're looking at.</p>
+                    <button onclick="requestCameraPermission()">Allow Camera Access</button>
+                </div>
+            </div>
+            <div class="camera-controls" id="camera-controls">
+                <button class="camera-btn switch" onclick="switchCamera()" id="switch-camera-btn">🔄 Switch</button>
+                <button class="camera-btn capture" onclick="capturePhoto()">📸 Capture</button>
             </div>
         </div>
     </div>
@@ -1183,7 +1434,315 @@
             if (e.key === 'Escape' && agentsPanelOpen) {
                 closeAgentsPanel();
             }
+            if (e.key === 'Escape' && cameraActive) {
+                closeCamera();
+            }
         });
+
+        // ============================================================
+        // Image Upload and Camera Functions
+        // ============================================================
+
+        let pendingImage = null;  // { base64, filename, size }
+        let cameraStream = null;
+        let cameraActive = false;
+        let facingMode = 'user';  // 'user' (front) or 'environment' (back)
+
+        // Handle image file selection
+        function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file.');
+                return;
+            }
+
+            // Validate file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Image too large. Maximum size is 10MB.');
+                return;
+            }
+
+            // Read and preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result.split(',')[1];
+                pendingImage = {
+                    base64: base64,
+                    filename: file.name,
+                    size: file.size,
+                    dataUrl: e.target.result
+                };
+
+                // Show preview
+                showUploadPreview(pendingImage);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Show upload preview
+        function showUploadPreview(image) {
+            document.getElementById('preview-image').src = image.dataUrl;
+            document.getElementById('preview-filename').textContent = image.filename;
+            document.getElementById('preview-filesize').textContent = formatFileSize(image.size);
+            document.getElementById('upload-preview').classList.add('active');
+        }
+
+        // Remove uploaded image
+        function removeUploadedImage() {
+            pendingImage = null;
+            document.getElementById('upload-preview').classList.remove('active');
+            document.getElementById('image-input').value = '';
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Modified sendMessage to handle images
+        const originalSendMessage = sendMessage;
+        sendMessage = async function() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+
+            // Need either message or image
+            if (!message && !pendingImage) return;
+            if (isProcessing) return;
+
+            // Hide welcome screen
+            document.getElementById('welcome-screen').style.display = 'none';
+
+            // Add user message (with image if present)
+            addMessageWithImage('user', message || 'What do you see in this image?', pendingImage);
+
+            // Clear input
+            input.value = '';
+            input.style.height = 'auto';
+            const imageToSend = pendingImage;
+            removeUploadedImage();
+
+            // Show typing indicator
+            showTyping();
+            isProcessing = true;
+            document.getElementById('send-btn').disabled = true;
+
+            try {
+                let response;
+                let data;
+
+                if (imageToSend) {
+                    // Send to vision API
+                    response = await fetch('/api/vision/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: message || 'What do you see in this image?',
+                            image_base64: imageToSend.base64,
+                            context: {}
+                        })
+                    });
+                    data = await response.json();
+                } else {
+                    // Send to regular chat API
+                    response = await fetch('/api/chat/message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message, context: {} })
+                    });
+                    data = await response.json();
+                }
+
+                // Hide typing indicator
+                hideTyping();
+
+                // Add assistant response
+                addMessage('assistant', data.content, data.metadata || {});
+
+            } catch (error) {
+                hideTyping();
+                addMessage('assistant', `I'm afraid I encountered an error: ${error.message}`, { error: true });
+            } finally {
+                isProcessing = false;
+                document.getElementById('send-btn').disabled = false;
+            }
+        };
+
+        // Add message with image
+        function addMessageWithImage(role, content, image = null) {
+            const messages = document.getElementById('messages');
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = role === 'user' ? '👤' : '🤖';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            // Add text
+            if (content) {
+                const text = document.createElement('p');
+                text.textContent = content;
+                contentDiv.appendChild(text);
+            }
+
+            // Add image if present
+            if (image) {
+                const img = document.createElement('img');
+                img.className = 'message-image';
+                img.src = image.dataUrl;
+                img.alt = 'Uploaded image';
+                img.onclick = () => window.open(image.dataUrl, '_blank');
+                contentDiv.appendChild(img);
+            }
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentDiv);
+            messages.appendChild(messageDiv);
+
+            // Scroll to bottom
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // ============================================================
+        // Camera Functions
+        // ============================================================
+
+        // Open camera modal
+        async function openCamera() {
+            document.getElementById('camera-modal').classList.add('active');
+            cameraActive = true;
+
+            // Check if camera API is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showCameraPermissionMessage('Camera not supported in this browser.');
+                return;
+            }
+
+            await requestCameraPermission();
+        }
+
+        // Request camera permission and start stream
+        async function requestCameraPermission() {
+            try {
+                // Hide permission message
+                document.getElementById('camera-permission-msg').style.display = 'none';
+
+                const constraints = {
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                const video = document.getElementById('camera-video');
+                video.srcObject = cameraStream;
+                video.style.display = 'block';
+
+                // Show/hide switch button on mobile (has multiple cameras)
+                const hasMultipleCameras = await checkMultipleCameras();
+                document.getElementById('switch-camera-btn').style.display = hasMultipleCameras ? 'flex' : 'none';
+
+            } catch (error) {
+                console.error('Camera error:', error);
+
+                if (error.name === 'NotAllowedError') {
+                    showCameraPermissionMessage('Camera access denied. Please allow camera access to use this feature.');
+                } else if (error.name === 'NotFoundError') {
+                    showCameraPermissionMessage('No camera found on this device.');
+                } else {
+                    showCameraPermissionMessage(`Camera error: ${error.message}`);
+                }
+            }
+        }
+
+        // Check if device has multiple cameras
+        async function checkMultipleCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(d => d.kind === 'videoinput');
+                return cameras.length > 1;
+            } catch {
+                return false;
+            }
+        }
+
+        // Show permission/error message
+        function showCameraPermissionMessage(message) {
+            const msgDiv = document.getElementById('camera-permission-msg');
+            msgDiv.querySelector('p').textContent = message;
+            msgDiv.style.display = 'block';
+            document.getElementById('camera-video').style.display = 'none';
+        }
+
+        // Switch between front and back camera
+        async function switchCamera() {
+            facingMode = facingMode === 'user' ? 'environment' : 'user';
+
+            // Stop current stream
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+
+            // Start new stream
+            await requestCameraPermission();
+        }
+
+        // Capture photo from camera
+        function capturePhoto() {
+            const video = document.getElementById('camera-video');
+            const canvas = document.getElementById('camera-canvas');
+
+            // Set canvas size to video size
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame to canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            // Get image data
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const base64 = dataUrl.split(',')[1];
+
+            // Set as pending image
+            pendingImage = {
+                base64: base64,
+                filename: 'camera_capture.jpg',
+                size: Math.round(base64.length * 0.75),  // Approximate size
+                dataUrl: dataUrl
+            };
+
+            // Show preview and close camera
+            showUploadPreview(pendingImage);
+            closeCamera();
+        }
+
+        // Close camera modal
+        function closeCamera() {
+            document.getElementById('camera-modal').classList.remove('active');
+            cameraActive = false;
+
+            // Stop camera stream
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+
+            const video = document.getElementById('camera-video');
+            video.srcObject = null;
+        }
     </script>
 </body>
 </html>

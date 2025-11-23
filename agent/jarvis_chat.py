@@ -28,6 +28,26 @@ from jarvis_persona import (
     format_error_response,
 )
 
+# Import file operations module for file system access and document generation
+try:
+    from file_operations import (
+        FileOperationHandler,
+        normalize_path,
+        list_directory,
+        read_file,
+        write_file,
+        create_document,
+        create_pdf,
+        create_word_document,
+        create_excel_spreadsheet,
+        get_available_formats,
+    )
+    FILE_OPERATIONS_AVAILABLE = True
+except ImportError as e:
+    print(f"[Jarvis] File operations module not available: {e}")
+    FILE_OPERATIONS_AVAILABLE = False
+    FileOperationHandler = None
+
 # Import existing components
 try:
     from memory.session_manager import SessionManager
@@ -116,6 +136,8 @@ class IntentType(Enum):
     FILE_OPERATION = "file_operation"      # Edit, fix specific files
     CONVERSATION = "conversation"          # Casual chat
     DOCUMENT_PROCESSING = "document_processing"  # Analyze/process attached documents
+    FILE_CREATION = "file_creation"        # Create files (PDF, Word, Excel, etc.)
+    FILE_SYSTEM_ACCESS = "file_system_access"  # List directories, read external files
 
 
 @dataclass
@@ -214,6 +236,17 @@ class JarvisChat:
                 self.adaptive_memory = None
         else:
             self.adaptive_memory = None
+
+        # Initialize file operations handler
+        if FILE_OPERATIONS_AVAILABLE and FileOperationHandler:
+            try:
+                self.file_handler = FileOperationHandler()
+                print("[Jarvis] File operations initialized - file creation enabled")
+            except Exception as e:
+                print(f"[Jarvis] File operations init failed: {e}")
+                self.file_handler = None
+        else:
+            self.file_handler = None
 
         # Conversation state
         self.current_session = None
@@ -449,6 +482,9 @@ class JarvisChat:
             elif intent.type == IntentType.FILE_OPERATION:
                 response = await self.handle_file_operation(user_message, context, intent)
 
+            elif intent.type in (IntentType.FILE_CREATION, IntentType.FILE_SYSTEM_ACCESS):
+                response = await self.handle_file_system_request(user_message, context)
+
             else:  # CONVERSATION
                 response = await self.handle_conversation(user_message, context)
 
@@ -523,17 +559,29 @@ Classify as one of:
 4. "file_operation" - Editing, fixing, updating specific files
    Examples: "Fix bug in login.js", "Update header color", "Add error handling"
 
-5. "conversation" - Casual chat, greetings, unclear requests
+5. "file_creation" - Creating physical files (PDF, Word, Excel, etc.)
+   Examples: "Save that as a PDF", "Create a PDF at D:/Documents/report.pdf",
+   "Make this into a Word document", "Export to Excel"
+   Note: Use when user wants to create actual files from content
+
+6. "file_system_access" - Listing directories, reading external files
+   Examples: "List files in D:/Documents", "Show me what's in /home/user",
+   "Read the file at C:/Users/Kevin/notes.txt", "Open D:/project/config.json"
+   Note: Use when user wants to browse or read files from external paths
+
+7. "conversation" - Casual chat, greetings, unclear requests
    Examples: "Hello", "Thanks!", "Can you help?"
 
 Consider:
 - Does user have attached files that need analysis? -> document_processing
 - Is the output code/software? -> complex_task
 - Is it processing documents to produce documents? -> document_processing
+- Is user asking to create/save a file (PDF, Word, etc.)? -> file_creation
+- Is user asking to browse directories or read external files? -> file_system_access
 
 Return ONLY valid JSON (no markdown):
 {{
-  "type": "simple_query|complex_task|document_processing|file_operation|conversation",
+  "type": "simple_query|complex_task|document_processing|file_operation|file_creation|file_system_access|conversation",
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation",
   "requires_orchestrator": true|false,
@@ -567,7 +615,56 @@ Return ONLY valid JSON (no markdown):
         """Fallback intent analysis using heuristics"""
         message_lower = message.lower()
 
-        # Document processing keywords (check first if files are attached)
+        # File creation keywords - check early for save/export requests
+        file_creation_keywords = [
+            "save as", "save to", "export to", "create a pdf", "create pdf",
+            "make it a pdf", "make a pdf", "to pdf", "as pdf", "into pdf",
+            "create a word", "make it word", "to word", "as docx", "to docx",
+            "create excel", "to xlsx", "as excel", "export excel",
+            "save that", "save this", "export that", "export this"
+        ]
+
+        # File system access keywords - detect external path access
+        file_system_keywords = [
+            "list files", "show files", "what's in", "contents of",
+            "files in", "list directory", "show directory",
+            "read file", "open file", "read the file", "show me the file"
+        ]
+
+        # Path patterns indicating external file system access
+        import re
+        has_windows_path = bool(re.search(r'[A-Za-z]:[/\\]', message))
+        has_unix_path = bool(re.search(r'(?:^|[^a-zA-Z])/[a-zA-Z0-9_\-]+/', message))
+        has_external_path = has_windows_path or has_unix_path
+
+        # Check for file creation intent
+        if any(kw in message_lower for kw in file_creation_keywords):
+            return Intent(
+                type=IntentType.FILE_CREATION,
+                confidence=0.85,
+                reasoning="Detected file creation/export keywords",
+                requires_orchestrator=False
+            )
+
+        # Check for file system access with external paths
+        if has_external_path and any(kw in message_lower for kw in file_system_keywords):
+            return Intent(
+                type=IntentType.FILE_SYSTEM_ACCESS,
+                confidence=0.85,
+                reasoning="Detected file system access with external path",
+                requires_orchestrator=False
+            )
+
+        # If just an external path is mentioned with list/show/read keywords
+        if has_external_path:
+            return Intent(
+                type=IntentType.FILE_SYSTEM_ACCESS,
+                confidence=0.75,
+                reasoning="Detected external file path reference",
+                requires_orchestrator=False
+            )
+
+        # Document processing keywords (check if files are attached)
         has_attached_files = context and context.get("attached_files")
         doc_processing_keywords = [
             "resume", "summarize", "extract", "analyze", "report",
@@ -905,59 +1002,137 @@ Just let me know your preferred format and I'll create the file for you!"""
     async def _handle_output_conversion(
         self,
         message: str,
-        previous_output: str
+        previous_output: str,
+        output_path: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Handle conversion of previous output to different formats"""
+        """Handle conversion of previous output to different formats with actual file creation"""
         try:
             message_lower = message.lower()
 
             # Detect requested format
             if "pdf" in message_lower:
-                format_type = "PDF"
+                format_type = "pdf"
+                format_display = "PDF"
             elif "word" in message_lower or "docx" in message_lower:
-                format_type = "Word (DOCX)"
+                format_type = "docx"
+                format_display = "Word (DOCX)"
+            elif "excel" in message_lower or "xlsx" in message_lower:
+                format_type = "xlsx"
+                format_display = "Excel (XLSX)"
             elif "markdown" in message_lower or "md" in message_lower:
-                format_type = "Markdown"
+                format_type = "md"
+                format_display = "Markdown"
             elif "text" in message_lower or "txt" in message_lower:
-                format_type = "Plain Text"
+                format_type = "txt"
+                format_display = "Plain Text"
             else:
                 format_type = None
+                format_display = None
 
             if format_type:
-                # For now, provide the content formatted appropriately
-                # In a full implementation, this would generate actual files
-                response = f"""Very good, sir. I shall prepare my previous output in {format_type} format.
+                # Check if file operations are available
+                if not self.file_handler:
+                    return {
+                        "content": f"""I'm afraid the file generation system is not available at the moment, sir.
+
+However, here is your content ready for {format_display} format:
 
 ---
-**Content for {format_type} Export:**
-
 {previous_output}
-
 ---
 
-📁 *The content above is ready for {format_type} export. In a production environment, I would generate the actual file for download.*
-
-If you need me to adjust the formatting or content before export, please let me know."""
-
-                return {
-                    "content": response,
-                    "metadata": {
-                        "type": "output_conversion",
-                        "format": format_type,
-                        "has_content": True
+You may copy this content and save it manually.""",
+                        "metadata": {
+                            "type": "output_conversion",
+                            "format": format_display,
+                            "file_created": False
+                        }
                     }
-                }
+
+                # Extract filename from message or generate one
+                filename = self._extract_filename(message) or f"jarvis_output_{int(time.time())}"
+
+                # Determine output path
+                if output_path:
+                    file_path = normalize_path(output_path)
+                else:
+                    # Try to extract path from message
+                    extracted_path = self._extract_path_from_message(message)
+                    if extracted_path:
+                        file_path = normalize_path(extracted_path)
+                        # If extracted path is a directory, append filename
+                        if file_path.is_dir() or not file_path.suffix:
+                            file_path = file_path / filename
+                    else:
+                        # Use default output directory
+                        file_path = Path.cwd() / "outputs" / filename
+
+                # Create the file
+                result = create_document(
+                    path=str(file_path),
+                    content=previous_output,
+                    format=format_type,
+                    title=filename.replace('_', ' ').title()
+                )
+
+                if result["success"]:
+                    response = f"""Very good, sir. I have created your {format_display} file.
+
+📁 **File Created:** `{result['path']}`
+📊 **Size:** {result.get('size', 0):,} bytes
+
+The document has been saved successfully. Is there anything else you'd like me to do with it?"""
+
+                    return {
+                        "content": response,
+                        "metadata": {
+                            "type": "output_conversion",
+                            "format": format_display,
+                            "file_created": True,
+                            "file_path": result["path"],
+                            "file_size": result.get("size", 0)
+                        }
+                    }
+                else:
+                    return {
+                        "content": f"""I'm afraid I encountered an issue creating the {format_display} file, sir.
+
+Error: {result.get('error', 'Unknown error')}
+
+Here is your content that I attempted to save:
+
+---
+{previous_output[:2000]}{'...(truncated)' if len(previous_output) > 2000 else ''}
+---
+
+Would you like me to try a different location or format?""",
+                        "metadata": {
+                            "type": "output_conversion",
+                            "format": format_display,
+                            "file_created": False,
+                            "error": result.get("error")
+                        }
+                    }
             else:
-                # Ask for format preference
+                # Ask for format preference with available formats
+                available = get_available_formats() if FILE_OPERATIONS_AVAILABLE else {}
+                format_list = []
+                if available.get("pdf", False):
+                    format_list.append("- **PDF** - Professional, ready to print/share")
+                if available.get("docx", False):
+                    format_list.append("- **Word (DOCX)** - Editable document format")
+                if available.get("xlsx", False):
+                    format_list.append("- **Excel (XLSX)** - Spreadsheet format")
+                format_list.append("- **Markdown** - Formatted text for web/docs")
+                format_list.append("- **Plain Text** - Simple text file")
+
                 return {
                     "content": f"""Of course, sir. I have my previous output ready. Which format would you prefer?
 
-- **PDF** - Professional, ready to print/share
-- **Word (DOCX)** - Editable document format
-- **Plain Text** - Simple text file
-- **Markdown** - Formatted text for web/docs
+{chr(10).join(format_list)}
 
-Simply tell me the format and I shall prepare it accordingly.""",
+Simply tell me the format and I shall create the file accordingly.
+You may also specify a path, for example: "Save as PDF to D:/Documents/report.pdf" """,
                     "metadata": {
                         "type": "output_conversion",
                         "awaiting_format": True
@@ -966,9 +1141,307 @@ Simply tell me the format and I shall prepare it accordingly.""",
 
         except Exception as e:
             print(f"[Jarvis] Output conversion error: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "content": f"I encountered an issue preparing the format conversion: {str(e)}",
                 "metadata": {"error": True}
+            }
+
+    def _extract_filename(self, message: str) -> Optional[str]:
+        """Extract filename from user message"""
+        import re
+
+        # Look for explicit filename patterns
+        patterns = [
+            r'(?:name|call|save as|filename)[:\s]+["\']?([a-zA-Z0-9_\-\.]+)["\']?',
+            r'["\']([a-zA-Z0-9_\-\.]+\.(pdf|docx|xlsx|md|txt))["\']',
+            r'as\s+["\']?([a-zA-Z0-9_\-]+)["\']?',
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if match:
+                filename = match.group(1)
+                # Remove extension if present (will be added by create_document)
+                return filename.rsplit('.', 1)[0] if '.' in filename else filename
+
+        return None
+
+    def _extract_path_from_message(self, message: str) -> Optional[str]:
+        """Extract file path from user message"""
+        import re
+
+        # Look for path patterns
+        patterns = [
+            # Windows paths: D:\folder\file or D:/folder/file
+            r'([A-Za-z]:[/\\][^\s"\'<>|*?]+)',
+            # Unix paths: /home/user/folder
+            r'(/[^\s"\'<>|*?]+/[^\s"\'<>|*?]+)',
+            # Relative paths with to/in/at keywords
+            r'(?:to|in|at)\s+["\']?([./][^\s"\']+)["\']?',
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, message)
+            if match:
+                return match.group(1)
+
+        return None
+
+    async def handle_file_system_request(
+        self,
+        message: str,
+        context: Optional[Dict]
+    ) -> Dict[str, Any]:
+        """Handle file system access requests - list directories, read files, create files"""
+        try:
+            message_lower = message.lower()
+
+            if not self.file_handler:
+                return {
+                    "content": """I'm afraid the file system access module is not available at the moment, sir.
+
+This capability requires the file_operations module to be properly initialized.
+Please ensure the required dependencies are installed:
+- reportlab (for PDF)
+- python-docx (for Word)
+- openpyxl (for Excel)""",
+                    "metadata": {"type": "file_system", "error": True}
+                }
+
+            # Extract path from message
+            target_path = self._extract_path_from_message(message)
+
+            # Detect operation type
+            if any(word in message_lower for word in ["list", "show", "what's in", "contents of", "files in", "directory", "folder"]):
+                # List directory operation
+                if not target_path:
+                    return {
+                        "content": """Of course, sir. Which directory would you like me to list?
+
+Please provide a path, for example:
+- "List files in D:/Documents"
+- "Show contents of /home/user/projects"
+- "What's in C:/Users/Kevin/Desktop" """,
+                        "metadata": {"type": "file_system", "awaiting_path": True}
+                    }
+
+                result = list_directory(target_path, recursive=False)
+
+                if result["success"]:
+                    # Format directory listing
+                    dirs = result.get("directories", [])
+                    files = result.get("files", [])
+
+                    listing = f"📁 **Directory:** `{result['path']}`\n\n"
+
+                    if dirs:
+                        listing += "**Folders:**\n"
+                        for d in dirs[:20]:  # Limit to 20
+                            listing += f"  📂 {d['name']}\n"
+                        if len(dirs) > 20:
+                            listing += f"  ... and {len(dirs) - 20} more folders\n"
+                        listing += "\n"
+
+                    if files:
+                        listing += "**Files:**\n"
+                        for f in files[:30]:  # Limit to 30
+                            size_kb = f.get('size', 0) / 1024
+                            listing += f"  📄 {f['name']} ({size_kb:.1f} KB)\n"
+                        if len(files) > 30:
+                            listing += f"  ... and {len(files) - 30} more files\n"
+
+                    if not dirs and not files:
+                        listing += "*The directory is empty.*"
+
+                    return {
+                        "content": f"""Very good, sir. Here are the contents:
+
+{listing}
+
+Total: {result.get('total_directories', 0)} folders, {result.get('total_files', 0)} files""",
+                        "metadata": {
+                            "type": "file_system",
+                            "operation": "list",
+                            "path": result["path"],
+                            "total_files": result.get("total_files", 0),
+                            "total_directories": result.get("total_directories", 0)
+                        }
+                    }
+                else:
+                    return {
+                        "content": f"""I'm afraid I couldn't access that directory, sir.
+
+Error: {result.get('error', 'Unknown error')}
+
+Please verify the path exists and I have permission to access it.""",
+                        "metadata": {"type": "file_system", "error": True}
+                    }
+
+            elif any(word in message_lower for word in ["read", "open", "show me", "display", "view", "cat"]):
+                # Read file operation
+                if not target_path:
+                    return {
+                        "content": """Certainly, sir. Which file would you like me to read?
+
+Please provide a file path, for example:
+- "Read D:/Documents/report.txt"
+- "Show me /home/user/config.json"
+- "Open C:/Users/Kevin/notes.md" """,
+                        "metadata": {"type": "file_system", "awaiting_path": True}
+                    }
+
+                result = read_file(target_path)
+
+                if result["success"]:
+                    if result.get("is_binary"):
+                        return {
+                            "content": f"""I'm afraid that's a binary file, sir. I cannot display its contents as text.
+
+📄 **File:** `{result['path']}`
+📊 **Size:** {result.get('size', 0):,} bytes
+🔒 **Type:** Binary
+
+Would you like me to do something else with this file?""",
+                            "metadata": {"type": "file_system", "is_binary": True}
+                        }
+
+                    content = result.get("content", "")
+                    # Truncate very long files
+                    if len(content) > 5000:
+                        content = content[:5000] + "\n\n... (content truncated, file is too large to display fully)"
+
+                    return {
+                        "content": f"""Very good, sir. Here are the contents of `{result['path']}`:
+
+```
+{content}
+```
+
+📄 Size: {result.get('size', 0):,} bytes""",
+                        "metadata": {
+                            "type": "file_system",
+                            "operation": "read",
+                            "path": result["path"],
+                            "size": result.get("size", 0)
+                        }
+                    }
+                else:
+                    return {
+                        "content": f"""I'm afraid I couldn't read that file, sir.
+
+Error: {result.get('error', 'Unknown error')}
+
+Please verify the file exists and I have permission to read it.""",
+                        "metadata": {"type": "file_system", "error": True}
+                    }
+
+            elif any(word in message_lower for word in ["create", "make", "generate", "save", "write"]):
+                # Create file operation - detect format
+                if "pdf" in message_lower:
+                    format_type = "pdf"
+                elif "word" in message_lower or "docx" in message_lower:
+                    format_type = "docx"
+                elif "excel" in message_lower or "xlsx" in message_lower:
+                    format_type = "xlsx"
+                elif "markdown" in message_lower or "md" in message_lower:
+                    format_type = "md"
+                else:
+                    format_type = "txt"
+
+                # Check if we have content to write
+                content_to_write = context.get("content") if context else None
+
+                if not content_to_write:
+                    # Check conversation history for content
+                    for msg in reversed(self.conversation_history[-5:]):
+                        if msg.role == "assistant" and len(msg.content) > 100:
+                            content_to_write = msg.content
+                            break
+
+                if not content_to_write:
+                    return {
+                        "content": """I'd be happy to create a file for you, sir. What content would you like me to include?
+
+You can either:
+1. Tell me what to write and I'll create the file
+2. Ask me to generate content first, then say "save that as a PDF" """,
+                        "metadata": {"type": "file_system", "awaiting_content": True}
+                    }
+
+                # Get filename
+                filename = self._extract_filename(message) or f"jarvis_document_{int(time.time())}"
+
+                # Determine path
+                if target_path:
+                    file_path = normalize_path(target_path)
+                else:
+                    file_path = Path.cwd() / "outputs" / filename
+
+                result = create_document(
+                    path=str(file_path),
+                    content=content_to_write,
+                    format=format_type,
+                    title=filename.replace('_', ' ').title()
+                )
+
+                if result["success"]:
+                    return {
+                        "content": f"""Very good, sir. I have created your file.
+
+📁 **File Created:** `{result['path']}`
+📊 **Size:** {result.get('size', 0):,} bytes
+📝 **Format:** {format_type.upper()}
+
+The file has been saved successfully.""",
+                        "metadata": {
+                            "type": "file_system",
+                            "operation": "create",
+                            "path": result["path"],
+                            "format": format_type
+                        }
+                    }
+                else:
+                    return {
+                        "content": f"""I'm afraid I couldn't create the file, sir.
+
+Error: {result.get('error', 'Unknown error')}
+
+Would you like me to try a different location or format?""",
+                        "metadata": {"type": "file_system", "error": True}
+                    }
+
+            else:
+                # General file system help
+                return {
+                    "content": """Certainly, sir. I can assist with file system operations. Here's what I can do:
+
+**List Directory Contents:**
+- "List files in D:/Documents"
+- "Show me what's in /home/user/projects"
+
+**Read Files:**
+- "Read D:/Documents/report.txt"
+- "Open /home/user/config.json"
+
+**Create Files:**
+- "Create a PDF at D:/Documents/report.pdf"
+- "Save this as a Word document to /home/user/doc.docx"
+
+**Supported formats:** PDF, Word (DOCX), Excel (XLSX), Markdown, Plain Text
+
+What would you like me to do?""",
+                    "metadata": {"type": "file_system", "awaiting_operation": True}
+                }
+
+        except Exception as e:
+            print(f"[Jarvis] File system error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "content": f"I encountered an issue with the file operation: {str(e)}",
+                "metadata": {"type": "file_system", "error": True}
             }
 
     async def handle_complex_task(

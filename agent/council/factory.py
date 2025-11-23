@@ -144,16 +144,43 @@ class CouncillorFactory:
         self._execute_func = func
 
     def _generate_name(self) -> str:
-        """Generate a unique councillor name"""
-        for _ in range(100):  # Max attempts
+        """Generate a unique councillor name with robust collision handling."""
+        # Try random combinations first
+        for _ in range(100):
             first = random.choice(FIRST_NAMES)
             last = random.choice(LAST_NAMES)
             name = f"{first} {last}"
             if name not in self._used_names:
                 self._used_names.add(name)
                 return name
-        # Fallback with number
-        return f"Councillor_{len(self._used_names) + 1}"
+
+        # If random fails, try systematic combinations
+        for first in FIRST_NAMES:
+            for last in LAST_NAMES:
+                name = f"{first} {last}"
+                if name not in self._used_names:
+                    self._used_names.add(name)
+                    return name
+
+        # Final fallback with guaranteed unique counter
+        counter = 1
+        while True:
+            name = f"Councillor_{len(self._used_names) + counter}"
+            if name not in self._used_names:
+                self._used_names.add(name)
+                return name
+            counter += 1
+            # Safety limit to prevent infinite loop
+            if counter > 10000:
+                raise RuntimeError("Unable to generate unique councillor name")
+
+    def register_existing_names(self, names: List[str]):
+        """Register names that are already in use (e.g., loaded from storage).
+
+        Args:
+            names: List of councillor names already in use
+        """
+        self._used_names.update(names)
 
     def spawn(
         self,
@@ -379,7 +406,8 @@ class CouncillorFactory:
 
     def maintain_team(
         self,
-        councillors: List[Councillor]
+        councillors: List[Councillor],
+        modify_in_place: bool = False
     ) -> Dict[str, Any]:
         """
         Maintain team size and quality.
@@ -388,15 +416,24 @@ class CouncillorFactory:
 
         Args:
             councillors: Current list of councillors
+            modify_in_place: If True, modify the input list directly (default: False)
+                           If False, returns new/removed councillors in the result
 
         Returns:
-            Report of actions taken
+            Report of actions taken, including:
+            - fired: List of FiringDecision objects
+            - promoted: List of promoted councillor names
+            - spawned: List of new councillor names
+            - new_councillors: List of newly spawned Councillor objects (if not modify_in_place)
+            - removed_councillors: List of fired Councillor objects (if not modify_in_place)
         """
         evaluation = self.evaluate_team(councillors)
         actions = {
             "fired": [],
             "promoted": [],
             "spawned": [],
+            "new_councillors": [],
+            "removed_councillors": [],
         }
 
         # Fire underperformers
@@ -404,7 +441,9 @@ class CouncillorFactory:
             c = item["councillor"]
             decision = self.fire(c, item["reason"])
             actions["fired"].append(decision)
-            councillors.remove(c)
+            actions["removed_councillors"].append(c)
+            if modify_in_place:
+                councillors.remove(c)
 
         # Promote ready councillors
         for item in evaluation["to_promote"]:
@@ -417,8 +456,10 @@ class CouncillorFactory:
             for i in range(evaluation["spawn_needed"]):
                 template = self.config.default_templates[i % len(self.config.default_templates)]
                 new_councillor = self.spawn(template, reason="replacement")
-                councillors.append(new_councillor)
+                actions["new_councillors"].append(new_councillor)
                 actions["spawned"].append(new_councillor.name)
+                if modify_in_place:
+                    councillors.append(new_councillor)
 
         return actions
 

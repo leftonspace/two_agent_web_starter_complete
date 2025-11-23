@@ -107,6 +107,14 @@ try:
 except ImportError as e:
     print(f"[Startup] Chat API not available: {e}")
 
+# JARVIS VOICE: Include voice API router
+try:
+    from voice_api import router as voice_router
+    app.include_router(voice_router)
+    print("[Startup] Jarvis voice API loaded")
+except ImportError as e:
+    print(f"[Startup] Voice API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 

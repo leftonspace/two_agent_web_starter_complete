@@ -131,6 +131,14 @@ try:
 except ImportError as e:
     print(f"[Startup] Vision API not available: {e}")
 
+# CODE API: Include code analysis/completion API for VS Code extension and CLI
+try:
+    from code_api import router as code_router
+    app.include_router(code_router)
+    print("[Startup] Code API loaded (VS Code extension support)")
+except ImportError as e:
+    print(f"[Startup] Code API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 

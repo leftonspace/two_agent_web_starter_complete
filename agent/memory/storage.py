@@ -583,7 +583,22 @@ class SQLiteStorage(MemoryStorage):
         )
 
     def close(self):
-        self._conn.close()
+        if self._conn:
+            self._conn.close()
+            self._conn = None
+
+    def __del__(self):
+        """Ensure connection is closed on garbage collection"""
+        self.close()
+
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures connection is closed"""
+        self.close()
+        return False
 
 
 # =============================================================================
@@ -740,7 +755,22 @@ class TaskStorage:
         )
 
     def close(self):
-        self._conn.close()
+        if self._conn:
+            self._conn.close()
+            self._conn = None
+
+    def __del__(self):
+        """Ensure connection is closed on garbage collection"""
+        self.close()
+
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures connection is closed"""
+        self.close()
+        return False
 
 
 # =============================================================================

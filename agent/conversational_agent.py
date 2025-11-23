@@ -94,6 +94,11 @@ class ConversationalAgent:
     task planning, and autonomous execution.
     """
 
+    # Maximum sizes to prevent unbounded memory growth
+    MAX_CONVERSATION_HISTORY = 100
+    MAX_AGENT_MESSAGES = 50
+    MAX_ACTIVE_TASKS = 20
+
     def __init__(self, config: Optional[Config] = None):
         """Initialize conversational agent"""
         self.config = config or get_config()
@@ -684,6 +689,10 @@ Return JSON:
         )
         self.conversation_history.append(message)
 
+        # Prune conversation history to prevent unbounded growth
+        if len(self.conversation_history) > self.MAX_CONVERSATION_HISTORY:
+            self.conversation_history = self.conversation_history[-self.MAX_CONVERSATION_HISTORY:]
+
     def _build_conversation_context(self, last_n: int = 5) -> str:
         """Build conversation context from recent messages"""
         recent = self.conversation_history[-last_n:] if last_n > 0 else self.conversation_history
@@ -898,12 +907,16 @@ Return JSON:
             }
         )
 
-        # Add to queue for web UI streaming
+        # Add to queue for web UI streaming (with pruning)
         self.agent_message_queue.append(message)
+        if len(self.agent_message_queue) > self.MAX_AGENT_MESSAGES:
+            self.agent_message_queue = self.agent_message_queue[-self.MAX_AGENT_MESSAGES:]
 
-        # If requires response, track it
+        # If requires response, track it (with pruning)
         if message.requires_response:
             self.pending_agent_messages.append(message)
+            if len(self.pending_agent_messages) > self.MAX_AGENT_MESSAGES:
+                self.pending_agent_messages = self.pending_agent_messages[-self.MAX_AGENT_MESSAGES:]
 
         # Log event
         core_logging.log_event("agent_message_received", {

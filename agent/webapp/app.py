@@ -139,6 +139,14 @@ try:
 except ImportError as e:
     print(f"[Startup] Code API not available: {e}")
 
+# FINANCE API: Include finance tools API for spreadsheets, documents, and templates
+try:
+    from finance_api import router as finance_router
+    app.include_router(finance_router)
+    print("[Startup] Finance API loaded (spreadsheet, document intelligence, templates)")
+except ImportError as e:
+    print(f"[Startup] Finance API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 

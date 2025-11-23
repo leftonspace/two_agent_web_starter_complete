@@ -49,6 +49,24 @@ from .enhanced_router import (
     create_router,
 )
 
+# YAML-based configuration system
+from .config import (
+    LLMConfig,
+    LLMConfigLoader,
+    ConfigurableRouter,
+    ProviderConfig,
+    RoleConfig,
+    ModelAssignment,
+    CostOptimizationConfig,
+    AgentRole,
+    TaskCategory,
+    load_config,
+    create_router_from_config,
+    create_router_from_yaml,
+    generate_default_config,
+    DEFAULT_CONFIG_TEMPLATE,
+)
+
 # Re-export functions from llm.py (the module file) to maintain backward compatibility
 # This is needed because the llm/ package shadows the llm.py module file
 import importlib.util
@@ -96,6 +114,21 @@ __all__ = [
     "TaskType",
     "Complexity",
     "create_router",
+    # YAML configuration system
+    "LLMConfig",
+    "LLMConfigLoader",
+    "ConfigurableRouter",
+    "ProviderConfig",
+    "RoleConfig",
+    "ModelAssignment",
+    "CostOptimizationConfig",
+    "AgentRole",
+    "TaskCategory",
+    "load_config",
+    "create_router_from_config",
+    "create_router_from_yaml",
+    "generate_default_config",
+    "DEFAULT_CONFIG_TEMPLATE",
 ]
 
 # ----------------------------------------------------------------------

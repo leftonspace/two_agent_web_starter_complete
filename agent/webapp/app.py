@@ -385,7 +385,7 @@ async def view_project(request: Request, project_id: str):
 
 
 @app.get("/api/projects")
-async def api_list_projects():
+async def api_list_projects(current_user: User = Depends(require_auth)):
     """
     API endpoint to list all available projects.
 
@@ -396,7 +396,7 @@ async def api_list_projects():
 
 
 @app.get("/api/history")
-async def api_list_history(limit: int = 50):
+async def api_list_history(limit: int = 50, current_user: User = Depends(require_auth)):
     """
     API endpoint to list run history.
 
@@ -410,7 +410,7 @@ async def api_list_history(limit: int = 50):
 
 
 @app.get("/api/run/{run_id}")
-async def api_get_run(run_id: str):
+async def api_get_run(run_id: str, current_user: User = Depends(require_auth)):
     """
     API endpoint to get run details.
 
@@ -432,7 +432,7 @@ async def api_get_run(run_id: str):
 
 
 @app.get("/api/jobs")
-async def api_list_jobs(status: Optional[str] = None, limit: Optional[int] = None):
+async def api_list_jobs(status: Optional[str] = None, limit: Optional[int] = None, current_user: User = Depends(require_auth)):
     """
     API endpoint to list all jobs.
 
@@ -451,7 +451,7 @@ async def api_list_jobs(status: Optional[str] = None, limit: Optional[int] = Non
 
 
 @app.get("/api/jobs/{job_id}")
-async def api_get_job(job_id: str):
+async def api_get_job(job_id: str, current_user: User = Depends(require_auth)):
     """
     API endpoint to get job details.
 
@@ -476,7 +476,7 @@ async def api_get_job(job_id: str):
 
 
 @app.get("/api/jobs/{job_id}/logs")
-async def api_get_job_logs(job_id: str, tail: Optional[int] = None):
+async def api_get_job_logs(job_id: str, tail: Optional[int] = None, current_user: User = Depends(require_auth)):
     """
     API endpoint to get job logs.
 
@@ -628,7 +628,7 @@ def api_get_job_qa(job_id: str):
 
 
 @app.get("/api/projects/{project_id}/tree")
-async def api_get_project_tree(project_id: str, path: Optional[str] = None):
+async def api_get_project_tree(project_id: str, path: Optional[str] = None, current_user: User = Depends(require_auth)):
     """
     API endpoint to get file tree for a project.
 
@@ -661,7 +661,7 @@ async def api_get_project_tree(project_id: str, path: Optional[str] = None):
 
 
 @app.get("/api/projects/{project_id}/file")
-async def api_get_project_file(project_id: str, path: str):
+async def api_get_project_file(project_id: str, path: str, current_user: User = Depends(require_auth)):
     """
     API endpoint to get file content from a project.
 
@@ -700,7 +700,7 @@ async def api_get_project_file(project_id: str, path: str):
 
 
 @app.get("/api/projects/{project_id}/snapshots")
-async def api_list_snapshots(project_id: str):
+async def api_list_snapshots(project_id: str, current_user: User = Depends(require_auth)):
     """
     API endpoint to list all snapshots for a project.
 
@@ -728,7 +728,7 @@ async def api_list_snapshots(project_id: str):
 
 
 @app.get("/api/projects/{project_id}/snapshots/{snapshot_id}/tree")
-async def api_get_snapshot_tree(project_id: str, snapshot_id: str, path: Optional[str] = None):
+async def api_get_snapshot_tree(project_id: str, snapshot_id: str, path: Optional[str] = None, current_user: User = Depends(require_auth)):
     """
     API endpoint to get file tree for a snapshot.
 
@@ -766,7 +766,7 @@ async def api_get_snapshot_tree(project_id: str, snapshot_id: str, path: Optiona
 
 
 @app.get("/api/projects/{project_id}/snapshots/{snapshot_id}/file")
-async def api_get_snapshot_file(project_id: str, snapshot_id: str, path: str):
+async def api_get_snapshot_file(project_id: str, snapshot_id: str, path: str, current_user: User = Depends(require_auth)):
     """
     API endpoint to get file content from a snapshot.
 
@@ -817,6 +817,7 @@ async def api_compute_diff(
     source_id: Optional[str] = None,  # snapshot_id if source_type is "snapshot"
     target_type: str = "current",  # "current" or "snapshot"
     target_id: Optional[str] = None,  # snapshot_id if target_type is "snapshot"
+    current_user: User = Depends(require_auth),
 ):
     """
     API endpoint to compute diff between two file versions.
@@ -980,7 +981,7 @@ async def analytics_page(request: Request):
 
 
 @app.get("/api/analytics/summary")
-async def api_analytics_summary():
+async def api_analytics_summary(current_user: User = Depends(require_auth)):
     """
     API endpoint for overall analytics summary.
 
@@ -995,7 +996,7 @@ async def api_analytics_summary():
 
 
 @app.get("/api/analytics/projects")
-async def api_analytics_projects():
+async def api_analytics_projects(current_user: User = Depends(require_auth)):
     """
     API endpoint for per-project analytics.
 
@@ -1010,7 +1011,7 @@ async def api_analytics_projects():
 
 
 @app.get("/api/analytics/models")
-async def api_analytics_models():
+async def api_analytics_models(current_user: User = Depends(require_auth)):
     """
     API endpoint for per-model analytics.
 
@@ -1025,7 +1026,7 @@ async def api_analytics_models():
 
 
 @app.get("/api/analytics/timeseries")
-async def api_analytics_timeseries():
+async def api_analytics_timeseries(current_user: User = Depends(require_auth)):
     """
     API endpoint for time-series analytics.
 
@@ -1040,7 +1041,7 @@ async def api_analytics_timeseries():
 
 
 @app.get("/api/analytics/qa")
-async def api_analytics_qa():
+async def api_analytics_qa(current_user: User = Depends(require_auth)):
     """
     API endpoint for QA analytics.
 
@@ -1055,7 +1056,7 @@ async def api_analytics_qa():
 
 
 @app.get("/api/analytics/export/json")
-async def api_analytics_export_json():
+async def api_analytics_export_json(current_user: User = Depends(require_auth)):
     """
     Export complete analytics as JSON file.
 
@@ -1091,7 +1092,7 @@ async def api_analytics_export_json():
 
 
 @app.get("/api/analytics/export/csv")
-async def api_analytics_export_csv():
+async def api_analytics_export_csv(current_user: User = Depends(require_auth)):
     """
     Export analytics as CSV file.
 
@@ -1129,7 +1130,7 @@ async def api_analytics_export_csv():
 
 
 @app.get("/api/projects/{project_id}/profile")
-async def api_get_project_profile(project_id: str):
+async def api_get_project_profile(project_id: str, current_user: User = Depends(require_auth)):
     """
     Get project profile and tuning analysis.
 
@@ -1625,7 +1626,7 @@ async def integrations_page(request: Request):
 
 
 @app.get("/api/integrations")
-async def api_list_integrations():
+async def api_list_integrations(current_user: User = Depends(require_auth)):
     """
     List all registered integrations.
 
@@ -1650,7 +1651,7 @@ async def api_list_integrations():
 
 
 @app.post("/api/integrations")
-async def api_add_integration(config: Dict = Form(...)):
+async def api_add_integration(config: Dict = Form(...), current_user: User = Depends(require_auth)):
     """
     Add a new integration.
 
@@ -1702,7 +1703,7 @@ async def api_add_integration(config: Dict = Form(...)):
 
 
 @app.get("/api/integrations/{connector_id}")
-async def api_get_integration(connector_id: str):
+async def api_get_integration(connector_id: str, current_user: User = Depends(require_auth)):
     """
     Get integration details.
 
@@ -1739,7 +1740,7 @@ async def api_get_integration(connector_id: str):
 
 
 @app.post("/api/integrations/{connector_id}/connect")
-async def api_connect_integration(connector_id: str):
+async def api_connect_integration(connector_id: str, current_user: User = Depends(require_auth)):
     """
     Connect an integration.
 
@@ -1770,7 +1771,7 @@ async def api_connect_integration(connector_id: str):
 
 
 @app.post("/api/integrations/{connector_id}/disconnect")
-async def api_disconnect_integration(connector_id: str):
+async def api_disconnect_integration(connector_id: str, current_user: User = Depends(require_auth)):
     """
     Disconnect an integration.
 
@@ -1801,7 +1802,7 @@ async def api_disconnect_integration(connector_id: str):
 
 
 @app.get("/api/integrations/{connector_id}/test")
-async def api_test_integration(connector_id: str):
+async def api_test_integration(connector_id: str, current_user: User = Depends(require_auth)):
     """
     Test integration connection.
 
@@ -1838,7 +1839,7 @@ async def api_test_integration(connector_id: str):
 
 
 @app.delete("/api/integrations/{connector_id}")
-async def api_delete_integration(connector_id: str):
+async def api_delete_integration(connector_id: str, current_user: User = Depends(require_auth)):
     """
     Delete an integration.
 
@@ -1904,7 +1905,7 @@ async def chat_page(request: Request):
 
 
 @app.post("/api/chat")
-async def chat_endpoint(request: Request):
+async def chat_endpoint(request: Request, current_user: User = Depends(require_auth)):
     """
     Conversational chat endpoint.
 
@@ -1951,7 +1952,7 @@ async def chat_endpoint(request: Request):
 
 
 @app.get("/api/chat/tasks")
-async def get_active_tasks():
+async def get_active_tasks(current_user: User = Depends(require_auth)):
     """
     Get list of active tasks.
 
@@ -1970,7 +1971,7 @@ async def get_active_tasks():
 
 
 @app.get("/api/chat/task/{task_id}")
-async def get_task_status(task_id: str):
+async def get_task_status(task_id: str, current_user: User = Depends(require_auth)):
     """
     Get detailed status of a specific task.
 
@@ -2002,7 +2003,7 @@ async def get_task_status(task_id: str):
 
 
 @app.get("/api/chat/agent-messages")
-async def get_agent_messages(since_id: Optional[str] = None):
+async def get_agent_messages(since_id: Optional[str] = None, current_user: User = Depends(require_auth)):
     """
     Get agent messages for streaming (Manager/Supervisor/Employee).
 
@@ -2029,7 +2030,7 @@ async def get_agent_messages(since_id: Optional[str] = None):
 
 
 @app.post("/api/chat/respond")
-async def respond_to_agent(request: Request):
+async def respond_to_agent(request: Request, current_user: User = Depends(require_auth)):
     """
     Respond to an agent's question/approval request.
 

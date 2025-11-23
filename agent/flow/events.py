@@ -8,7 +8,10 @@ from typing import Dict, List, Callable, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 import asyncio
+import logging
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 
 class EventType(str, Enum):
@@ -83,14 +86,14 @@ class EventBus:
             try:
                 listener(event)
             except Exception as e:
-                print(f"Error in event listener: {e}")
+                logger.exception(f"Error in event listener for {event.type.value}: {e}")
 
         # Notify wildcard listeners
         for listener in self._listeners.get("*", []):
             try:
                 listener(event)
             except Exception as e:
-                print(f"Error in wildcard listener: {e}")
+                logger.exception(f"Error in wildcard listener: {e}")
 
     async def emit_async(self, event: FlowEvent):
         """Emit event asynchronously"""
@@ -116,13 +119,13 @@ class EventBus:
             try:
                 listener(event)
             except Exception as e:
-                print(f"Error in event listener: {e}")
+                logger.exception(f"Error in event listener for {event.type.value}: {e}")
 
         for listener in self._listeners.get("*", []):
             try:
                 listener(event)
             except Exception as e:
-                print(f"Error in wildcard listener: {e}")
+                logger.exception(f"Error in wildcard listener: {e}")
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)

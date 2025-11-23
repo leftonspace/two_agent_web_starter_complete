@@ -323,7 +323,36 @@ class ClarificationManager:
         Returns:
             ClarificationSession if found
         """
+        # Automatically check for timeouts when getting a session
+        self._check_session_timeout(session_id)
         return self._sessions.get(session_id)
+
+    def _check_session_timeout(self, session_id: str) -> bool:
+        """Check if a specific session has timed out
+
+        Args:
+            session_id: Session ID to check
+
+        Returns:
+            True if session timed out
+        """
+        session = self._sessions.get(session_id)
+        if not session:
+            return False
+
+        if session.status in [SessionStatus.PENDING, SessionStatus.IN_PROGRESS]:
+            age_minutes = (datetime.now() - session.created_at).total_seconds() / 60
+            if age_minutes > self.timeout_minutes:
+                session.status = SessionStatus.EXPIRED
+                # Auto-proceed with defaults if enabled
+                if self.auto_proceed_on_timeout:
+                    for q in session.remaining_questions:
+                        if q.default:
+                            if not hasattr(session, '_answers_dict'):
+                                session._answers_dict = {}
+                            session._answers_dict[q.id] = q.default
+                return True
+        return False
 
     def answer_question(
         self,
@@ -341,11 +370,15 @@ class ClarificationManager:
         Returns:
             Next question if any, None if complete
         """
+        # Check for timeout before processing
+        if self._check_session_timeout(session_id):
+            return None  # Session expired
+
         session = self._sessions.get(session_id)
         if not session:
             return None
 
-        if session.status in [SessionStatus.COMPLETED, SessionStatus.CANCELLED]:
+        if session.status in [SessionStatus.COMPLETED, SessionStatus.CANCELLED, SessionStatus.EXPIRED]:
             return None
 
         # Record answer
@@ -536,6 +569,10 @@ class ClarificationManager:
         """
         if not self._active_session_id:
             return {"status": "error", "message": "No active session"}
+
+        # Check for timeout before processing
+        if self._check_session_timeout(self._active_session_id):
+            return {"status": "expired", "message": "Session has timed out"}
 
         session = self._sessions.get(self._active_session_id)
         if not session:

@@ -96,10 +96,18 @@ async def send_message(request: ChatMessage):
             context=request.context
         )
 
+        # Handle both Session object and dict for backward compatibility
+        session_id = None
+        if jarvis.current_session:
+            if hasattr(jarvis.current_session, 'id'):
+                session_id = jarvis.current_session.id
+            elif isinstance(jarvis.current_session, dict):
+                session_id = jarvis.current_session.get("id")
+
         return ChatResponse(
             content=response["content"],
             metadata=response.get("metadata", {}),
-            conversation_id=jarvis.current_session["id"] if jarvis.current_session else None
+            conversation_id=session_id
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

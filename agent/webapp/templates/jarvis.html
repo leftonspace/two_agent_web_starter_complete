@@ -485,6 +485,134 @@
             cursor: pointer;
         }
 
+        /* File Attachments Preview */
+        .files-preview {
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px;
+            background: #f0f4f8;
+            border-top: 1px solid #e0e0e0;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .attached-file {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            padding: 6px 10px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            font-size: 13px;
+        }
+
+        .attached-file .file-icon {
+            font-size: 14px;
+        }
+
+        .attached-file .file-name {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .attached-file .file-size {
+            color: #7f8c8d;
+            font-size: 11px;
+        }
+
+        .attached-file .remove-file {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0 4px;
+        }
+
+        .attached-file .remove-file:hover {
+            color: #c0392b;
+        }
+
+        /* Chat History Sidebar Improvements */
+        .conversation-item {
+            position: relative;
+            padding-right: 40px;
+        }
+
+        .conversation-item .delete-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 14px;
+        }
+
+        .conversation-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .conversation-item .delete-btn:hover {
+            color: #c0392b;
+        }
+
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            left: 10px;
+            top: 10px;
+            z-index: 1000;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                top: 0;
+                height: 100vh;
+                z-index: 999;
+                transition: left 0.3s ease;
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 998;
+            }
+
+            .sidebar-overlay.visible {
+                display: block;
+            }
+        }
+
         /* Camera Modal */
         .camera-modal {
             display: none;
@@ -899,9 +1027,13 @@
     </style>
 </head>
 <body>
+    <!-- Sidebar Toggle (Mobile) -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
     <div class="chat-container">
         <!-- Sidebar -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h1>🤖 Jarvis</h1>
                 <button class="new-chat-btn" onclick="startNewChat()">➕</button>
@@ -1046,6 +1178,134 @@
     <script>
         let sessionId = null;
         let isProcessing = false;
+        let currentChatId = null;
+        let chatHistory = [];  // All saved chats
+
+        // ============================================================
+        // Chat History Management (localStorage persistence)
+        // ============================================================
+
+        function loadChatHistory() {
+            const stored = localStorage.getItem('jarvis_chat_history');
+            chatHistory = stored ? JSON.parse(stored) : [];
+            renderChatList();
+        }
+
+        function saveChatHistory() {
+            localStorage.setItem('jarvis_chat_history', JSON.stringify(chatHistory));
+        }
+
+        function renderChatList() {
+            const container = document.getElementById('conversation-list');
+            if (chatHistory.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.6;">No conversations yet</div>';
+                return;
+            }
+
+            container.innerHTML = chatHistory.map((chat, index) => `
+                <div class="conversation-item ${chat.id === currentChatId ? 'active' : ''}" onclick="loadChat('${chat.id}')">
+                    <div class="conversation-title">${chat.title || 'New Chat'}</div>
+                    <div class="conversation-preview">${chat.preview || 'Empty conversation'}</div>
+                    <button class="delete-btn" onclick="event.stopPropagation(); deleteChat('${chat.id}')" title="Delete chat">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        function createNewChatEntry() {
+            currentChatId = 'chat_' + Date.now();
+            const newChat = {
+                id: currentChatId,
+                title: 'New Chat',
+                preview: '',
+                messages: [],
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            chatHistory.unshift(newChat);
+            saveChatHistory();
+            renderChatList();
+            return newChat;
+        }
+
+        function updateCurrentChat(messages, title = null) {
+            const chat = chatHistory.find(c => c.id === currentChatId);
+            if (chat) {
+                chat.messages = messages;
+                chat.updatedAt = Date.now();
+                if (title) chat.title = title;
+                // Update preview from last user message
+                const lastUserMsg = messages.filter(m => m.role === 'user').pop();
+                if (lastUserMsg) {
+                    chat.preview = lastUserMsg.content.substring(0, 50) + (lastUserMsg.content.length > 50 ? '...' : '');
+                    if (!title) {
+                        chat.title = lastUserMsg.content.substring(0, 30) + (lastUserMsg.content.length > 30 ? '...' : '');
+                    }
+                }
+                saveChatHistory();
+                renderChatList();
+            }
+        }
+
+        function loadChat(chatId) {
+            const chat = chatHistory.find(c => c.id === chatId);
+            if (!chat) return;
+
+            currentChatId = chatId;
+            renderChatList();
+
+            // Clear current messages
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = '';
+
+            // Hide welcome screen
+            if (chat.messages.length > 0) {
+                document.getElementById('welcome-screen').style.display = 'none';
+            } else {
+                document.getElementById('welcome-screen').style.display = 'block';
+            }
+
+            // Render saved messages
+            chat.messages.forEach(msg => {
+                addMessage(msg.role, msg.content, msg.metadata || {}, false);
+            });
+
+            closeSidebar();
+        }
+
+        function deleteChat(chatId) {
+            if (!confirm('Delete this conversation?')) return;
+
+            chatHistory = chatHistory.filter(c => c.id !== chatId);
+            saveChatHistory();
+
+            if (chatId === currentChatId) {
+                startNewChat();
+            } else {
+                renderChatList();
+            }
+        }
+
+        // ============================================================
+        // Sidebar Toggle (Mobile)
+        // ============================================================
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('visible');
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.remove('open');
+            overlay.classList.remove('visible');
+        }
+
+        // ============================================================
+        // Session Management
+        // ============================================================
 
         // Initialize session
         async function initSession() {
@@ -1069,17 +1329,35 @@
             const input = document.getElementById('message-input');
             const message = input.value.trim();
 
-            if (!message || isProcessing) return;
+            // Need either message or files
+            if (!message && pendingFiles.length === 0) return;
+            if (isProcessing) return;
 
             // Hide welcome screen
             document.getElementById('welcome-screen').style.display = 'none';
 
-            // Add user message
-            addMessage('user', message);
+            // Prepare context with attached files
+            const context = {};
+            const userMetadata = {};
 
-            // Clear input
+            if (pendingFiles.length > 0) {
+                context.attached_files = pendingFiles.map(f => ({
+                    name: f.name,
+                    content: f.content,
+                    type: f.type
+                }));
+                userMetadata.attached_files = pendingFiles.map(f => f.name);
+            }
+
+            // Add user message with file info
+            const displayMessage = message || `Analyze these ${pendingFiles.length} file(s)`;
+            addMessage('user', displayMessage, userMetadata);
+
+            // Clear input and files
             input.value = '';
             input.style.height = 'auto';
+            const filesToSend = [...pendingFiles];
+            clearAttachedFiles();
 
             // Show typing indicator
             showTyping();
@@ -1090,7 +1368,10 @@
                 const response = await fetch('/api/chat/message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, context: {} })
+                    body: JSON.stringify({
+                        message: message || `Please analyze these files: ${filesToSend.map(f => f.name).join(', ')}`,
+                        context: context
+                    })
                 });
 
                 const data = await response.json();
@@ -1111,8 +1392,8 @@
         }
 
         // Add message to chat
-        function addMessage(role, content, metadata = {}) {
-            const messages = document.getElementById('messages');
+        function addMessage(role, content, metadata = {}, saveToHistory = true) {
+            const messagesContainer = document.getElementById('messages');
 
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${role}`;
@@ -1127,6 +1408,20 @@
             const text = document.createElement('p');
             text.textContent = content;
             contentDiv.appendChild(text);
+
+            // Add attached files display if present
+            if (metadata.attached_files && metadata.attached_files.length > 0) {
+                const fileList = document.createElement('div');
+                fileList.className = 'file-list';
+                fileList.innerHTML = '<strong>Attached files:</strong>';
+                metadata.attached_files.forEach(f => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.textContent = `📄 ${f}`;
+                    fileList.appendChild(fileItem);
+                });
+                contentDiv.appendChild(fileList);
+            }
 
             // Add file list if present
             if (metadata.files_created && metadata.files_created.length > 0) {
@@ -1143,10 +1438,19 @@
 
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(contentDiv);
-            messages.appendChild(messageDiv);
+            messagesContainer.appendChild(messageDiv);
 
             // Scroll to bottom
-            messages.scrollTop = messages.scrollHeight;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Save to chat history
+            if (saveToHistory && currentChatId) {
+                const chat = chatHistory.find(c => c.id === currentChatId);
+                if (chat) {
+                    chat.messages.push({ role, content, metadata, timestamp: Date.now() });
+                    updateCurrentChat(chat.messages);
+                }
+            }
         }
 
         // Show/hide typing indicator
@@ -1176,7 +1480,9 @@
         function startNewChat() {
             document.getElementById('messages').innerHTML = '';
             document.getElementById('welcome-screen').style.display = 'flex';
+            createNewChatEntry();
             initSession();
+            closeSidebar();
         }
 
         // Clear chat
@@ -1186,9 +1492,78 @@
             }
         }
 
-        // Attach file
+        // Attach file - real implementation
+        let pendingFiles = [];  // Array of attached files
+
         function attachFile() {
-            alert('File attachment coming soon!');
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.accept = '.txt,.md,.py,.js,.ts,.html,.css,.json,.yaml,.yml,.xml,.csv,.log,.sh,.bat,.sql,.java,.c,.cpp,.h,.go,.rs,.rb,.php';
+
+            input.onchange = async (event) => {
+                const files = Array.from(event.target.files);
+                for (const file of files) {
+                    await addAttachedFile(file);
+                }
+            };
+            input.click();
+        }
+
+        async function addAttachedFile(file) {
+            // Check file size (max 1MB for text files)
+            if (file.size > 1024 * 1024) {
+                alert(`File "${file.name}" is too large. Maximum size is 1MB.`);
+                return;
+            }
+
+            try {
+                const content = await file.text();
+                pendingFiles.push({
+                    name: file.name,
+                    content: content,
+                    size: file.size,
+                    type: file.type || 'text/plain'
+                });
+                showAttachedFiles();
+            } catch (error) {
+                alert(`Could not read file "${file.name}". Only text files are supported.`);
+            }
+        }
+
+        function showAttachedFiles() {
+            let preview = document.getElementById('files-preview');
+            if (!preview) {
+                preview = document.createElement('div');
+                preview.id = 'files-preview';
+                preview.className = 'files-preview';
+                document.querySelector('.input-area').insertBefore(preview, document.getElementById('message-input'));
+            }
+
+            if (pendingFiles.length === 0) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            preview.style.display = 'flex';
+            preview.innerHTML = pendingFiles.map((f, i) => `
+                <div class="attached-file">
+                    <span class="file-icon">📄</span>
+                    <span class="file-name">${f.name}</span>
+                    <span class="file-size">(${formatFileSize(f.size)})</span>
+                    <button class="remove-file" onclick="removeAttachedFile(${i})">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function removeAttachedFile(index) {
+            pendingFiles.splice(index, 1);
+            showAttachedFiles();
+        }
+
+        function clearAttachedFiles() {
+            pendingFiles = [];
+            showAttachedFiles();
         }
 
         // Auto-resize textarea
@@ -1199,6 +1574,14 @@
 
         // Initialize on load
         window.addEventListener('load', () => {
+            loadChatHistory();
+            // Start new chat if none exists
+            if (chatHistory.length === 0) {
+                createNewChatEntry();
+            } else {
+                // Load most recent chat
+                loadChat(chatHistory[0].id);
+            }
             initSession();
             loadAgentsStatus();
         });
@@ -1743,6 +2126,20 @@
             const video = document.getElementById('camera-video');
             video.srcObject = null;
         }
+
+        // Close camera modal when clicking outside
+        document.getElementById('camera-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCamera();
+            }
+        });
+
+        // Ensure camera is stopped when page unloads
+        window.addEventListener('beforeunload', () => {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+        });
     </script>
 </body>
 </html>

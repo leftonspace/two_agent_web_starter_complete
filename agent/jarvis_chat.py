@@ -376,6 +376,11 @@ class JarvisChat:
                 memory_response = await self._handle_memory_query(user_message)
                 return memory_response
 
+            # Check for self-analysis command (JARVIS reviews his own docs/code)
+            if self._is_self_analysis_request(user_message):
+                analysis_response = await self._handle_self_analysis(user_message)
+                return analysis_response
+
             # Analyze intent
             intent = await self.analyze_intent(user_message, context or {})
 
@@ -964,6 +969,118 @@ Could you provide more details about what changes you'd like me to make?"""
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    # ══════════════════════════════════════════════════════════════════════
+    # Self-Analysis (JARVIS reviewing own documentation/code)
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _is_self_analysis_request(self, message: str) -> bool:
+        """Check if user is asking JARVIS to analyze himself."""
+        message_lower = message.lower()
+        self_analysis_patterns = [
+            "analyze yourself", "review yourself", "self-analyze",
+            "improve yourself", "self-improvement", "self improvement",
+            "review your code", "analyze your code", "check your documentation",
+            "look at your docs", "review your documentation", "introspection",
+            "what can you improve", "how can you be better", "self-reflection"
+        ]
+        return any(pattern in message_lower for pattern in self_analysis_patterns)
+
+    async def _handle_self_analysis(self, user_message: str) -> Dict[str, Any]:
+        """
+        JARVIS analyzes his own documentation and code for self-improvement.
+        Only runs when explicitly requested by user.
+        """
+        print("[Jarvis] Self-analysis mode activated")
+
+        try:
+            # Find JARVIS's documentation and code files
+            base_path = Path(__file__).parent
+            docs_path = base_path.parent / "docs"
+
+            analysis_results = {
+                "documentation_found": [],
+                "code_files_found": [],
+                "insights": [],
+                "improvement_suggestions": []
+            }
+
+            # Scan documentation
+            if docs_path.exists():
+                for doc_file in docs_path.glob("*.md"):
+                    analysis_results["documentation_found"].append(doc_file.name)
+
+            # Find key code files
+            key_files = [
+                "jarvis_chat.py", "jarvis_persona.py", "jarvis_voice.py",
+                "jarvis_vision.py", "conversational_agent.py"
+            ]
+            for fname in key_files:
+                fpath = base_path / fname
+                if fpath.exists():
+                    analysis_results["code_files_found"].append(fname)
+
+            # Read specific documentation for analysis
+            doc_content = ""
+            key_docs = ["DEVELOPER_GUIDE.md", "REFERENCE.md", "TROUBLESHOOTING.md"]
+            for doc_name in key_docs:
+                doc_path = docs_path / doc_name
+                if doc_path.exists():
+                    try:
+                        content = doc_path.read_text(encoding='utf-8')[:5000]
+                        doc_content += f"\n\n=== {doc_name} ===\n{content}"
+                    except Exception:
+                        pass
+
+            # Use LLM to analyze
+            if self.llm_available and doc_content:
+                analysis_prompt = f"""As JARVIS, I am performing self-analysis to identify areas for improvement.
+
+MY DOCUMENTATION SUMMARY:
+{doc_content[:8000]}
+
+Based on this documentation, provide:
+1. A brief summary of my current capabilities
+2. Any gaps or areas that could be improved
+3. Specific suggestions for enhancement
+4. Potential new features that would help users
+
+Be constructive and specific. Speak as JARVIS analyzing himself."""
+
+                analysis_text = await asyncio.to_thread(
+                    llm_chat,
+                    role="employee",
+                    system_prompt="You are JARVIS performing self-analysis. Be insightful and constructive.",
+                    user_content=analysis_prompt,
+                    temperature=0.7
+                )
+            else:
+                analysis_text = "I apologize, sir, but I require an active LLM connection to perform deep self-analysis."
+
+            # Build response
+            response_parts = [
+                "Very good, sir. I've conducted a thorough self-analysis.\n",
+                f"**Documentation Files Found:** {len(analysis_results['documentation_found'])}",
+                f"**Core Code Modules:** {len(analysis_results['code_files_found'])}",
+                "\n**Analysis Results:**\n",
+                analysis_text
+            ]
+
+            return {
+                "content": "\n".join(response_parts),
+                "metadata": {
+                    "type": "self_analysis",
+                    "docs_analyzed": len(analysis_results['documentation_found']),
+                    "code_files": analysis_results['code_files_found']
+                }
+            }
+
+        except Exception as e:
+            print(f"[Jarvis] Self-analysis error: {e}")
+            return {
+                "content": f"I encountered an error during self-analysis, sir: {str(e)}",
+                "metadata": {"type": "self_analysis", "error": True}
+            }
 
     async def store_interaction(
         self,

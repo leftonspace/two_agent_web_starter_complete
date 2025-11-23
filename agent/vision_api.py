@@ -29,13 +29,22 @@ import core_logging
 
 # Import auth if available
 try:
-    from webapp.auth import User, require_auth
+    from webapp.auth import User, require_auth, get_current_user
     AUTH_AVAILABLE = True
 except ImportError:
     AUTH_AVAILABLE = False
     User = None
     def require_auth():
         return None
+    def get_current_user():
+        return None
+
+# Use optional auth for vision endpoints (allow unauthenticated access when auth is disabled)
+def optional_auth():
+    """Optional authentication - allows access without login but uses user if available"""
+    if AUTH_AVAILABLE:
+        return get_current_user
+    return lambda: None
 
 # Import vision components
 try:
@@ -188,7 +197,7 @@ async def vision_status():
 @router.post("/analyze", response_model=AnalyzeImageResponse)
 async def analyze_image(
     request: AnalyzeImageRequest,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Analyze an uploaded image.
@@ -239,7 +248,7 @@ async def analyze_uploaded_image(
     file: UploadFile = File(...),
     prompt: Optional[str] = Form(None),
     analysis_type: str = Form("general"),
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Analyze an uploaded image file.
@@ -292,7 +301,7 @@ async def analyze_uploaded_image(
 @router.post("/camera")
 async def analyze_camera_frame(
     request: CameraCaptureRequest,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Analyze a camera capture frame.
@@ -329,7 +338,7 @@ async def analyze_camera_frame(
 @router.post("/ocr")
 async def extract_text(
     request: AnalyzeImageRequest,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Extract text from image (OCR).
@@ -357,7 +366,7 @@ async def extract_text(
 @router.post("/document")
 async def analyze_document(
     request: AnalyzeImageRequest,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Analyze a document image.
@@ -386,7 +395,7 @@ async def analyze_document(
 @router.post("/code")
 async def analyze_code_image(
     request: AnalyzeImageRequest,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Analyze code or technical diagram in image.
@@ -414,7 +423,7 @@ async def analyze_code_image(
 @router.post("/chat", response_model=VisionChatResponse)
 async def vision_chat(
     request: VisionChatRequest,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Send a chat message with an image.
@@ -469,7 +478,7 @@ Respond to the user's question about the image in my characteristic JARVIS manne
 async def compare_images(
     images: List[UploadFile] = File(...),
     prompt: Optional[str] = Form(None),
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Compare multiple images.

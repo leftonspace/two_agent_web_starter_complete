@@ -48,6 +48,16 @@ except ImportError as e:
     FILE_OPERATIONS_AVAILABLE = False
     FileOperationHandler = None
 
+# Import JARVIS Tools (Claude Code-like capabilities)
+try:
+    from jarvis_tools import JarvisTools, ToolType, ToolResult, get_jarvis_tools
+    JARVIS_TOOLS_AVAILABLE = True
+except ImportError as e:
+    print(f"[Jarvis] Tools module not available: {e}")
+    JARVIS_TOOLS_AVAILABLE = False
+    JarvisTools = None
+    get_jarvis_tools = None
+
 # Import existing components
 try:
     from memory.session_manager import SessionManager
@@ -138,6 +148,7 @@ class IntentType(Enum):
     DOCUMENT_PROCESSING = "document_processing"  # Analyze/process attached documents
     FILE_CREATION = "file_creation"        # Create files (PDF, Word, Excel, etc.)
     FILE_SYSTEM_ACCESS = "file_system_access"  # List directories, read external files
+    TOOL_OPERATION = "tool_operation"      # Claude Code-like tool operations (bash, grep, edit, etc.)
 
 
 @dataclass
@@ -247,6 +258,17 @@ class JarvisChat:
                 self.file_handler = None
         else:
             self.file_handler = None
+
+        # Initialize JARVIS Tools (Claude Code-like capabilities)
+        if JARVIS_TOOLS_AVAILABLE and get_jarvis_tools:
+            try:
+                self.tools = get_jarvis_tools()
+                print("[Jarvis] Tools system initialized - code editing, search, bash enabled")
+            except Exception as e:
+                print(f"[Jarvis] Tools init failed: {e}")
+                self.tools = None
+        else:
+            self.tools = None
 
         # Conversation state
         self.current_session = None
@@ -485,6 +507,9 @@ class JarvisChat:
             elif intent.type in (IntentType.FILE_CREATION, IntentType.FILE_SYSTEM_ACCESS):
                 response = await self.handle_file_system_request(user_message, context)
 
+            elif intent.type == IntentType.TOOL_OPERATION:
+                response = await self.handle_tool_operation(user_message, context)
+
             else:  # CONVERSATION
                 response = await self.handle_conversation(user_message, context)
 
@@ -572,7 +597,12 @@ Classify as one of:
    Note: Use when user wants to browse, read, ANALYZE, or REVIEW files from external paths
    IMPORTANT: Code analysis/review requests with paths should use THIS type, NOT complex_task
 
-7. "conversation" - Casual chat, greetings, unclear requests
+7. "tool_operation" - Shell commands, code search, find/replace, web lookups
+   Examples: "Run git status", "Search for TODO in all Python files", "Find all .js files",
+   "Replace 'old' with 'new' in config.py", "Search the web for Python async patterns"
+   Note: Use for bash/shell commands, grep-like searches, glob file finding, web searches
+
+8. "conversation" - Casual chat, greetings, unclear requests
    Examples: "Hello", "Thanks!", "Can you help?"
 
 Consider:
@@ -583,10 +613,12 @@ Consider:
 - Is user asking to browse directories or read external files? -> file_system_access
 - Is user asking to ANALYZE, REVIEW, or EXAMINE existing code? -> file_system_access (NOT complex_task!)
 - Does the request mention an external path AND analysis/review keywords? -> file_system_access
+- Is user asking to run shell commands (git, npm, pip, etc.)? -> tool_operation
+- Is user asking to search/grep code or find files? -> tool_operation
 
 Return ONLY valid JSON (no markdown):
 {{
-  "type": "simple_query|complex_task|document_processing|file_operation|file_creation|file_system_access|conversation",
+  "type": "simple_query|complex_task|document_processing|file_operation|file_creation|file_system_access|tool_operation|conversation",
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation",
   "requires_orchestrator": true|false,
@@ -655,6 +687,31 @@ Return ONLY valid JSON (no markdown):
                 type=IntentType.FILE_CREATION,
                 confidence=0.85,
                 reasoning="Detected file creation/export keywords",
+                requires_orchestrator=False
+            )
+
+        # TOOL OPERATION keywords - Claude Code-like tool usage
+        tool_operation_keywords = [
+            # Bash/shell commands
+            "run command", "execute command", "run the command", "execute",
+            "git status", "git diff", "git log", "git commit", "git push", "git pull",
+            "npm ", "pip ", "python ", "node ", "cargo ", "make ", "docker ",
+            # Search operations
+            "grep for", "search for", "find all", "search the code", "search codebase",
+            "find files", "find pattern", "search pattern",
+            # Edit operations
+            "replace", "find and replace", "change all", "rename all",
+            "edit the file", "modify the file", "update the code",
+            # Web operations
+            "fetch url", "fetch the page", "get the webpage", "search the web",
+            "look up online", "search online"
+        ]
+
+        if any(kw in message_lower for kw in tool_operation_keywords):
+            return Intent(
+                type=IntentType.TOOL_OPERATION,
+                confidence=0.85,
+                reasoning="Detected tool operation keywords (bash/grep/edit/web)",
                 requires_orchestrator=False
             )
 
@@ -1619,6 +1676,198 @@ Could you provide more details about what changes you'd like me to make?"""
             return {
                 "content": f"I encountered an error: {str(e)}",
                 "metadata": {"error": True}
+            }
+
+    async def handle_tool_operation(
+        self,
+        message: str,
+        context: Optional[Dict]
+    ) -> Dict[str, Any]:
+        """
+        Handle tool operations - Claude Code-like capabilities.
+
+        Supports: bash, grep, glob, read, edit, write, web_search, web_fetch, todo
+        """
+        if not self.tools:
+            return {
+                "content": """I'm afraid the tools system is not available at the moment, sir.
+
+The JARVIS Tools module provides capabilities similar to Claude Code:
+- **Bash**: Execute shell commands
+- **Grep**: Search for patterns in code
+- **Glob**: Find files by pattern
+- **Read/Edit/Write**: File operations
+- **WebSearch/WebFetch**: Web lookups
+
+Please ensure the jarvis_tools module is properly installed.""",
+                "metadata": {"type": "tool_operation", "error": True}
+            }
+
+        try:
+            message_lower = message.lower()
+            result = None
+
+            # Detect and execute the appropriate tool
+            # ═══════════════════════════════════════════════════════════════
+            # BASH - Shell command execution
+            # ═══════════════════════════════════════════════════════════════
+            bash_patterns = [
+                r'run\s+(?:the\s+)?(?:command\s+)?[`"\']?(.+?)[`"\']?$',
+                r'execute\s+[`"\']?(.+?)[`"\']?$',
+                r'(?:git|npm|pip|python|node|cargo|make|docker)\s+.+',
+            ]
+
+            # Check for explicit bash commands
+            import re
+            for pattern in bash_patterns[:2]:
+                match = re.search(pattern, message, re.IGNORECASE)
+                if match:
+                    command = match.group(1).strip()
+                    print(f"[Jarvis] Executing bash: {command}")
+                    result = await self.tools.bash(command)
+                    break
+
+            # Check for common CLI commands (git, npm, etc.)
+            if not result:
+                cli_commands = ['git ', 'npm ', 'pip ', 'python ', 'node ', 'cargo ', 'make ', 'docker ']
+                for cmd_prefix in cli_commands:
+                    if cmd_prefix in message_lower:
+                        # Extract the full command
+                        start_idx = message_lower.index(cmd_prefix)
+                        command = message[start_idx:].strip()
+                        # Clean up command (remove trailing punctuation)
+                        command = re.sub(r'[.!?]$', '', command)
+                        print(f"[Jarvis] Executing CLI: {command}")
+                        result = await self.tools.bash(command)
+                        break
+
+            # ═══════════════════════════════════════════════════════════════
+            # GREP - Search for patterns in code
+            # ═══════════════════════════════════════════════════════════════
+            if not result and any(kw in message_lower for kw in ['grep', 'search for', 'find all', 'search the code', 'search pattern']):
+                # Extract pattern from message
+                pattern_match = re.search(r'(?:grep|search|find)\s+(?:for\s+)?[`"\']?([^`"\']+)[`"\']?', message, re.IGNORECASE)
+                if pattern_match:
+                    search_pattern = pattern_match.group(1).strip()
+                    # Check for file type filter
+                    file_pattern = "*"
+                    if '.py' in message_lower or 'python' in message_lower:
+                        file_pattern = "*.py"
+                    elif '.js' in message_lower or 'javascript' in message_lower:
+                        file_pattern = "*.js"
+                    elif '.ts' in message_lower or 'typescript' in message_lower:
+                        file_pattern = "*.ts"
+
+                    print(f"[Jarvis] Searching for: {search_pattern} in {file_pattern}")
+                    result = await self.tools.grep(search_pattern, file_pattern=file_pattern)
+
+            # ═══════════════════════════════════════════════════════════════
+            # GLOB - Find files by pattern
+            # ═══════════════════════════════════════════════════════════════
+            if not result and any(kw in message_lower for kw in ['find files', 'list files', 'show files', 'find pattern']):
+                # Extract glob pattern
+                pattern_match = re.search(r'(?:find|list|show)\s+(?:all\s+)?(?:files\s+)?(?:matching\s+)?[`"\']?(\*\*?[^\s`"\']+)[`"\']?', message, re.IGNORECASE)
+                if pattern_match:
+                    glob_pattern = pattern_match.group(1)
+                else:
+                    # Default patterns based on keywords
+                    if '.py' in message_lower or 'python' in message_lower:
+                        glob_pattern = "**/*.py"
+                    elif '.js' in message_lower or 'javascript' in message_lower:
+                        glob_pattern = "**/*.js"
+                    else:
+                        glob_pattern = "**/*"
+
+                print(f"[Jarvis] Finding files: {glob_pattern}")
+                result = await self.tools.glob(glob_pattern)
+
+            # ═══════════════════════════════════════════════════════════════
+            # EDIT - Find and replace in files
+            # ═══════════════════════════════════════════════════════════════
+            if not result and any(kw in message_lower for kw in ['replace', 'find and replace', 'change all', 'rename all']):
+                # Try to extract old and new strings
+                replace_match = re.search(r'replace\s+[`"\']([^`"\']+)[`"\']\s+with\s+[`"\']([^`"\']+)[`"\']', message, re.IGNORECASE)
+                file_match = re.search(r'in\s+[`"\']?(\S+\.\w+)[`"\']?', message, re.IGNORECASE)
+
+                if replace_match:
+                    old_string = replace_match.group(1)
+                    new_string = replace_match.group(2)
+                    file_path = file_match.group(1) if file_match else None
+
+                    if file_path:
+                        print(f"[Jarvis] Editing {file_path}: '{old_string}' -> '{new_string}'")
+                        result = await self.tools.edit(file_path, old_string, new_string)
+                    else:
+                        return {
+                            "content": "I can help with that replacement, sir. Please specify which file to edit.\n\nExample: \"Replace 'old_text' with 'new_text' in config.py\"",
+                            "metadata": {"type": "tool_operation", "needs_file": True}
+                        }
+
+            # ═══════════════════════════════════════════════════════════════
+            # WEB SEARCH - Search the web
+            # ═══════════════════════════════════════════════════════════════
+            if not result and any(kw in message_lower for kw in ['search the web', 'search online', 'look up online', 'web search']):
+                query_match = re.search(r'(?:search|look up)\s+(?:the web|online)\s+(?:for\s+)?[`"\']?(.+?)[`"\']?$', message, re.IGNORECASE)
+                if query_match:
+                    query = query_match.group(1).strip()
+                    print(f"[Jarvis] Web search: {query}")
+                    result = await self.tools.web_search(query)
+
+            # ═══════════════════════════════════════════════════════════════
+            # WEB FETCH - Fetch a webpage
+            # ═══════════════════════════════════════════════════════════════
+            if not result and any(kw in message_lower for kw in ['fetch url', 'fetch the page', 'get the webpage', 'fetch http']):
+                url_match = re.search(r'(https?://\S+)', message)
+                if url_match:
+                    url = url_match.group(1).rstrip('.,!?')
+                    print(f"[Jarvis] Fetching URL: {url}")
+                    result = await self.tools.web_fetch(url)
+
+            # ═══════════════════════════════════════════════════════════════
+            # Format and return result
+            # ═══════════════════════════════════════════════════════════════
+            if result:
+                if result.success:
+                    response_content = f"""✅ **Tool executed successfully**
+
+{result.output}
+
+⏱️ Execution time: {result.execution_time:.2f}s"""
+                else:
+                    response_content = f"""❌ **Tool execution failed**
+
+Error: {result.error}
+
+Please check the command/parameters and try again."""
+
+                return {
+                    "content": response_content,
+                    "metadata": {
+                        "type": "tool_operation",
+                        "tool": result.tool.value,
+                        "success": result.success,
+                        "execution_time": result.execution_time,
+                        **result.metadata
+                    }
+                }
+            else:
+                # Provide help on available tools
+                return {
+                    "content": f"""I understand you want to use my tools, sir. Here's what I can do:
+
+{self.tools.get_tool_help()}
+
+Please be more specific about what you'd like me to do.""",
+                    "metadata": {"type": "tool_operation", "needs_clarification": True}
+                }
+
+        except Exception as e:
+            print(f"[Jarvis] Tool operation error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "content": f"I encountered an error executing the tool: {str(e)}",
+                "metadata": {"type": "tool_operation", "error": True}
             }
 
     async def handle_conversation(

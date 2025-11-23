@@ -27,6 +27,22 @@ except ImportError:
     VectorMemoryStore = None
     ContextRetriever = None
 
+# Import clarification system
+try:
+    from clarification import (
+        ClarificationManager,
+        ClarificationPhase,
+        should_request_clarification,
+        RequestClarity,
+    )
+    CLARIFICATION_AVAILABLE = True
+except ImportError:
+    ClarificationManager = None
+    ClarificationPhase = None
+    should_request_clarification = None
+    RequestClarity = None
+    CLARIFICATION_AVAILABLE = False
+
 # Import LLM module explicitly (bypass llm/ package shadowing)
 # The llm/ directory (Phase 9) shadows llm.py - we need to load llm.py explicitly
 llm_chat = None
@@ -149,6 +165,17 @@ class JarvisChat:
         # Use existing LLM infrastructure
         self.llm_available = llm_chat is not None
 
+        # Initialize clarification manager
+        if CLARIFICATION_AVAILABLE and ClarificationManager:
+            self.clarification_manager = ClarificationManager(
+                clarity_threshold=RequestClarity.SOMEWHAT_CLEAR,
+                max_questions=5
+            )
+            self.active_clarification_session = None
+        else:
+            self.clarification_manager = None
+            self.active_clarification_session = None
+
         # Conversation state
         self.current_session = None
         self.conversation_history: List[ChatMessage] = []
@@ -193,11 +220,123 @@ class JarvisChat:
             )
             self.conversation_history.append(user_msg)
 
+            # Check if we're in an active clarification loop
+            if self.clarification_manager and self.active_clarification_session:
+                session = self.active_clarification_session
+                if session.phase == ClarificationPhase.ASKING:
+                    # Process answer to clarification questions
+                    result = self.clarification_manager.process_answer(user_message)
+                    print(f"[Jarvis] Clarification: {result.get('status', 'unknown')}")
+
+                    if result.get("status") in ["complete", "skipped"]:
+                        # Ready to proceed with enhanced task
+                        enhanced_task = session.enhanced_request or session.original_request
+
+                        # Create intent for complex task
+                        intent = Intent(
+                            type=IntentType.COMPLEX_TASK,
+                            confidence=0.9,
+                            reasoning="Clarification completed",
+                            requires_orchestrator=True
+                        )
+
+                        response = await self.handle_complex_task(enhanced_task, context, intent)
+                        response["metadata"]["clarification"] = {
+                            "session_id": session.session_id,
+                            "answers_count": len(session.answers),
+                            "status": result.get("status")
+                        }
+
+                        # Clear active session
+                        self.active_clarification_session = None
+                    else:
+                        # Need more answers - send next question
+                        next_question = result.get("next_question")
+                        if next_question:
+                            response = {
+                                "content": f"Thanks! Next question:\n\n{next_question.question}",
+                                "metadata": {
+                                    "type": "clarification",
+                                    "session_id": session.session_id,
+                                    "progress": session.progress
+                                }
+                            }
+                        else:
+                            # No more questions - complete
+                            self.clarification_manager.complete_clarification()
+                            enhanced_task = session.enhanced_request or session.original_request
+                            intent = Intent(
+                                type=IntentType.COMPLEX_TASK,
+                                confidence=0.9,
+                                reasoning="Clarification completed",
+                                requires_orchestrator=True
+                            )
+                            response = await self.handle_complex_task(enhanced_task, context, intent)
+                            self.active_clarification_session = None
+
+                    # Store and return
+                    assistant_msg = ChatMessage(
+                        role="assistant",
+                        content=response["content"],
+                        timestamp=time.time(),
+                        metadata=response.get("metadata", {})
+                    )
+                    self.conversation_history.append(assistant_msg)
+                    return response
+
             # Analyze intent
             intent = await self.analyze_intent(user_message, context or {})
 
             print(f"[Jarvis] Intent: {intent.type.value} (confidence: {intent.confidence:.2f})")
             print(f"[Jarvis] Reasoning: {intent.reasoning}")
+
+            # Check if clarification is needed for complex tasks
+            if intent.type == IntentType.COMPLEX_TASK and self.clarification_manager:
+                needs_clarification, analysis = self.clarification_manager.should_clarify(user_message)
+
+                if needs_clarification:
+                    print(f"[Jarvis] Clarification needed: {analysis.clarity_level.value}")
+
+                    # Start clarification session
+                    session = self.clarification_manager.start_session(user_message, analysis)
+                    self.active_clarification_session = session
+
+                    # Format first question
+                    first_question = session.current_question
+                    if first_question:
+                        question_text = f"I'd like to understand your requirements better:\n\n"
+                        question_text += f"**Question 1/{len(session.questions)}:** {first_question.question}"
+
+                        if first_question.options:
+                            question_text += "\n\nOptions:"
+                            for i, opt in enumerate(first_question.options):
+                                question_text += f"\n  {chr(97+i)}) {opt}"
+
+                        question_text += "\n\n_(You can say 'skip' to proceed with defaults)_"
+
+                        response = {
+                            "content": question_text,
+                            "metadata": {
+                                "type": "clarification",
+                                "session_id": session.session_id,
+                                "questions_total": len(session.questions),
+                                "clarity_level": analysis.clarity_level.value
+                            }
+                        }
+                    else:
+                        # No questions generated, proceed directly
+                        response = await self.handle_complex_task(user_message, context, intent)
+                        self.active_clarification_session = None
+
+                    # Store and return
+                    assistant_msg = ChatMessage(
+                        role="assistant",
+                        content=response["content"],
+                        timestamp=time.time(),
+                        metadata=response.get("metadata", {})
+                    )
+                    self.conversation_history.append(assistant_msg)
+                    return response
 
             # Route to appropriate handler
             if intent.type == IntentType.SIMPLE_QUERY:

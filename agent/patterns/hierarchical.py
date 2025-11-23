@@ -100,8 +100,6 @@ class HierarchicalPattern(Pattern):
 
         # Track delegation state
         self._delegation_stack: List[str] = []
-        self._pending_reports: Dict[str, List[str]] = {}
-        self._phase: str = "delegation"  # delegation, execution, reporting
 
     def _push_delegation(self, agent_name: str) -> bool:
         """
@@ -368,8 +366,6 @@ class HierarchicalPattern(Pattern):
         """Reset pattern state"""
         super().reset()
         self._delegation_stack.clear()
-        self._pending_reports.clear()
-        self._phase = "delegation"
 
     def get_hierarchy_visualization(self) -> str:
         """Get a text visualization of the hierarchy"""

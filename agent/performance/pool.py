@@ -302,10 +302,22 @@ class AsyncConnectionPool(Generic[T]):
 
         self._pool: deque[PooledConnection[T]] = deque()
         self._in_use: Dict[int, PooledConnection[T]] = {}
-        self._lock = asyncio.Lock()
-        self._semaphore = asyncio.Semaphore(self.config.max_size)
+        self._lock: Optional[asyncio.Lock] = None  # Defer creation to avoid event loop issues
+        self._semaphore: Optional[asyncio.Semaphore] = None  # Defer creation
         self._stats = PoolStats()
         self._initialized = False
+
+    async def _get_lock(self) -> asyncio.Lock:
+        """Get or create the async lock (deferred to avoid event loop issues)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    async def _get_semaphore(self) -> asyncio.Semaphore:
+        """Get or create the async semaphore (deferred to avoid event loop issues)."""
+        if self._semaphore is None:
+            self._semaphore = asyncio.Semaphore(self.config.max_size)
+        return self._semaphore
 
     async def initialize(self):
         """Initialize pool with minimum connections."""
@@ -357,15 +369,19 @@ class AsyncConnectionPool(Generic[T]):
 
         timeout = timeout or self.config.connection_timeout
 
+        # Get or create semaphore and lock (deferred creation)
+        semaphore = await self._get_semaphore()
+        lock = await self._get_lock()
+
         try:
-            await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
+            await asyncio.wait_for(semaphore.acquire(), timeout=timeout)
         except asyncio.TimeoutError:
             self._stats.timeouts += 1
             raise TimeoutError("Connection pool exhausted")
 
         self._stats.total_acquisitions += 1
 
-        async with self._lock:
+        async with lock:
             while self._pool:
                 pooled = self._pool.popleft()
 
@@ -389,7 +405,7 @@ class AsyncConnectionPool(Generic[T]):
                 self._update_stats()
                 return pooled.connection
             except Exception as e:
-                self._semaphore.release()
+                semaphore.release()
                 self._stats.errors += 1
                 raise
 
@@ -397,7 +413,11 @@ class AsyncConnectionPool(Generic[T]):
         """Release a connection back to the pool."""
         conn_id = id(connection)
 
-        async with self._lock:
+        # Get or create lock and semaphore (deferred creation)
+        lock = await self._get_lock()
+        semaphore = await self._get_semaphore()
+
+        async with lock:
             if conn_id not in self._in_use:
                 logger.warning("Releasing unknown connection")
                 return
@@ -412,7 +432,7 @@ class AsyncConnectionPool(Generic[T]):
 
             self._update_stats()
 
-        self._semaphore.release()
+        semaphore.release()
 
     def _update_stats(self):
         """Update pool statistics."""
@@ -434,7 +454,8 @@ class AsyncConnectionPool(Generic[T]):
 
     async def close_all(self):
         """Close all connections and shutdown pool."""
-        async with self._lock:
+        lock = await self._get_lock()
+        async with lock:
             while self._pool:
                 pooled = self._pool.popleft()
                 await self._close_connection(pooled)

@@ -327,17 +327,17 @@ class ConfigurableRouter:
         # Create router with configured strategy
         strategy = RoutingStrategy(self.config.routing_strategy)
         router_config = RouterConfig(
-            default_strategy=strategy,
-            enable_fallback=True,
-            max_retries=3,
-            enable_cost_tracking=True
+            strategy=strategy,
+            fallback_enabled=True,
+            max_retries=3
         )
 
         self.router = EnhancedModelRouter(config=router_config)
 
-        # Register all providers with router
+        # Add providers from config to the router's provider dict
+        # (EnhancedModelRouter initializes its own providers, but we override with configured ones)
         for name, provider in self.providers.items():
-            self.router.register_provider(name, provider)
+            self.router.providers[name] = provider
 
         self._initialized = True
 

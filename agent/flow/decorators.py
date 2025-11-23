@@ -417,26 +417,56 @@ def validate_input(**validators: Callable[[Any], bool]):
     """Validate step inputs
 
     Args:
-        validators: Mapping of parameter names to validation functions
+        validators: Mapping of parameter names to validation functions.
+                   Validators can be sync or async functions returning bool.
     """
     def decorator(func: Callable) -> Callable:
+        async def _validate_params(args, kwargs):
+            """Run validation on parameters (supports async validators)"""
+            sig = inspect.signature(func)
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+
+            for param_name, validator in validators.items():
+                if param_name in bound.arguments:
+                    value = bound.arguments[param_name]
+                    # Support async validators
+                    if asyncio.iscoroutinefunction(validator):
+                        is_valid = await validator(value)
+                    else:
+                        is_valid = validator(value)
+                    if not is_valid:
+                        raise ValueError(f"Validation failed for parameter '{param_name}': {value}")
+
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        async def async_wrapper(*args, **kwargs):
+            await _validate_params(args, kwargs)
+            if asyncio.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            return func(*args, **kwargs)
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
             # Get function signature
             sig = inspect.signature(func)
             bound = sig.bind(*args, **kwargs)
             bound.apply_defaults()
 
-            # Validate each parameter
+            # Validate each parameter (sync only for sync wrapper)
             for param_name, validator in validators.items():
                 if param_name in bound.arguments:
                     value = bound.arguments[param_name]
+                    if asyncio.iscoroutinefunction(validator):
+                        raise TypeError(f"Async validator '{param_name}' cannot be used with sync function")
                     if not validator(value):
                         raise ValueError(f"Validation failed for parameter '{param_name}': {value}")
 
             return func(*args, **kwargs)
 
-        return wrapper
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        return sync_wrapper
+
     return decorator
 
 

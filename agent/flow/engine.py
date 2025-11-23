@@ -7,6 +7,7 @@ parallel execution, and dynamic workflows.
 
 import asyncio
 import inspect
+import threading
 import traceback
 from typing import Any, Dict, List, Optional, Type, TypeVar, Callable
 from datetime import datetime
@@ -69,6 +70,8 @@ class Flow(BaseModel):
         self._event_bus: Optional[EventBus] = None
         self._state: Optional[FlowState] = None
         self._execution_history: List[str] = []
+        # Thread safety: lock for state modifications
+        self._state_lock = threading.RLock()
 
     def _build_graph(self) -> FlowGraph:
         """Build execution graph from decorated methods"""
@@ -186,20 +189,21 @@ class Flow(BaseModel):
         Returns:
             Final output from the flow
         """
-        # Build graph if not already built
-        if self._graph is None:
-            self._graph = self._build_graph()
+        # Build graph if not already built (thread-safe)
+        with self._state_lock:
+            if self._graph is None:
+                self._graph = self._build_graph()
 
-        # Initialize state
-        state_class = self._get_state_class()
-        if state_class:
-            state_data = state_class()
-        else:
-            state_data = BaseModel()
+            # Initialize state (thread-safe to prevent concurrent runs from interfering)
+            state_class = self._get_state_class()
+            if state_class:
+                state_data = state_class()
+            else:
+                state_data = BaseModel()
 
-        self._state = FlowState(data=state_data)
-        self._event_bus = EventBus()
-        self._execution_history = []
+            self._state = FlowState(data=state_data)
+            self._event_bus = EventBus()
+            self._execution_history = []
 
         # Start execution
         context = self._state.context
@@ -246,8 +250,9 @@ class Flow(BaseModel):
     async def _execute_node(self, node: FlowNode, input_data: Any = None) -> Any:
         """Execute a single node"""
         context = self._state.context
-        context.current_step = node.name
-        self._execution_history.append(node.name)
+        with self._state_lock:
+            context.current_step = node.name
+            self._execution_history.append(node.name)
 
         # Create step result
         step_result = StepResult(
@@ -300,7 +305,7 @@ class Flow(BaseModel):
             raise
 
     async def _execute_with_retry(self, node: FlowNode, input_data: Any) -> Any:
-        """Execute node handler with retry logic"""
+        """Execute node handler with retry logic and timeout"""
         handler = node.handler
         if not handler:
             return input_data
@@ -310,17 +315,24 @@ class Flow(BaseModel):
 
         for attempt in range(max_retries + 1):
             try:
-                if inspect.iscoroutinefunction(handler):
-                    if input_data is not None:
-                        result = await handler(input_data)
-                    else:
-                        result = await handler()
+                # Execute with timeout if specified
+                coro = self._call_handler(handler, input_data)
+                if node.timeout and node.timeout > 0:
+                    result = await asyncio.wait_for(coro, timeout=node.timeout)
                 else:
-                    if input_data is not None:
-                        result = handler(input_data)
-                    else:
-                        result = handler()
+                    result = await coro
                 return result
+
+            except asyncio.TimeoutError:
+                last_error = TimeoutError(f"Step '{node.name}' timed out after {node.timeout}s")
+                if attempt < max_retries:
+                    await self._emit_event(EventType.STEP_RETRYING, {
+                        "step": node.name,
+                        "attempt": attempt + 1,
+                        "max_retries": max_retries,
+                        "error": str(last_error)
+                    }, source=node.name)
+                    await asyncio.sleep(1.0 * (attempt + 1))
 
             except Exception as e:
                 last_error = e
@@ -334,6 +346,70 @@ class Flow(BaseModel):
                     await asyncio.sleep(1.0 * (attempt + 1))  # Simple backoff
 
         raise last_error
+
+    async def _call_handler(self, handler: Callable, input_data: Any) -> Any:
+        """Call handler with proper argument matching based on function signature.
+
+        Inspects the handler's signature and passes input_data appropriately:
+        - If handler takes no args (besides self): call with no args
+        - If handler takes one arg: pass input_data
+        - If handler takes multiple args and input_data is tuple/list: unpack
+        - If handler takes **kwargs and input_data is dict: pass as kwargs
+        """
+        sig = inspect.signature(handler)
+        params = list(sig.parameters.values())
+
+        # Filter out 'self' parameter if present (for bound methods)
+        params = [p for p in params if p.name != 'self']
+
+        # Determine how to call the handler
+        if not params:
+            # No parameters expected
+            if inspect.iscoroutinefunction(handler):
+                return await handler()
+            return handler()
+
+        # Check for **kwargs
+        has_var_keyword = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params)
+        has_var_positional = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params)
+
+        # If input_data is dict and handler accepts **kwargs, pass as kwargs
+        if has_var_keyword and isinstance(input_data, dict):
+            if inspect.iscoroutinefunction(handler):
+                return await handler(**input_data)
+            return handler(**input_data)
+
+        # If input_data is tuple/list and matches param count or has *args, unpack
+        if isinstance(input_data, (tuple, list)):
+            positional_params = [p for p in params if p.kind in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD
+            )]
+            if has_var_positional or len(input_data) == len(positional_params):
+                if inspect.iscoroutinefunction(handler):
+                    return await handler(*input_data)
+                return handler(*input_data)
+
+        # Default: pass input_data as single argument (or nothing if None)
+        if input_data is not None:
+            if inspect.iscoroutinefunction(handler):
+                return await handler(input_data)
+            return handler(input_data)
+        else:
+            # Check if first param has default
+            if params and params[0].default is not inspect.Parameter.empty:
+                if inspect.iscoroutinefunction(handler):
+                    return await handler()
+                return handler()
+            elif params:
+                # Handler expects an argument, pass None
+                if inspect.iscoroutinefunction(handler):
+                    return await handler(None)
+                return handler(None)
+            else:
+                if inspect.iscoroutinefunction(handler):
+                    return await handler()
+                return handler()
 
     async def _handle_node_result(self, node: FlowNode, result: Any, original_input: Any) -> Any:
         """Handle node result based on node type"""

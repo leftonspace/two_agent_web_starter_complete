@@ -120,6 +120,33 @@ class CostTracker:
         self.requests_by_provider[provider] = self.requests_by_provider.get(provider, 0) + 1
         self.tokens_by_provider[provider] = self.tokens_by_provider.get(provider, 0) + tokens
 
+    def track(
+        self,
+        provider: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        input_cost_per_1k: float = 0.01,
+        output_cost_per_1k: float = 0.03
+    ):
+        """Track cost from token usage (convenience method matching config.py interface).
+
+        Args:
+            provider: Provider name
+            model: Model name
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+            input_cost_per_1k: Cost per 1K input tokens (default: $0.01)
+            output_cost_per_1k: Cost per 1K output tokens (default: $0.03)
+        """
+        cost = (input_tokens * input_cost_per_1k / 1000) + (output_tokens * output_cost_per_1k / 1000)
+        total_tokens = input_tokens + output_tokens
+        self.add_cost(provider, model, cost, total_tokens)
+
+    def get_provider_cost(self, provider: str) -> float:
+        """Get total cost for a specific provider."""
+        return round(self.costs_by_provider.get(provider, 0.0), 6)
+
     def reset_daily(self):
         """Reset daily costs"""
         self.daily_cost = 0.0

@@ -14,6 +14,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 import json
 import sqlite3
+import threading
 import uuid
 import math
 from collections import defaultdict
@@ -284,53 +285,58 @@ class SQLiteStorage(MemoryStorage):
     Persistent SQLite-based storage.
 
     Suitable for long-term memory and task history.
+    Thread-safe with connection locking.
     """
 
     def __init__(self, db_path: str = ":memory:"):
         self.db_path = db_path
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._lock = threading.RLock()  # Thread safety for connection
         self._create_tables()
 
     def _create_tables(self):
-        cursor = self._conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS memory_items (
-                id TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                embedding TEXT,
-                metadata TEXT,
-                timestamp TEXT NOT NULL
-            )
-        """)
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_timestamp ON memory_items(timestamp)
-        """)
-        self._conn.commit()
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS memory_items (
+                    id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    embedding TEXT,
+                    metadata TEXT,
+                    timestamp TEXT NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_timestamp ON memory_items(timestamp)
+            """)
+            self._conn.commit()
 
     def add(self, item: MemoryItem) -> str:
-        cursor = self._conn.cursor()
-        cursor.execute(
-            """INSERT OR REPLACE INTO memory_items
-               (id, content, embedding, metadata, timestamp)
-               VALUES (?, ?, ?, ?, ?)""",
-            (
-                item.id,
-                item.content,
-                json.dumps(item.embedding) if item.embedding else None,
-                json.dumps(item.metadata),
-                item.timestamp.isoformat()
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """INSERT OR REPLACE INTO memory_items
+                   (id, content, embedding, metadata, timestamp)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    item.id,
+                    item.content,
+                    json.dumps(item.embedding) if item.embedding else None,
+                    json.dumps(item.metadata),
+                    item.timestamp.isoformat()
+                )
             )
-        )
-        self._conn.commit()
+            self._conn.commit()
         return item.id
 
     def get(self, item_id: str) -> Optional[MemoryItem]:
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT id, content, embedding, metadata, timestamp FROM memory_items WHERE id = ?",
-            (item_id,)
-        )
-        row = cursor.fetchone()
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                "SELECT id, content, embedding, metadata, timestamp FROM memory_items WHERE id = ?",
+                (item_id,)
+            )
+            row = cursor.fetchone()
         if row:
             return self._row_to_item(row)
         return None
@@ -340,13 +346,15 @@ class SQLiteStorage(MemoryStorage):
         if not query_embedding:
             return []
 
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT id, content, embedding, metadata, timestamp FROM memory_items WHERE embedding IS NOT NULL"
-        )
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                "SELECT id, content, embedding, metadata, timestamp FROM memory_items WHERE embedding IS NOT NULL"
+            )
+            rows = cursor.fetchall()
 
         scored_items = []
-        for row in cursor.fetchall():
+        for row in rows:
             item = self._row_to_item(row)
             if item.embedding:
                 similarity = InMemoryStorage._cosine_similarity(query_embedding, item.embedding)
@@ -358,45 +366,52 @@ class SQLiteStorage(MemoryStorage):
 
     def search_by_text(self, query: str, top_k: int = 5) -> List[MemoryItem]:
         """Full-text search using LIKE"""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            """SELECT id, content, embedding, metadata, timestamp
-               FROM memory_items
-               WHERE content LIKE ?
-               ORDER BY timestamp DESC
-               LIMIT ?""",
-            (f"%{query}%", top_k)
-        )
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """SELECT id, content, embedding, metadata, timestamp
+                   FROM memory_items
+                   WHERE content LIKE ?
+                   ORDER BY timestamp DESC
+                   LIMIT ?""",
+                (f"%{query}%", top_k)
+            )
+            rows = cursor.fetchall()
 
-        return [self._row_to_item(row) for row in cursor.fetchall()]
+        return [self._row_to_item(row) for row in rows]
 
     def delete(self, item_id: str) -> bool:
-        cursor = self._conn.cursor()
-        cursor.execute("DELETE FROM memory_items WHERE id = ?", (item_id,))
-        self._conn.commit()
-        return cursor.rowcount > 0
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("DELETE FROM memory_items WHERE id = ?", (item_id,))
+            self._conn.commit()
+            return cursor.rowcount > 0
 
     def clear(self):
-        cursor = self._conn.cursor()
-        cursor.execute("DELETE FROM memory_items")
-        self._conn.commit()
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("DELETE FROM memory_items")
+            self._conn.commit()
 
     def count(self) -> int:
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM memory_items")
-        return cursor.fetchone()[0]
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM memory_items")
+            return cursor.fetchone()[0]
 
     def get_recent(self, n: int = 10) -> List[MemoryItem]:
         """Get n most recent items"""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            """SELECT id, content, embedding, metadata, timestamp
-               FROM memory_items
-               ORDER BY timestamp DESC
-               LIMIT ?""",
-            (n,)
-        )
-        return [self._row_to_item(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """SELECT id, content, embedding, metadata, timestamp
+                   FROM memory_items
+                   ORDER BY timestamp DESC
+                   LIMIT ?""",
+                (n,)
+            )
+            rows = cursor.fetchall()
+        return [self._row_to_item(row) for row in rows]
 
     def _row_to_item(self, row: tuple) -> MemoryItem:
         return MemoryItem(

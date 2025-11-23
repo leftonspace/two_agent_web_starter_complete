@@ -239,7 +239,7 @@ async def analyze_image(
         )
 
     except Exception as e:
-        core_logging.log_event("vision_analyze_error", {"error": str(e)})
+        print(f"[Vision API] Analyze error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -294,7 +294,7 @@ async def analyze_uploaded_image(
     except HTTPException:
         raise
     except Exception as e:
-        core_logging.log_event("vision_upload_error", {"error": str(e)})
+        print(f"[Vision API] Upload error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -331,7 +331,7 @@ async def analyze_camera_frame(
         }
 
     except Exception as e:
-        core_logging.log_event("vision_camera_error", {"error": str(e)})
+        print(f"[Vision API] Camera error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -359,7 +359,7 @@ async def extract_text(
         }
 
     except Exception as e:
-        core_logging.log_event("vision_ocr_error", {"error": str(e)})
+        print(f"[Vision API] OCR error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -388,7 +388,7 @@ async def analyze_document(
         }
 
     except Exception as e:
-        core_logging.log_event("vision_document_error", {"error": str(e)})
+        print(f"[Vision API] Document error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -416,7 +416,7 @@ async def analyze_code_image(
         }
 
     except Exception as e:
-        core_logging.log_event("vision_code_error", {"error": str(e)})
+        print(f"[Vision API] Code error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -470,7 +470,7 @@ Respond to the user's question about the image in my characteristic JARVIS manne
         )
 
     except Exception as e:
-        core_logging.log_event("vision_chat_error", {"error": str(e)})
+        print(f"[Vision API] Chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -507,7 +507,7 @@ async def compare_images(
         }
 
     except Exception as e:
-        core_logging.log_event("vision_compare_error", {"error": str(e)})
+        print(f"[Vision API] Compare error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -933,6 +933,164 @@ python -m agent.diagnostics profile --component flow
 
 ---
 
+## Document Processing Errors
+
+### Error: `Document not processed: No attached files`
+
+**Cause:** User requested document processing without attaching files
+
+**Solution:**
+Ensure files are attached before requesting document operations:
+```
+1. Click the attachment button (📎) in the chat interface
+2. Select your document (PDF, TXT, DOCX supported)
+3. Wait for upload confirmation
+4. Then type your request: "Make me a resume from this document"
+```
+
+### Error: `File content not displaying (white box)`
+
+**Cause:** CSS text color conflict with file display elements
+
+**Solution:**
+This was fixed in version 2.0.1. If you still see this issue:
+```bash
+# Pull latest changes
+git pull origin main
+
+# Clear browser cache
+# Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
+```
+
+### Error: `Document processed as code instead of content`
+
+**Cause:** Intent classification incorrectly routed to code generation
+
+**Solution:**
+Be specific about wanting document analysis:
+```
+# Instead of:
+"Make me a website resume"  # May trigger code generation
+
+# Use:
+"Create a resume from my attached document"  # Triggers document processing
+"Analyze this file and make a professional resume"
+```
+
+### Error: `Format export not available`
+
+**Cause:** Format generation requires additional processing
+
+**Solution:**
+After receiving the generated content, specify your format:
+```
+You: I want it in PDF format
+JARVIS: I'll generate a PDF file for you...
+```
+
+---
+
+## Administration Tools Errors
+
+### Error: `Email integration not configured`
+
+**Cause:** Missing email provider credentials
+
+**Solution:**
+```bash
+# Add to .env file:
+OUTLOOK_CLIENT_ID=your_client_id
+OUTLOOK_CLIENT_SECRET=your_secret
+# Or for Gmail:
+GMAIL_CREDENTIALS_PATH=path/to/credentials.json
+```
+
+### Error: `Calendar sync failed`
+
+**Cause:** Calendar API permissions not granted
+
+**Solution:**
+1. Re-authenticate with your calendar provider
+2. Ensure JARVIS has read/write calendar permissions
+3. Check API quota limits
+
+### Error: `Workflow execution timeout`
+
+**Cause:** Workflow action took too long
+
+**Solution:**
+```yaml
+# Increase timeout in workflow config
+workflows:
+  - name: my_workflow
+    timeout_seconds: 300  # Increase from default 60
+```
+
+---
+
+## Finance Tools Errors
+
+### Error: `Spreadsheet processing failed`
+
+**Cause:** Unsupported file format or corrupted file
+
+**Solution:**
+```
+Supported formats: .xlsx, .xls, .csv
+Maximum file size: 10MB
+
+# Convert older formats:
+# .xls → Save as .xlsx in Excel
+# Numbers → Export as .xlsx
+```
+
+### Error: `Invoice OCR inaccurate`
+
+**Cause:** Poor image quality or unusual layout
+
+**Solution:**
+1. Use high-resolution images (300 DPI minimum)
+2. Ensure good lighting and contrast
+3. Avoid skewed or rotated documents
+4. Try manual field correction if needed
+
+---
+
+## Engineering Tools Errors
+
+### Error: `VS Code extension not connecting`
+
+**Cause:** Extension not installed or port conflict
+
+**Solution:**
+```bash
+# Check if extension is installed
+code --list-extensions | grep jarvis
+
+# Restart VS Code
+# Or manually specify port:
+VSCODE_JARVIS_PORT=3001
+```
+
+### Error: `Code review timeout`
+
+**Cause:** Large codebase or complex PR
+
+**Solution:**
+```python
+# Review specific files instead of entire PR
+review = await reviewer.review_file("src/main.py")
+
+# Or limit scope:
+review = await reviewer.review_pr(
+    pr_number=123,
+    max_files=10,
+    focus=["security"]  # Focus on specific aspects
+)
+```
+
+---
+
 ## Getting Help
 
 ### 1. Check Logs

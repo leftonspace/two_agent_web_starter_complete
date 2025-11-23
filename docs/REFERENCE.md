@@ -131,6 +131,52 @@ Complete API reference for JARVIS 2.0 - all endpoints, modules, and interfaces.
 | GET | `/api/workflows/{id}` | Workflow details |
 | POST | `/api/workflows` | Create workflow |
 
+### Document Processing
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/documents/process` | Process attached document |
+| POST | `/api/documents/resume` | Generate resume from document |
+| POST | `/api/documents/summary` | Summarize document |
+| POST | `/api/documents/extract` | Extract information |
+| GET | `/api/documents/formats` | List supported output formats |
+
+### Administration Tools
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/admin/email/summarize` | Summarize emails |
+| POST | `/api/admin/email/draft` | Draft email response |
+| POST | `/api/admin/email/classify` | Classify email priority/category |
+| POST | `/api/admin/calendar/brief` | Generate meeting brief |
+| POST | `/api/admin/calendar/actions` | Extract action items |
+| POST | `/api/admin/calendar/optimize` | Optimize schedule |
+| GET | `/api/admin/workflows` | List automation workflows |
+| POST | `/api/admin/workflows` | Create automation workflow |
+| POST | `/api/admin/workflows/{id}/execute` | Execute workflow |
+| DELETE | `/api/admin/workflows/{id}` | Delete workflow |
+
+### Finance Tools
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/finance/spreadsheet/process` | Process Excel/CSV file |
+| POST | `/api/finance/spreadsheet/pivot` | Create pivot table |
+| POST | `/api/finance/invoice/process` | Process invoice image |
+| POST | `/api/finance/receipt/process` | Process receipt image |
+| POST | `/api/finance/template/budget` | Generate budget template |
+| POST | `/api/finance/template/expense` | Generate expense report |
+
+### Engineering Tools
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/engineering/review/file` | Review single file |
+| POST | `/api/engineering/review/pr` | Review pull request |
+| GET | `/api/engineering/vscode/context` | Get VS Code workspace context |
+| POST | `/api/engineering/vscode/command` | Execute VS Code command |
+| POST | `/api/engineering/cli/execute` | Execute CLI command |
+
 ---
 
 ## WebSocket Endpoints

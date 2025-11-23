@@ -727,6 +727,32 @@ pip install --upgrade -r requirements.txt
 | **YAML Configuration** | Declarative agent/task setup |
 | **Pattern Orchestration** | 5 coordination patterns |
 | **Multi-Provider LLM** | Anthropic, OpenAI, DeepSeek, Ollama |
+| **Document Processing** | Resume generation, document analysis with format options |
+
+### Professional Tools
+
+| Category | Features |
+|----------|----------|
+| **Administration** | Email summarization/drafting, Calendar intelligence, Workflow automation |
+| **Finance** | Spreadsheet processing, Invoice/receipt scanning, Financial templates |
+| **Engineering** | VS Code extension, CLI tool, Code review agent |
+
+### Document Processing
+
+JARVIS can process attached files and generate professional outputs:
+
+```
+You: [Attach resume_draft.pdf] Make me a professional resume from this document
+JARVIS: I've analyzed your document and created a professional resume...
+
+📄 Output Format Options
+- PDF - Professional, ready to print/share
+- Word (DOCX) - Editable document format
+- Plain Text - Simple text file
+- Markdown - Formatted text for web/docs
+
+Just let me know your preferred format!
+```
 
 ### Key URLs
 

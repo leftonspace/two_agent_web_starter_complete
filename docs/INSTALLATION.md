@@ -619,6 +619,35 @@ python -m agent.diagnostics --full-report
 
 ---
 
+## Features Overview
+
+### Core Features
+| Feature | Description |
+|---------|-------------|
+| **Voice System** | Text-to-speech and speech-to-text |
+| **Vision System** | Image analysis, OCR, camera capture |
+| **Agents Dashboard** | Real-time AI agent monitoring |
+| **Council System** | Weighted voting for decisions |
+| **Flow Engine** | Visual workflow execution |
+| **Memory System** | Short-term, long-term, entity memory |
+| **Document Processing** | Resume generation, document analysis |
+
+### Professional Tools
+| Category | Tools |
+|----------|-------|
+| **Administration** | Email integration, Calendar intelligence, Workflow automation |
+| **Finance** | Spreadsheet processing, Invoice/receipt scanning, Financial templates |
+| **Engineering** | VS Code extension, CLI tool, Code review agent |
+
+### Document Processing
+JARVIS can process attached files and generate outputs:
+- **Resume Generation** - Create professional resumes from uploaded documents
+- **Document Summary** - Summarize long documents
+- **Information Extraction** - Extract key data from files
+- **Format Options** - Export to PDF, Word, Plain Text, or Markdown
+
+---
+
 ## Next Steps
 
 1. **Read Demo Guide:** [DEMO_GUIDE.md](./DEMO_GUIDE.md)
@@ -626,6 +655,7 @@ python -m agent.diagnostics --full-report
 3. **Development:** [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md)
 4. **Troubleshooting:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 5. **Windows Users:** [WINDOWS_SETUP_GUIDE.md](./WINDOWS_SETUP_GUIDE.md)
+6. **Admin Tools:** [ADMIN_TOOLS.md](./ADMIN_TOOLS.md)
 
 ---
 

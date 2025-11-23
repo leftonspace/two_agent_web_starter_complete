@@ -1,917 +1,871 @@
-# Multi-Agent Orchestrator - API Reference
+# JARVIS 2.0 API Reference
 
-*Auto-generated documentation from code docstrings*
+**Version:** 2.0.0
+**Date:** November 23, 2025
+
+Complete API reference for JARVIS 2.0 - all endpoints, modules, and interfaces.
 
 ---
 
 ## Table of Contents
 
-- [auto_pilot](#auto_pilot)
-- [code_review_bot](#code_review_bot)
-- [cost_estimator](#cost_estimator)
-- [cost_tracker](#cost_tracker)
-- [exec_analysis](#exec_analysis)
-- [exec_deps](#exec_deps)
-- [exec_safety](#exec_safety)
-- [git_utils](#git_utils)
-- [llm](#llm)
-- [orchestrator](#orchestrator)
-- [orchestrator_2loop](#orchestrator_2loop)
-- [prompts](#prompts)
-- [run_logger](#run_logger)
-- [run_mode](#run_mode)
-- [safe_io](#safe_io)
-- [self_eval](#self_eval)
-- [site_tools](#site_tools)
-- [status_codes](#status_codes)
-- [tests.e2e.test_smoke_hello_kevin](#testse2etest_smoke_hello_kevin)
-- [tests.integration.test_snapshots_and_files](#testsintegrationtest_snapshots_and_files)
-- [tests.unit.test_cost_tracker](#testsunittest_cost_tracker)
-- [tests_sanity.test_sanity](#tests_sanitytest_sanity)
-- [view_runs](#view_runs)
+1. [REST API Endpoints](#rest-api-endpoints)
+2. [WebSocket Endpoints](#websocket-endpoints)
+3. [Core Modules](#core-modules)
+4. [Voice System API](#voice-system-api)
+5. [Vision System API](#vision-system-api)
+6. [Agents API](#agents-api)
+7. [Council System API](#council-system-api)
+8. [Flow Engine API](#flow-engine-api)
+9. [Memory System API](#memory-system-api)
+10. [LLM Router API](#llm-router-api)
+11. [Approval Workflow API](#approval-workflow-api)
+12. [Integration API](#integration-api)
 
 ---
 
-## `auto_pilot`
+## REST API Endpoints
 
-**File:** `auto_pilot.py`
+### Health & Status
 
-Auto-pilot orchestration for the multi-agent system.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | System health check |
+| GET | `/api/status` | Detailed system status |
+| GET | `/api/version` | Version information |
 
-Runs multiple sub-runs back-to-back with self-evaluation between each run.
-Makes decisions to continue, retry with adjustments, or stop based on evaluation scores.
+### JARVIS Chat
 
-STAGE 5: Enhanced with status codes and improved error handling.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/chat` | Send message to JARVIS |
+| GET | `/api/chat/history` | Get conversation history |
+| DELETE | `/api/chat/history` | Clear conversation |
+| POST | `/api/chat/clarify` | Submit clarification answers |
 
-### Functions
+### Voice System
 
-#### `run_auto_pilot(mode, project_dir, task, max_sub_runs, max_rounds_per_run, models_used, config)`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/voice/speak` | Text-to-speech |
+| POST | `/api/voice/listen` | Speech-to-text |
+| POST | `/api/voice/chat` | Voice conversation turn |
+| GET | `/api/voice/config` | Voice configuration |
+| GET | `/api/voice/audio/{id}` | Get audio file |
 
-Run auto-pilot mode: multiple sub-runs with self-evaluation.
+### Vision System
 
-Args:
-    mode: "2loop" or "3loop"
-    project_dir: Path to the project directory
-    task: Task description
-    max_sub_runs: Maximum number of sub-runs allowed
-    max_rounds_per_run: Maximum rounds per individual run
-    models_used: Dict of role -> model name
-    config: Configuration dict with cost caps, etc.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/vision/analyze` | Analyze image |
+| POST | `/api/vision/camera` | Process camera capture |
+| POST | `/api/vision/ocr` | Extract text from image |
+| POST | `/api/vision/document` | Analyze document |
+| POST | `/api/vision/chat` | Vision chat with context |
 
-Returns:
-    SessionSummary instance with complete session results
+### Agents
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/agents/status` | All agents status |
+| GET | `/api/agents/{id}` | Single agent details |
+| GET | `/api/agents/activity` | Recent activity log |
+| POST | `/api/agents/{id}/task` | Assign task to agent |
+
+### Council System
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/council/status` | Council status |
+| GET | `/api/council/councillors` | List councillors |
+| POST | `/api/council/vote` | Initiate vote |
+| GET | `/api/council/history` | Vote history |
+| GET | `/api/council/{id}/happiness` | Councillor happiness |
+
+### Flow Engine
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/flows` | List available flows |
+| GET | `/api/flows/{id}` | Flow details |
+| POST | `/api/flows/{id}/execute` | Execute flow |
+| GET | `/api/flows/executions/{id}` | Execution status |
+| DELETE | `/api/flows/executions/{id}` | Cancel execution |
+
+### Memory System
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/memory/store` | Store memory |
+| POST | `/api/memory/search` | Search memories |
+| GET | `/api/memory/entities` | List entities |
+| DELETE | `/api/memory/{id}` | Delete memory |
+
+### Approvals
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/approvals` | List approvals |
+| POST | `/api/approvals` | Create approval request |
+| GET | `/api/approvals/{id}` | Approval details |
+| POST | `/api/approvals/{id}/approve` | Approve request |
+| POST | `/api/approvals/{id}/reject` | Reject request |
+| POST | `/api/approvals/{id}/escalate` | Escalate request |
+
+### Integrations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/integrations` | List integrations |
+| POST | `/api/integrations` | Add integration |
+| GET | `/api/integrations/{id}` | Integration details |
+| GET | `/api/integrations/{id}/test` | Test connection |
+| POST | `/api/integrations/{id}/query` | Execute query |
+| DELETE | `/api/integrations/{id}` | Remove integration |
+
+### Workflows
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/workflows` | List workflows |
+| GET | `/api/workflows/{id}` | Workflow details |
+| POST | `/api/workflows` | Create workflow |
 
 ---
 
-## `code_review_bot`
+## WebSocket Endpoints
 
-**File:** `code_review_bot.py`
+### Agent Stream
 
-Simple local "code review bot" for your agent project.
-
-- Runs Ruff (lint) and MyPy (types) on the agent folder.
-- Optionally asks an LLM to summarize the findings if USE_AI_CODE_REVIEW=1.
-
-### Functions
-
-#### `run_static_checks()`
-
-Run Ruff + MyPy and return their raw outputs.
-
-#### `ask_ai_for_review(outputs)`
-
-Optionally ask the LLM to summarize lint/type issues and suggest fixes.
-
-#### `main()`
-
-*No documentation available*
-
----
-
-## `cost_estimator`
-
-**File:** `cost_estimator.py`
-
-Cost estimation module for the multi-agent orchestrator.
-
-Provides rough cost estimates before starting a run based on:
-- Mode (2loop vs 3loop)
-- Max rounds
-- Models used per role
-- Token budgets per round
-
-### Functions
-
-#### `estimate_run_cost(mode, max_rounds, models_used)`
-
-Estimate the rough upper-bound cost for a multi-agent run.
-
-Args:
-    mode: "2loop" or "3loop"
-    max_rounds: Maximum number of iterations
-    models_used: Dict mapping role -> model name
-        e.g., {"manager": "gpt-5-mini", "supervisor": "gpt-5-nano", "employee": "gpt-5"}
-    tokens_per_round_prompt: Estimated prompt tokens per round per role
-    tokens_per_round_completion: Estimated completion tokens per round per role
-
-Returns:
-    Dict with structure:
-    {
-        "per_round": {
-            "manager": {"model": "...", "prompt_tokens": ..., "completion_tokens": ..., "usd": ...},
-            "supervisor": {...} or None,
-            "employee": {...},
-        },
-        "max_rounds": max_rounds,
-        "estimated_total_usd": ...,
-    }
-
-#### `format_cost_estimate(estimate, max_cost_usd, cost_warning_usd)`
-
-Format a cost estimate as a human-readable string.
-
-Args:
-    estimate: Result from estimate_run_cost()
-    max_cost_usd: Maximum cost cap (if set)
-    cost_warning_usd: Warning threshold (if set)
-
-Returns:
-    Formatted multi-line string
-
----
-
-## `cost_tracker`
-
-**File:** `cost_tracker.py`
-
-### Classes
-
-#### `CallRecord`
-
-
-#### `CostState`
-
-**Methods:**
-
-- **`add_call(self, role, model, prompt_tokens, completion_tokens)`**
-
-- **`summary(self)`**
-
-
-### Functions
-
-#### `reset()`
-
-Reset the global cost tracking state for a new run.
-
-#### `register_call(role, model, prompt_tokens, completion_tokens)`
-
-Register a single API call for cost accounting.
-
-#### `get_summary()`
-
-Get a structured summary of costs and tokens for the current run.
-
-#### `get_total_cost_usd()`
-
-Return the estimated total cost in USD for the current run.
-
-#### `load_history()`
-
-Load the shared history from HISTORY_FILE. Best-effort and safe on errors.
-
-#### `save_history(history)`
-
-Persist the shared history to HISTORY_FILE.
-
-#### `append_history(log_file, project_name, task, status, extra)`
-
-Append a history record.
-
-Two usage modes:
-
-1) Tests call this with an explicit `log_file` and metadata fields
-   (project_name, task, status, extra). We append one JSON line to
-   that file. The field is named "project" to match test expectations.
-
-2) Runtime usage logging from llm.chat_json() passes cost-related
-   fields (total_usd, prompt_tokens, completion_tokens, model) with
-   log_file=None. We append to the default history file via
-   load_history/save_history.
-
----
-
-## `exec_analysis`
-
-**File:** `exec_analysis.py`
-
-Static code analysis module for the multi-agent orchestrator.
-
-Performs basic static analysis on Python files:
-- Syntax error detection
-- Bare except detection
-- Very long functions (>200 lines)
-- TODO/FIXME detection
-
-### Functions
-
-#### `analyze_project(project_dir)`
-
-Perform static analysis on all Python files in the project directory.
-
-Args:
-    project_dir: Path to the project root directory
-
-Returns:
-    List of issues found, each with:
-    {
-        "file": "relative/path/to/file.py",
-        "line": line_number,
-        "message": "description of the issue",
-        "severity": "info" | "warning" | "error"
-    }
-
----
-
-## `exec_deps`
-
-**File:** `exec_deps.py`
-
-Dependency vulnerability scanning module for the multi-agent orchestrator.
-
-Scans Python dependencies for known vulnerabilities using the OSV API.
-
-### Functions
-
-#### `scan_dependencies(project_dir)`
-
-Scan dependencies in requirements.txt for known vulnerabilities.
-
-Args:
-    project_dir: Path to the project root directory
-
-Returns:
-    List of vulnerability issues found, each with:
-    {
-        "package": "package-name",
-        "version": "version-string or 'unknown'",
-        "severity": "critical" | "medium" | "low",
-        "summary": "description of the vulnerability"
-    }
-
----
-
-## `exec_safety`
-
-**File:** `exec_safety.py`
-
-Safety checks orchestrator for the multi-agent system.
-
-Coordinates static analysis, dependency scanning, and runtime tests.
-
-STAGE 5: Enhanced with status codes and safe I/O.
-
-### Functions
-
-#### `run_safety_checks(project_dir, task_description)`
-
-Run comprehensive safety checks on the project.
-
-Performs:
-- Static code analysis (syntax, code quality)
-- Dependency vulnerability scanning
-- Docker/runtime tests (stub for now)
-
-Args:
-    project_dir: Path to the project directory to check
-    task_description: Original task description (for context)
-
-Returns:
-    {
-        "static_issues": [...],
-        "dependency_issues": [...],
-        "docker_tests": {"status": "...", "details": "..."},
-        "status": "passed" | "failed",
-        "run_id": "<unique-id>",
-        "timestamp": <unix-timestamp>
-    }
-
-Safety check fails if:
-- Any static_issues with severity="error"
-- OR any dependency_issues with severity="critical"
-
----
-
-## `git_utils`
-
-**File:** `git_utils.py`
-
-### Functions
-
-#### `ensure_repo(root)`
-
-Ensure there is a Git repo at `root`.
-
-- If Git is not installed, returns False and prints a message.
-- If `.git` exists, returns True.
-- Otherwise tries `git init` and returns True on success.
-- Never raises; on failure returns False and prints a short reason.
-
-#### `commit_all(root, message)`
-
-Stage all changes and create a commit with the given message.
-
-- If `.git` is missing, does nothing.
-- If there is nothing to commit, prints a friendly message.
-- Never raises; logs any errors and continues.
-
----
-
-## `llm`
-
-**File:** `llm.py`
-
-### Functions
-
-#### `chat_json(role, system_prompt, user_content)`
-
-High-level helper that:
-- Selects a model (manager / supervisor / employee) if not provided.
-- Calls `_post` and records usage via `cost_tracker`.
-- Returns parsed JSON (default) or raw text if `expect_json=False`.
-
-`system_prompt` is the original parameter name.
-`system` is an alias used by some callers (e.g. code_review_bot).
-If both are provided, `system` wins.
-
----
-
-## `orchestrator`
-
-**File:** `orchestrator.py`
-
-### Functions
-
-#### `main(run_summary)`
-
-Main 3-loop orchestrator function.
-
-Args:
-    run_summary: Optional RunSummary for STAGE 2 logging.
-                 If provided, iterations will be logged automatically.
-
----
-
-## `orchestrator_2loop`
-
-**File:** `orchestrator_2loop.py`
-
-### Functions
-
-#### `main()`
-
-*No documentation available*
-
----
-
-## `prompts`
-
-**File:** `prompts.py`
-
-### Functions
-
-#### `load_prompts(file_name)`
-
-Load a persona file (e.g. prompts_default.json) and construct:
-
-  - manager_plan_sys    (system prompt for planning)
-  - manager_review_sys  (system prompt for reviewing)
-  - supervisor_sys      (system prompt for phasing / persona selection)
-  - employee_sys        (system prompt for building files)
-  - manager_behaviour   (behaviour config from the JSON, if any)
-
----
-
-## `run_logger`
-
-**File:** `run_logger.py`
-
-Run logging and evaluation layer for the multi-agent orchestrator.
-
-Provides two APIs:
-1. Legacy dict-based API (for backward compatibility)
-2. STAGE 2 dataclass-based API (for structured logging)
-
-STAGE 5: Enhanced with status codes and safe I/O.
-
-### Classes
-
-#### `IterationLog`
-
-Log entry for a single iteration of the orchestrator loop.
-
-
-#### `RunSummary`
-
-Complete summary of an orchestrator run.
-
-Tracks a single run from start to finish, including iterations,
-costs, safety results, and final status.
-
-
-#### `SessionSummary`
-
-Summary of an auto-pilot session containing multiple runs.
-
-Tracks an entire auto-pilot session with multiple sub-runs,
-evaluations, and the final decision.
-
-
-### Functions
-
-#### `start_run(mode, project_dir, task, max_rounds, models_used, config)`
-
-Create a new RunSummary for tracking an orchestrator run.
-
-Args:
-    mode: "2loop" or "3loop"
-    project_dir: Path to the project directory
-    task: Task description
-    max_rounds: Maximum number of iterations
-    models_used: Dict of role -> model name
-    config: Optional additional configuration
-
-Returns:
-    RunSummary instance with run_id and started_at populated
-
-#### `log_iteration(run, index, role, status, notes, safety_status)`
-
-Append an iteration log entry to the RunSummary.
-
-Args:
-    run: RunSummary instance
-    index: Iteration number (1-based)
-    role: "manager", "supervisor", "employee"
-    status: "ok", "timeout", "safety_failed", etc.
-    notes: Free-text description
-    safety_status: Optional "passed"/"failed"
-
-#### `finalize_run(run, final_status, safety_status, cost_summary)`
-
-Finalize a RunSummary with final status and cost information.
-
-Args:
-    run: RunSummary instance
-    final_status: "success", "max_rounds_reached", "timeout", "aborted", etc.
-    safety_status: Optional final safety status
-    cost_summary: Optional cost summary from cost_tracker
-
-Returns:
-    Updated RunSummary instance
-
-#### `save_run_summary(run, base_dir)`
-
-Save RunSummary to disk as JSON.
-
-Creates: <base_dir>/<run_id>/run_summary.json
-
-STAGE 5: Uses safe I/O helpers for error resilience.
-
-Args:
-    run: RunSummary instance
-    base_dir: Base directory for logs (default: "run_logs")
-
-Returns:
-    Path to the saved JSON file, or empty string on failure
-
-#### `start_session(task, max_sub_runs, session_config)`
-
-Create a new SessionSummary for tracking an auto-pilot session.
-
-Args:
-    task: Task description for the session
-    max_sub_runs: Maximum number of sub-runs allowed
-    session_config: Optional session-level configuration
-
-Returns:
-    SessionSummary instance with session_id and started_at populated
-
-#### `log_session_run(session, run_summary, eval_result)`
-
-Append a run summary and evaluation to the session.
-
-Args:
-    session: SessionSummary instance
-    run_summary: RunSummary as dict (from asdict())
-    eval_result: Evaluation result from self_eval.evaluate_run()
-
-#### `finalize_session(session, final_decision)`
-
-Finalize a SessionSummary with final decision.
-
-Args:
-    session: SessionSummary instance
-    final_decision: "success", "max_runs_reached", "stopped", etc.
-
-Returns:
-    Updated SessionSummary instance
-
-#### `save_session_summary(session, base_dir)`
-
-Save SessionSummary to disk as JSON.
-
-Creates: <base_dir>/<session_id>/session_summary.json
-
-STAGE 5: Uses safe I/O helpers for error resilience.
-
-Args:
-    session: SessionSummary instance
-    base_dir: Base directory for logs (default: "run_logs")
-
-Returns:
-    Path to the saved JSON file, or empty string on failure
-
-#### `start_run_legacy(config, mode, out_dir)`
-
-Legacy dict-based API for backward compatibility.
-Create an in-memory record for this run.
-
-#### `log_iteration_legacy(run_record, iteration_data)`
-
-Legacy dict-based API for backward compatibility.
-Append one iteration summary to the in-memory run_record.
-
-#### `finish_run_legacy(run_record, final_status, cost_summary, out_dir)`
-
-Legacy dict-based API for backward compatibility.
-Finalize run_record and append it as one JSON line to:
-  agent/run_logs/<project_subdir>_<mode>.jsonl
-
----
-
-## `run_mode`
-
-**File:** `run_mode.py`
-
-Main entry point for the multi-agent orchestrator.
-
-Loads configuration, performs cost estimation, and runs either:
-- Auto-pilot mode (multiple sub-runs with self-evaluation)
-- Single-run mode (2loop or 3loop)
-
-STAGE 5: Enhanced with status codes and improved error handling.
-
-### Functions
-
-#### `main()`
-
-*No documentation available*
-
----
-
-## `safe_io`
-
-**File:** `safe_io.py`
-
-Safe I/O utilities for the multi-agent system.
-
-Provides error-resilient wrappers for common file and network operations
-to prevent crashes from I/O failures, malformed JSON, network issues, etc.
-
-### Functions
-
-#### `safe_json_read(path)`
-
-Safely read and parse a JSON file.
-
-Args:
-    path: Path to JSON file
-
-Returns:
-    Parsed JSON dict, or None if reading/parsing fails
-
-#### `safe_json_write(path, data)`
-
-Safely write data to a JSON file.
-
-Args:
-    path: Path to write to
-    data: Data to serialize
-    indent: JSON indentation (default: 2)
-
-Returns:
-    True if successful, False otherwise
-
-#### `safe_timestamp()`
-
-Generate a safe ISO timestamp.
-
-Returns:
-    ISO formatted timestamp string, or fallback if datetime fails
-
-#### `safe_file_read(path)`
-
-Safely read a text file.
-
-Args:
-    path: Path to file
-    encoding: Text encoding (default: utf-8)
-
-Returns:
-    File contents, or None if reading fails
-
-#### `safe_file_write(path, content)`
-
-Safely write content to a text file.
-
-Args:
-    path: Path to write to
-    content: Content to write
-    encoding: Text encoding (default: utf-8)
-
-Returns:
-    True if successful, False otherwise
-
-#### `safe_mkdir(path)`
-
-Safely create a directory (and parents).
-
-Args:
-    path: Directory path to create
-
-Returns:
-    True if successful or already exists, False on error
-
-#### `safe_path_resolve(path_str)`
-
-Safely resolve a path string to an absolute Path.
-
-Args:
-    path_str: Path string
-
-Returns:
-    Resolved Path object, or None if resolution fails
-
-#### `safe_get_config_value(config, key, default)`
-
-Safely get a configuration value with optional type casting.
-
-Args:
-    config: Configuration dictionary
-    key: Key to retrieve
-    default: Default value if key missing or cast fails
-    cast: Optional type to cast to (int, float, str, bool)
-
-Returns:
-    Configuration value or default
-
----
-
-## `self_eval`
-
-**File:** `self_eval.py`
-
-Self-evaluation module for the multi-agent orchestrator.
-
-Evaluates RunSummary results to compute quality, safety, and cost scores.
-Used by auto-pilot mode to decide whether to retry, adjust, or stop.
-
-STAGE 5: Enhanced with status codes and improved docstrings.
-
-### Functions
-
-#### `evaluate_run(run_summary)`
-
-Evaluate a completed run and compute quality/safety/cost scores.
-
-Args:
-    run_summary: RunSummary as a dict (from asdict() or dict-based API)
-        Expected keys:
-        - final_status: "completed", "max_rounds_reached", "cost_cap_exceeded", etc.
-        - safety_status: "passed", "failed", or None
-        - rounds_completed: int
-        - max_rounds: int
-        - cost_summary: dict with "total_usd"
-        - config: dict with "max_cost_usd"
-
-Returns:
-    Dict with structure:
-    {
-        "score_quality": float (0-1),
-        "score_safety": float (0-1),
-        "score_cost": float (0-1),
-        "overall_score": float (0-1),
-        "reasoning": str,
-        "recommendation": "continue" | "retry" | "stop"
-    }
-
----
-
-## `site_tools`
-
-**File:** `site_tools.py`
-
-### Classes
-
-#### `_SimpleHTMLAnalyzer`
-
-**Methods:**
-
-- **`__init__(self)`**
-
-- **`handle_starttag(self, tag, attrs)`**
-
-- **`handle_endtag(self, tag)`**
-
-- **`handle_data(self, data)`**
-
-
-### Functions
-
-#### `load_existing_files(root)`
-
-Load existing project files into a dict: { 'relative/path': 'content' }.
-Only picks web-related files (html, css, js, etc.).
-Skips .git and .history folders to avoid submodule confusion.
-
-#### `summarize_files_for_manager(files)`
-
-Summarize files without sending full code back every time.
-
-#### `analyze_site(index_path)`
-
-Very lightweight 'visual' analysis:
-- Parses title, headings, links, and buttons from index.html.
-- No screenshots, no external dependencies.
-
-Returns:
-  {
-    "dom_info": { ... },
-    "screenshot_path": None
-  }
-
----
-
-## `status_codes`
-
-**File:** `status_codes.py`
-
-Normalized status codes for the multi-agent system.
-
-All modules must use these constants instead of raw strings to ensure
-consistency across run summaries, session summaries, and status reporting.
-
-### Functions
-
-#### `is_terminal_status(status)`
-
-Check if a run status is terminal (no further processing needed).
-
-Args:
-    status: Run status code
-
-Returns:
-    True if status indicates run is finished
-
-#### `is_success_status(status)`
-
-Check if a run status indicates successful completion.
-
-Args:
-    status: Run status code
-
-Returns:
-    True if status indicates success
-
-#### `is_failure_status(status)`
-
-Check if a run status indicates failure.
-
-Args:
-    status: Run status code
-
-Returns:
-    True if status indicates failure
-
----
-
-## `tests.e2e.test_smoke_hello_kevin`
-
-**File:** `tests/e2e/test_smoke_hello_kevin.py`
-
-### Functions
-
-#### `test_project_config_loads_and_has_basic_keys()`
-
-*No documentation available*
-
-#### `test_orchestrator_module_imports_and_has_main()`
-
-*No documentation available*
-
----
-
-## `tests.integration.test_snapshots_and_files`
-
-**File:** `tests/integration/test_snapshots_and_files.py`
-
-### Functions
-
-#### `test_site_tools_imports()`
-
-Lightweight integration check:
-- agent/site_tools.py is importable
-
----
-
-## `tests.unit.test_cost_tracker`
-
-**File:** `tests/unit/test_cost_tracker.py`
-
-### Functions
-
-#### `test_register_and_summary_basic()`
-
-*No documentation available*
-
-#### `test_get_total_cost_usd_matches_summary()`
-
-*No documentation available*
-
-#### `test_append_history_creates_file(tmp_path)`
-
-*No documentation available*
-
----
-
-## `tests_sanity.test_sanity`
-
-**File:** `tests_sanity/test_sanity.py`
-
-Sanity tests for the multi-agent system.
-
-Run with: python3 -m pytest agent/tests_sanity/ -v
-Or simply: python3 agent/tests_sanity/test_sanity.py
-
-### Functions
-
-#### `test_imports()`
-
-Test that all core modules import without errors.
-
-#### `test_cost_estimation()`
-
-Test cost estimation with dummy data.
-
-#### `test_self_evaluation()`
-
-Test self-evaluation with synthetic RunSummary.
-
-#### `test_safety_checks()`
-
-Test safety checks on empty temporary directory.
-
-#### `test_run_logger()`
-
-Test run logger dataclass creation.
-
-#### `test_status_codes()`
-
-Test status codes module.
-
-#### `run_all_tests()`
-
-Run all sanity tests.
-
----
-
-## `view_runs`
-
-**File:** `view_runs.py`
-
-### Functions
-
-#### `load_run_logs(run_logs_dir)`
-
-Load all JSONL log files from run_logs/ and return a flat list of run dicts.
-Each line in each file is one JSON object (one run).
-
-#### `print_run_summary(run)`
-
-Print a compact summary of one run.
-
-#### `main()`
-
-*No documentation available*
-
----
-
-## Notes
-
-This documentation is automatically generated from code docstrings.
-For more detailed information, consult the source code directly.
-
-To regenerate this documentation, run:
-```bash
-python3 docs/generate_docs.py
 ```
+WS /api/agents/stream
+```
+
+Real-time agent status updates.
+
+**Message Format:**
+```json
+{
+  "type": "agent_update",
+  "agent_id": "developer",
+  "status": "active",
+  "current_task": "Writing tests",
+  "timestamp": "2025-11-23T10:30:00Z"
+}
+```
+
+### Voice Stream
+
+```
+WS /api/voice/stream
+```
+
+Real-time voice conversation.
+
+**Client → Server:**
+```json
+{
+  "type": "audio_chunk",
+  "data": "<base64_audio>",
+  "format": "webm"
+}
+```
+
+**Server → Client:**
+```json
+{
+  "type": "transcription",
+  "text": "Hello JARVIS",
+  "final": true
+}
+```
+
+### Chat Stream
+
+```
+WS /api/chat/stream
+```
+
+Streaming chat responses.
+
+**Client → Server:**
+```json
+{
+  "message": "Create a Python function",
+  "context": {}
+}
+```
+
+**Server → Client:**
+```json
+{
+  "type": "chunk",
+  "content": "Certainly, sir.",
+  "done": false
+}
+```
+
+---
+
+## Core Modules
+
+### config_loader
+
+```python
+from agent.config_loader import (
+    load_agents,
+    load_tasks,
+    load_llm_config,
+    load_flows,
+    load_memory_config,
+    load_council_config,
+    load_patterns_config,
+    validate_config
+)
+
+# Load agent definitions
+agents: dict[str, Agent] = load_agents()
+
+# Load task templates
+tasks: dict[str, Task] = load_tasks()
+
+# Load LLM configuration
+llm_config: LLMConfig = load_llm_config()
+
+# Validate all configs
+errors: list[str] = validate_config()
+```
+
+### jarvis_chat
+
+```python
+from agent.jarvis_chat import JarvisChat, ClarificationState
+
+class JarvisChat:
+    async def process_message(
+        self,
+        message: str,
+        context: dict = None,
+        session_id: str = None
+    ) -> ChatResponse:
+        """Process user message and return response."""
+
+    async def process_with_clarification(
+        self,
+        message: str,
+        answers: dict = None
+    ) -> ChatResponse | ClarificationRequest:
+        """Process with clarification loop."""
+
+    async def get_history(
+        self,
+        session_id: str,
+        limit: int = 50
+    ) -> list[Message]:
+        """Get conversation history."""
+```
+
+### orchestrator
+
+```python
+from agent.orchestrator import (
+    run_hierarchical,
+    run_with_pattern,
+    start_run,
+    log_iteration,
+    finalize_run
+)
+
+# Run with pattern
+result = await run_with_pattern(
+    task=task,
+    pattern="auto_select",
+    agents=agents,
+    config=config
+)
+
+# Start logging
+run = start_run(
+    mode="hierarchical",
+    project_dir="/path/to/project",
+    task="Build feature",
+    max_rounds=10,
+    models_used={"manager": "claude-3-sonnet"}
+)
+```
+
+---
+
+## Voice System API
+
+### JarvisVoice
+
+```python
+from agent.jarvis_voice import JarvisVoice, VoiceConfig
+
+class VoiceConfig:
+    tts_provider: str = "elevenlabs"  # or "openai"
+    stt_provider: str = "whisper"
+    voice_id: str = None
+    stability: float = 0.5
+    similarity_boost: float = 0.75
+    language: str = "en"
+
+class JarvisVoice:
+    def __init__(self, config: VoiceConfig = None): ...
+
+    async def speak(
+        self,
+        text: str,
+        voice_id: str = None
+    ) -> bytes:
+        """Convert text to speech, return audio bytes."""
+
+    async def speak_to_file(
+        self,
+        text: str,
+        output_path: str
+    ) -> str:
+        """Save speech to file."""
+
+    async def listen(
+        self,
+        audio_data: bytes,
+        language: str = None
+    ) -> str:
+        """Transcribe audio to text."""
+
+    async def listen_stream(
+        self,
+        audio_stream: AsyncIterator[bytes]
+    ) -> AsyncIterator[str]:
+        """Real-time transcription."""
+```
+
+### Voice API Endpoints
+
+```python
+# POST /api/voice/speak
+class SpeakRequest(BaseModel):
+    text: str
+    voice_id: str = None
+
+class SpeakResponse(BaseModel):
+    success: bool
+    audio_url: str
+    duration_seconds: float
+
+# POST /api/voice/listen
+class ListenRequest(BaseModel):
+    audio: str  # base64 encoded
+    format: str = "webm"
+
+class ListenResponse(BaseModel):
+    success: bool
+    text: str
+    confidence: float
+```
+
+---
+
+## Vision System API
+
+### JarvisVision
+
+```python
+from agent.jarvis_vision import JarvisVision, VisionConfig
+
+class VisionConfig:
+    provider: str = "openai"  # or "anthropic"
+    model: str = "gpt-4-vision-preview"
+    max_tokens: int = 1024
+
+class JarvisVision:
+    def __init__(self, config: VisionConfig = None): ...
+
+    async def analyze_image(
+        self,
+        image_data: bytes = None,
+        image_path: str = None,
+        image_url: str = None,
+        prompt: str = "Describe this image"
+    ) -> ImageAnalysis:
+        """Analyze image with custom prompt."""
+
+    async def read_text(
+        self,
+        image_data: bytes
+    ) -> str:
+        """OCR - extract text from image."""
+
+    async def analyze_document(
+        self,
+        image_data: bytes,
+        document_type: str = "general"
+    ) -> DocumentAnalysis:
+        """Analyze document (invoice, receipt, form)."""
+
+    async def analyze_code(
+        self,
+        image_data: bytes,
+        language_hint: str = None
+    ) -> CodeAnalysis:
+        """Analyze code screenshot."""
+
+    async def compare_images(
+        self,
+        image1: bytes,
+        image2: bytes,
+        comparison_type: str = "difference"
+    ) -> ComparisonResult:
+        """Compare two images."""
+```
+
+### Vision API Endpoints
+
+```python
+# POST /api/vision/analyze
+class AnalyzeRequest(BaseModel):
+    image_data: str = None  # base64
+    image_url: str = None
+    prompt: str = "Describe this image"
+
+class AnalyzeResponse(BaseModel):
+    success: bool
+    analysis: str
+    objects_detected: list[str]
+    confidence: float
+```
+
+---
+
+## Agents API
+
+### AgentRegistry
+
+```python
+from agent.agents_api import AgentRegistry, AgentStatus
+
+class AgentStatus:
+    id: str
+    name: str
+    role: str
+    status: str  # "active", "idle", "error"
+    current_task: str = None
+    tasks_completed: int
+    uptime_seconds: int
+
+class AgentRegistry:
+    def get_all_agents(self) -> list[AgentStatus]: ...
+    def get_agent(self, agent_id: str) -> AgentStatus: ...
+    def update_status(self, agent_id: str, status: str): ...
+    def assign_task(self, agent_id: str, task: str): ...
+    def get_activity_log(self, limit: int = 50) -> list[Activity]: ...
+```
+
+### Agent Status Endpoint
+
+```python
+# GET /api/agents/status
+class AgentsStatusResponse(BaseModel):
+    agents: list[AgentStatus]
+    total_active: int
+    total_idle: int
+    timestamp: str
+```
+
+---
+
+## Council System API
+
+### Council Models
+
+```python
+from agent.council import (
+    Councillor,
+    PerformanceMetrics,
+    Vote,
+    VotingSession,
+    VoteResult,
+    CouncilOrchestrator
+)
+
+class PerformanceMetrics:
+    quality_score: float  # 0-1
+    speed_score: float  # 0-1
+    feedback_score: float  # 0-1
+    success_rate: float  # 0-1
+
+class Councillor:
+    id: str
+    name: str
+    specialization: str
+    performance: PerformanceMetrics
+    happiness: int  # 0-100
+    vote_weight: float  # Calculated
+
+class Vote:
+    councillor_id: str
+    option: str
+    confidence: float
+    reasoning: str
+
+class VotingSession:
+    session_id: str
+    question: str
+    options: list[str]
+    votes: list[Vote]
+    status: str  # "open", "closed"
+
+class VoteResult:
+    winner: str
+    weighted_score: float
+    vote_breakdown: dict
+```
+
+### CouncilOrchestrator
+
+```python
+class CouncilOrchestrator:
+    async def create_vote(
+        self,
+        question: str,
+        options: list[str],
+        context: dict = None
+    ) -> VotingSession: ...
+
+    async def execute_vote(
+        self,
+        session: VotingSession
+    ) -> VoteResult: ...
+
+    def add_councillor(self, councillor: Councillor): ...
+    def remove_councillor(self, councillor_id: str): ...
+    def update_happiness(self, councillor_id: str, event: str): ...
+    def evaluate_performance(self): ...  # Fire/promote logic
+```
+
+---
+
+## Flow Engine API
+
+### Flow Decorators
+
+```python
+from agent.flow import start, listen, router, or_, and_
+
+@start()
+async def entry_point(state: FlowState):
+    """Mark function as flow entry point."""
+
+@listen("step_name")
+async def step_handler(state: FlowState):
+    """Listen for specific step completion."""
+
+@router(previous_step)
+def route_logic(result) -> str:
+    """Route to next step based on result."""
+
+@listen(or_("step_a", "step_b"))
+async def handle_either(state: FlowState):
+    """Listen for either step."""
+
+@listen(and_("step_a", "step_b"))
+async def handle_both(state: FlowState):
+    """Listen for both steps to complete."""
+```
+
+### FlowEngine
+
+```python
+from agent.flow import FlowEngine, FlowState
+
+class FlowEngine:
+    def register_flow(self, flow_class): ...
+    def load_flow(self, yaml_path: str): ...
+
+    async def execute(
+        self,
+        initial_state: FlowState,
+        timeout_seconds: int = 3600
+    ) -> FlowResult: ...
+
+    async def get_execution_status(
+        self,
+        execution_id: str
+    ) -> ExecutionStatus: ...
+
+    async def cancel_execution(self, execution_id: str): ...
+```
+
+---
+
+## Memory System API
+
+### MemoryManager
+
+```python
+from agent.memory import MemoryManager
+
+class MemoryManager:
+    short_term: ShortTermMemory
+    long_term: LongTermMemory
+    entity: EntityMemory
+
+    async def store(
+        self,
+        content: str,
+        memory_type: str = "short_term",
+        metadata: dict = None
+    ): ...
+
+    async def search(
+        self,
+        query: str,
+        memory_types: list[str] = None,
+        k: int = 5
+    ) -> list[Memory]: ...
+
+    async def clear(self, memory_type: str = None): ...
+```
+
+### ShortTermMemory
+
+```python
+class ShortTermMemory:
+    async def store(
+        self,
+        content: str,
+        metadata: dict = None
+    ): ...
+
+    async def search(
+        self,
+        query: str,
+        k: int = 5,
+        threshold: float = 0.65
+    ) -> list[Memory]: ...
+```
+
+### LongTermMemory
+
+```python
+class LongTermMemory:
+    async def store(
+        self,
+        content: str,
+        metadata: dict = None,
+        expires_days: int = None
+    ): ...
+
+    async def search(
+        self,
+        query: str,
+        k: int = 5
+    ) -> list[Memory]: ...
+
+    async def search_by_metadata(
+        self,
+        **filters
+    ) -> list[Memory]: ...
+```
+
+### EntityMemory
+
+```python
+class EntityMemory:
+    async def add_entity(
+        self,
+        entity_type: str,
+        name: str,
+        attributes: dict = None
+    ): ...
+
+    async def add_relationship(
+        self,
+        source: str,
+        target: str,
+        relationship_type: str,
+        weight: float = 1.0
+    ): ...
+
+    async def get_related(
+        self,
+        entity_name: str,
+        relationship_type: str = None,
+        depth: int = 1
+    ) -> list[Entity]: ...
+```
+
+---
+
+## LLM Router API
+
+### EnhancedRouter
+
+```python
+from agent.llm import get_router, EnhancedRouter
+
+class EnhancedRouter:
+    async def complete(
+        self,
+        messages: list[dict],
+        provider: str = None,
+        model: str = None,
+        task_type: str = None,
+        temperature: float = None,
+        max_tokens: int = None
+    ) -> CompletionResponse: ...
+
+    async def complete_with_vision(
+        self,
+        messages: list[dict],
+        images: list[bytes],
+        **kwargs
+    ) -> CompletionResponse: ...
+
+    async def health_check(self) -> dict: ...
+
+    def get_available_providers(self) -> list[str]: ...
+    def get_available_models(self, provider: str) -> list[str]: ...
+```
+
+### Routing Rules
+
+```python
+# Automatic routing based on task_type
+router = get_router()
+
+# Simple task → cheap model
+response = await router.complete(
+    messages=[...],
+    task_type="simple"  # Routes to haiku/3.5-turbo
+)
+
+# Complex task → powerful model
+response = await router.complete(
+    messages=[...],
+    task_type="complex"  # Routes to opus/gpt-4
+)
+
+# Code task → specialized model
+response = await router.complete(
+    messages=[...],
+    task_type="coding"  # Routes to deepseek-coder
+)
+```
+
+---
+
+## Approval Workflow API
+
+### ApprovalEngine
+
+```python
+from agent.approval_engine import (
+    ApprovalEngine,
+    ApprovalWorkflow,
+    ApprovalRequest,
+    DecisionType
+)
+
+class ApprovalEngine:
+    def register_workflow(self, workflow: ApprovalWorkflow): ...
+
+    def create_approval_request(
+        self,
+        workflow_id: str,
+        mission_id: str,
+        payload: dict,
+        created_by: str
+    ) -> ApprovalRequest: ...
+
+    def process_decision(
+        self,
+        request_id: str,
+        approver_id: str,
+        decision: DecisionType,
+        comments: str,
+        approver_role: str
+    ) -> ApprovalRequest: ...
+
+    def get_pending_approvals(
+        self,
+        role: str = None,
+        department: str = None
+    ) -> list[ApprovalRequest]: ...
+
+    def get_statistics(
+        self,
+        domain: str = None
+    ) -> dict: ...
+```
+
+---
+
+## Integration API
+
+### DatabaseConnector
+
+```python
+from agent.integrations.database import DatabaseConnector
+
+class DatabaseConnector:
+    def __init__(
+        self,
+        connector_id: str,
+        engine: str,  # "postgresql", "mysql", "sqlite"
+        config: dict
+    ): ...
+
+    async def connect(self) -> bool: ...
+    async def disconnect(self): ...
+
+    async def query(
+        self,
+        sql: str,
+        params: dict = None
+    ) -> list[dict]: ...
+
+    async def execute(
+        self,
+        sql: str,
+        params: dict = None
+    ) -> int: ...
+
+    async def list_tables(self) -> list[str]: ...
+    async def describe_table(self, table: str) -> list[dict]: ...
+    def get_health(self) -> dict: ...
+```
+
+---
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| 400 | Bad Request - Invalid input |
+| 401 | Unauthorized - Missing/invalid auth |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Resource doesn't exist |
+| 409 | Conflict - Resource state conflict |
+| 422 | Validation Error - Invalid data |
+| 429 | Rate Limited - Too many requests |
+| 500 | Internal Error - Server error |
+| 503 | Service Unavailable - Dependency down |
+
+---
+
+## Rate Limits
+
+| Endpoint | Limit |
+|----------|-------|
+| `/api/chat` | 60/minute |
+| `/api/voice/*` | 30/minute |
+| `/api/vision/*` | 20/minute |
+| `/api/council/vote` | 10/minute |
+| `/api/flows/*/execute` | 5/minute |
+
+---
+
+*API Reference - JARVIS 2.0*

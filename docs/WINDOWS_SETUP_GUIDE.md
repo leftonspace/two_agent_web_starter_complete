@@ -1,6 +1,6 @@
-# Jarvis AI Agent - Windows PowerShell Setup Guide
+# JARVIS 2.0 - Windows PowerShell Setup Guide
 
-**Version:** System-1.2 with Phases 9-11 (Ollama Integration, Business Memory, Production Features)
+**Version:** 2.0.0
 **Platform:** Windows 10/11
 **Prerequisites:** PowerShell 5.1+ (built into Windows)
 
@@ -13,11 +13,13 @@
 3. [Installing Git](#3-installing-git)
 4. [Setting Up the Project](#4-setting-up-the-project)
 5. [Installing Dependencies](#5-installing-dependencies)
-6. [Configuring OpenAI API](#6-configuring-openai-api)
-7. [Optional: Installing Ollama (Local LLMs)](#7-optional-installing-ollama-local-llms)
-8. [Running Jarvis](#8-running-jarvis)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Using Jarvis](#10-using-jarvis)
+6. [Configuring API Keys](#6-configuring-api-keys)
+7. [YAML Configuration](#7-yaml-configuration)
+8. [Optional: Voice System Setup](#8-optional-voice-system-setup)
+9. [Optional: Installing Ollama](#9-optional-installing-ollama-local-llms)
+10. [Running JARVIS](#10-running-jarvis)
+11. [Using JARVIS 2.0](#11-using-jarvis-20)
+12. [Troubleshooting](#12-troubleshooting)
 
 ---
 
@@ -27,8 +29,8 @@
 - **OS:** Windows 10 (64-bit) or Windows 11
 - **CPU:** 2+ cores (4+ recommended)
 - **RAM:** 8GB minimum, 16GB recommended
-- **Disk:** 10GB free space (more if using local LLMs)
-- **Network:** Internet connection for API calls and package downloads
+- **Disk:** 20GB free space (more if using local LLMs)
+- **Network:** Internet connection for API calls
 
 ### Software Prerequisites
 - PowerShell 5.1+ (included in Windows 10/11)
@@ -47,7 +49,7 @@ Open PowerShell as **Administrator** (Right-click Start → Windows PowerShell (
 python --version
 ```
 
-If Python is not installed or version is below 3.8:
+If Python is not installed or version is below 3.9:
 
 1. Download Python 3.11 for Windows:
    - Visit: https://www.python.org/downloads/windows/
@@ -84,12 +86,6 @@ pip --version
 # Should show: pip 23.x.x
 ```
 
-**Expected Output:**
-```
-Python 3.11.7
-pip 23.3.1 from C:\Program Files\Python311\Lib\site-packages\pip (python 3.11)
-```
-
 ---
 
 ## 3. Installing Git
@@ -107,30 +103,17 @@ If Git is not installed:
    - Visit: https://git-scm.com/download/win
    - Download "64-bit Git for Windows Setup"
 
-2. **Or** use PowerShell to download:
+2. **Or** use PowerShell:
 
 ```powershell
 # Download Git installer
 $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe"
 $installerPath = "$env:TEMP\git-installer.exe"
 
-# Download
 Invoke-WebRequest -Uri $gitUrl -OutFile $installerPath
-
-# Run installer (use default settings)
 Start-Process -FilePath $installerPath -Wait
 
-# Verify installation
 git --version
-```
-
-### Step 2: Verify Git Installation
-
-Close and reopen PowerShell, then:
-
-```powershell
-git --version
-# Should show: git version 2.43.x
 ```
 
 ---
@@ -142,10 +125,10 @@ git --version
 Open PowerShell (regular, not Admin):
 
 ```powershell
-# Navigate to your preferred location (e.g., Documents)
+# Navigate to your preferred location
 cd $env:USERPROFILE\Documents
 
-# Or create a dedicated folder
+# Create dedicated folder
 mkdir AI-Projects
 cd AI-Projects
 ```
@@ -163,22 +146,14 @@ cd two_agent_web_starter_complete
 pwd
 ```
 
-**Expected Output:**
-```
-Path
-----
-C:\Users\YourName\Documents\AI-Projects\two_agent_web_starter_complete
-```
-
 ### Step 3: Verify Project Structure
 
 ```powershell
-# List project contents
 dir
-
 # You should see:
 # - agent/
 # - docs/
+# - config/
 # - tests/
 # - requirements.txt
 # - README.md
@@ -189,8 +164,6 @@ dir
 ## 5. Installing Dependencies
 
 ### Step 1: Create Virtual Environment
-
-**Important:** Virtual environments isolate Python packages for this project.
 
 ```powershell
 # Create virtual environment
@@ -209,261 +182,355 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\venv\Scripts\Activate.ps1
 ```
 
-**Expected Output:**
-```
-(venv) PS C:\Users\YourName\Documents\AI-Projects\two_agent_web_starter_complete>
-```
-
-Note the `(venv)` prefix - this means your virtual environment is active.
+You should see `(venv)` prefix in your prompt.
 
 ### Step 2: Upgrade pip
 
 ```powershell
-# Upgrade pip to latest version
 python -m pip install --upgrade pip setuptools wheel
 ```
 
 ### Step 3: Install Core Dependencies
 
 ```powershell
-# Install required packages
-pip install openai anthropic aiohttp fastapi uvicorn
+# Core Web Framework
+pip install fastapi uvicorn[standard] jinja2 python-multipart
 
-# Install LLM integration
-pip install tiktoken
+# HTTP Client & Async
+pip install aiohttp httpx
 
-# Install data handling
-pip install numpy pandas pydantic python-dotenv pyyaml
+# LLM Providers
+pip install anthropic openai
 
-# Install vector database for memory
+# Security & Encryption
+pip install cryptography pyjwt
+
+# Database Drivers
+pip install aiosqlite asyncpg aiomysql
+
+# Data Validation & Configuration
+pip install pydantic python-dotenv pyyaml
+
+# Memory System
 pip install chromadb sentence-transformers
 
-# Install security and utilities
-pip install cryptography python-multipart jinja2
+# Voice System (optional)
+pip install elevenlabs sounddevice numpy
 
-# Install async libraries
-pip install asyncio aiosqlite
+# Vision System
+pip install pillow
+
+# Utilities
+pip install requests python-dateutil networkx
 ```
 
 ### Step 4: Verify Installations
 
 ```powershell
-# Check installed packages
-pip list
-
-# Verify key packages
-python -c "import openai; print('OpenAI:', openai.__version__)"
-python -c "import chromadb; print('ChromaDB installed successfully')"
-```
-
-**Expected Output:**
-```
-OpenAI: 1.x.x
-ChromaDB installed successfully
+python -c "import fastapi, anthropic, openai; print('Core dependencies OK')"
+python -c "import chromadb; print('ChromaDB OK')"
 ```
 
 ---
 
-## 6. Configuring OpenAI API
+## 6. Configuring API Keys
 
-### Step 1: Get Your OpenAI API Key
+### Step 1: Get Your API Keys
 
-1. Go to: https://platform.openai.com/api-keys
-2. Log in to your OpenAI account
-3. Click "Create new secret key"
-4. Copy the key (starts with `sk-...`)
+1. **Anthropic (Claude):** https://console.anthropic.com/
+2. **OpenAI:** https://platform.openai.com/api-keys
+3. **ElevenLabs (voice, optional):** https://elevenlabs.io
 
 ### Step 2: Create Environment File
 
 ```powershell
-# Create .env file in project root
 $envContent = @"
-# OpenAI Configuration
-OPENAI_API_KEY=sk-your-actual-key-here
+# =============================================================================
+# JARVIS 2.0 Environment Configuration
+# =============================================================================
 
-# Model Selection
-OPENAI_MODEL=gpt-4-turbo-preview
-OPENAI_CHEAP_MODEL=gpt-3.5-turbo
+# LLM Provider API Keys (at least one required)
+ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+OPENAI_API_KEY=sk-your-key-here
 
-# Anthropic (Claude) - Optional
-# ANTHROPIC_API_KEY=sk-ant-your-key-here
+# Optional LLM Providers
+DEEPSEEK_API_KEY=
+QWEN_API_KEY=
 
-# Application Settings
-APP_ENV=development
-APP_DEBUG=true
-APP_PORT=8000
+# Voice System (optional)
+ELEVENLABS_API_KEY=
+VOICE_ID=
 
 # Database
 DATABASE_URL=sqlite:///data/jarvis.db
 
-# Memory Settings
-VECTOR_DB_PATH=data/vector_store
-EMBEDDING_MODEL=text-embedding-3-small
-
 # Security
-SESSION_SECRET=your-random-secret-key-change-this
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=60
+SECRET_KEY=your-secret-key-change-in-production
+JWT_EXPIRATION_HOURS=24
+
+# Features (true/false)
+ENABLE_COUNCIL=true
+ENABLE_MEMORY=true
+ENABLE_FLOWS=true
+ENABLE_VOICE=true
+ENABLE_VISION=true
 
 # Logging
 LOG_LEVEL=INFO
+LOG_FORMAT=json
 LOG_FILE=logs/jarvis.log
+
+# Performance
+MAX_CONCURRENT_TASKS=10
+CACHE_TTL_SECONDS=3600
+
+# Application
+APP_ENV=development
+APP_DEBUG=true
+APP_PORT=8000
 "@
 
-# Save to .env file
 $envContent | Out-File -FilePath .env -Encoding UTF8
-
 Write-Host "Created .env file"
 ```
 
-### Step 3: Edit .env File with Your API Key
+### Step 3: Edit .env File
 
 ```powershell
-# Open .env file in Notepad
 notepad .env
 ```
 
-**Replace** `sk-your-actual-key-here` with your actual OpenAI API key.
+Replace the placeholder API keys with your actual keys.
 
-**Example:**
-```
-OPENAI_API_KEY=sk-proj-abc123xyz789yourrealkeyhere
-```
+---
 
-Save and close Notepad.
+## 7. YAML Configuration
 
-### Step 4: Verify API Key
+JARVIS 2.0 uses YAML files for configuration. Create the config directory and files:
+
+### Step 1: Create Config Directory
 
 ```powershell
-# Test OpenAI connection
-python -c "import openai; import os; from dotenv import load_dotenv; load_dotenv(); openai.api_key = os.getenv('OPENAI_API_KEY'); print('API Key loaded:', openai.api_key[:15] + '...')"
+mkdir config
 ```
 
-**Expected Output:**
+### Step 2: Create agents.yaml
+
+```powershell
+$agentsYaml = @"
+version: "2.0"
+metadata:
+  author: "admin"
+  description: "JARVIS 2.0 agent configuration"
+
+agents:
+  - id: jarvis
+    name: "JARVIS"
+    role: "Master Orchestrator"
+    goal: "Orchestrate AI agents and assist users"
+    backstory: |
+      JARVIS is the master AI assistant inspired by Iron Man.
+      Speaks with a refined British butler persona.
+    specialization: orchestration
+    llm_config:
+      provider: anthropic
+      model: claude-3-sonnet
+      temperature: 0.7
+
+  - id: developer
+    name: "Code Employee"
+    role: "Software Developer"
+    goal: "Write clean, efficient code"
+    specialization: coding
+    tools:
+      - code_executor
+      - file_manager
+    llm_config:
+      provider: anthropic
+      model: claude-3-sonnet
+      temperature: 0.3
+
+  - id: tester
+    name: "Test Employee"
+    role: "QA Engineer"
+    goal: "Ensure code quality through testing"
+    specialization: testing
+    llm_config:
+      provider: anthropic
+      model: claude-3-haiku
+      temperature: 0.2
+"@
+
+$agentsYaml | Out-File -FilePath config\agents.yaml -Encoding UTF8
+Write-Host "Created config/agents.yaml"
 ```
-API Key loaded: sk-proj-abc123...
+
+### Step 3: Create llm_config.yaml
+
+```powershell
+$llmConfig = @"
+version: "2.0"
+
+defaults:
+  provider: anthropic
+  model: claude-3-sonnet
+  temperature: 0.7
+  max_tokens: 4096
+  timeout_seconds: 60
+
+providers:
+  anthropic:
+    enabled: true
+    api_key_env: ANTHROPIC_API_KEY
+    models:
+      claude-3-opus:
+        max_tokens: 4096
+        supports_vision: true
+      claude-3-sonnet:
+        max_tokens: 4096
+        supports_vision: true
+      claude-3-haiku:
+        max_tokens: 4096
+        supports_vision: true
+
+  openai:
+    enabled: true
+    api_key_env: OPENAI_API_KEY
+    models:
+      gpt-4-turbo:
+        max_tokens: 128000
+        supports_vision: true
+      gpt-4:
+        max_tokens: 8192
+      gpt-3.5-turbo:
+        max_tokens: 16385
+
+routing:
+  cost_optimization: true
+  failover_enabled: true
+"@
+
+$llmConfig | Out-File -FilePath config\llm_config.yaml -Encoding UTF8
+Write-Host "Created config/llm_config.yaml"
 ```
 
 ---
 
-## 7. Optional: Installing Ollama (Local LLMs)
+## 8. Optional: Voice System Setup
 
-**Ollama allows you to run local LLMs (Llama 3, Mistral, etc.) without API costs.**
+### Install Voice Dependencies
+
+```powershell
+# Install voice packages
+pip install elevenlabs sounddevice numpy
+
+# Install FFmpeg (required for audio processing)
+# Option 1: Using Chocolatey
+choco install ffmpeg
+
+# Option 2: Manual download from https://ffmpeg.org/download.html
+```
+
+### Configure ElevenLabs
+
+1. Sign up at https://elevenlabs.io
+2. Get API key from dashboard
+3. Create or clone a British voice in Voice Lab
+4. Copy voice ID
+5. Update .env:
+
+```powershell
+notepad .env
+# Add:
+# ELEVENLABS_API_KEY=your-key
+# VOICE_ID=your-voice-id
+```
+
+### Test Voice
+
+```powershell
+python -c "from elevenlabs import generate; print('ElevenLabs OK')"
+```
+
+---
+
+## 9. Optional: Installing Ollama (Local LLMs)
 
 ### Step 1: Download Ollama
 
 ```powershell
-# Download Ollama for Windows
 $ollamaUrl = "https://ollama.ai/download/OllamaSetup.exe"
 $installerPath = "$env:TEMP\OllamaSetup.exe"
 
-# Download
 Invoke-WebRequest -Uri $ollamaUrl -OutFile $installerPath
-
-# Run installer
 Start-Process -FilePath $installerPath -Wait
 ```
 
-**Or** manually download from: https://ollama.ai/download
+Or download from: https://ollama.ai/download
 
-### Step 2: Verify Ollama Installation
-
-```powershell
-# Check Ollama version
-ollama --version
-
-# List available models
-ollama list
-```
-
-### Step 3: Download LLM Models
+### Step 2: Download Models
 
 ```powershell
-# Download Llama 3 (8B parameters, ~4.7GB)
+# Download Llama 3 (8B)
 ollama pull llama3
 
-# Download Mistral (7B parameters, ~4.1GB)
+# Download Mistral (7B)
 ollama pull mistral
 
-# Download smaller model for testing (3B parameters, ~2GB)
+# Download smaller model
 ollama pull phi3
 ```
 
-**Download times:**
-- Llama 3: 10-30 minutes depending on internet speed
-- Mistral: 10-25 minutes
-- Phi3: 5-15 minutes
-
-### Step 4: Test Ollama
+### Step 3: Test Ollama
 
 ```powershell
-# Test Llama 3
 ollama run llama3 "Hello, who are you?"
-
-# Test API (in another PowerShell window)
-Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method POST -Body '{"model":"llama3","prompt":"Why is the sky blue?","stream":false}' -ContentType "application/json"
 ```
 
-### Step 5: Configure Jarvis to Use Ollama
+### Step 4: Update Configuration
 
-```powershell
-# Add Ollama configuration to .env
-Add-Content -Path .env -Value @"
-
-# Ollama Configuration
+Add to .env:
+```
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=llama3
 OLLAMA_ENABLED=true
-
-# Hybrid Strategy (80% local, 20% cloud)
-LLM_HYBRID_MODE=true
-LLM_LOCAL_RATIO=0.8
-"@
 ```
 
 ---
 
-## 8. Running Jarvis
+## 10. Running JARVIS
 
 ### Step 1: Create Data Directories
 
 ```powershell
-# Create required directories
-mkdir -p data, logs, artifacts, sites
-
-# Verify directories
-dir
+mkdir data, logs, artifacts -ErrorAction SilentlyContinue
 ```
 
 ### Step 2: Initialize Database
 
 ```powershell
-# Run database migrations
-python -c "
+python -c @"
 from pathlib import Path
 import sqlite3
 
-# Create database
 db_path = Path('data/jarvis.db')
 db_path.parent.mkdir(parents=True, exist_ok=True)
 
 conn = sqlite3.connect(db_path)
 conn.execute('CREATE TABLE IF NOT EXISTS system_info (key TEXT PRIMARY KEY, value TEXT)')
-conn.execute('INSERT OR REPLACE INTO system_info VALUES (?, ?)', ('version', '1.2'))
+conn.execute('INSERT OR REPLACE INTO system_info VALUES (?, ?)', ('version', '2.0.0'))
 conn.commit()
 conn.close()
-
-print('✓ Database initialized')
-"
+print('Database initialized')
+"@
 ```
 
-### Step 3: Start Jarvis Web Interface
+### Step 3: Start JARVIS Web Interface
 
 ```powershell
 # Make sure virtual environment is active
-# (you should see (venv) in prompt)
+# (venv) should be in prompt
 
-# Start web server
 cd agent\webapp
 python app.py
 ```
@@ -471,265 +538,145 @@ python app.py
 **Expected Output:**
 ```
 ============================================================
-  Jarvis AI Agent - System 1.2
+  JARVIS 2.0 - AI Agent Orchestration Platform
 ============================================================
   Starting web server on http://127.0.0.1:8000
+  Voice System: Enabled
+  Vision System: Enabled
+  Council System: Enabled
   Press Ctrl+C to stop
 ============================================================
-INFO:     Started server process [12345]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000
 ```
 
-### Step 4: Access Jarvis Web Interface
+### Step 4: Access Web Interface
 
-1. Open your web browser
-2. Navigate to: http://localhost:8000
-3. You should see the Jarvis dashboard
+Open browser: http://localhost:8000/jarvis
 
-### Step 5: Test Jarvis
+---
 
-**Option 1: Web Interface**
-- Go to http://localhost:8000
-- Click "New Task" or "Create Mission"
-- Enter a task (e.g., "Create a simple calculator in Python")
-- Click "Execute"
+## 11. Using JARVIS 2.0
 
-**Option 2: Python REPL**
+### JARVIS Chat Interface
 
-Open a new PowerShell window and run:
+Navigate to http://localhost:8000/jarvis
+
+**Features available:**
+- **Text Chat**: Type messages to interact with JARVIS
+- **Voice Input**: Click microphone button to speak
+- **Image Upload**: Click image button to upload photos
+- **Camera**: Click camera button for live capture
+- **Agents Dashboard**: Click "Agents" to see AI agent status
+
+### Example Interactions
+
+**Text Chat:**
+```
+You: Hello JARVIS, what can you do?
+JARVIS: Good day, sir. I am at your service for software development,
+        code review, project planning, image analysis, and multi-agent
+        task coordination. How may I assist you?
+```
+
+**Code Request:**
+```
+You: Create a Python function to calculate factorial
+JARVIS: Certainly, sir. Here is a recursive implementation...
+```
+
+**Image Analysis:**
+1. Click the 🖼️ button
+2. Select an image
+3. Ask: "What do you see in this image?"
+
+### API Testing
 
 ```powershell
-# Activate virtual environment
-cd C:\Users\YourName\Documents\AI-Projects\two_agent_web_starter_complete
-.\venv\Scripts\Activate.ps1
+# Test health endpoint
+Invoke-RestMethod -Uri http://localhost:8000/health
 
-# Start Python REPL
-python
-```
-
-In Python:
-
-```python
-import asyncio
-from agent.llm.ollama_client import OllamaClient
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Test OpenAI connection
-async def test_openai():
-    import openai
-    import os
-
-    client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": "Say hello!"}]
-    )
-    print(response.choices[0].message.content)
-
-# Run test
-asyncio.run(test_openai())
-```
-
-**Expected Output:**
-```
-Hello! How can I assist you today?
+# Test chat
+$body = @{message="Hello JARVIS"} | ConvertTo-Json
+Invoke-RestMethod -Uri http://localhost:8000/api/chat -Method Post -Body $body -ContentType "application/json"
 ```
 
 ---
 
-## 9. Troubleshooting
+## 12. Troubleshooting
 
 ### Issue 1: "python: command not found"
 
-**Solution:**
 ```powershell
-# Verify Python is in PATH
-$env:Path -split ';' | Select-String -Pattern "Python"
-
-# If not found, add Python to PATH
+# Add Python to PATH
 $pythonPath = "C:\Program Files\Python311"
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$pythonPath;$pythonPath\Scripts", "User")
 
 # Restart PowerShell
 ```
 
-### Issue 2: "Cannot be loaded because running scripts is disabled"
+### Issue 2: "Scripts disabled" error
 
-**Solution:**
 ```powershell
-# Enable PowerShell script execution
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# Confirm
-Get-ExecutionPolicy
 ```
 
-### Issue 3: "ModuleNotFoundError: No module named 'openai'"
+### Issue 3: "ModuleNotFoundError"
 
-**Solution:**
 ```powershell
-# Make sure virtual environment is activated
+# Ensure venv is activated
 .\venv\Scripts\Activate.ps1
 
 # Reinstall packages
-pip install --upgrade openai
-
-# Verify installation
-pip show openai
+pip install --upgrade -r requirements.txt
 ```
 
-### Issue 4: "OpenAI API Error: Incorrect API key"
+### Issue 4: "API key invalid"
 
-**Solution:**
 ```powershell
 # Check .env file
 notepad .env
 
-# Verify API key format (should start with sk-)
-# Verify no extra spaces or quotes
-
-# Test API key
-python -c "from dotenv import load_dotenv; import os; load_dotenv(); print('Key:', os.getenv('OPENAI_API_KEY')[:15])"
+# Verify format (no quotes needed)
+# ANTHROPIC_API_KEY=sk-ant-api03-xxx
 ```
 
-### Issue 5: Port 8000 Already in Use
+### Issue 5: Port 8000 in use
 
-**Solution:**
 ```powershell
-# Find process using port 8000
+# Find process using port
 netstat -ano | findstr :8000
 
-# Kill the process (replace PID with actual process ID)
+# Kill process
 taskkill /PID <PID> /F
 
-# Or change port in app.py
+# Or use different port
+python app.py --port 8001
 ```
 
-### Issue 6: Ollama Connection Refused
+### Issue 6: Voice not working
 
-**Solution:**
 ```powershell
-# Check if Ollama is running
-Get-Process ollama
+# Check FFmpeg
+ffmpeg -version
 
-# If not running, start Ollama
-Start-Process ollama
-
-# Verify Ollama API
-Invoke-WebRequest -Uri http://localhost:11434/api/tags
+# Check audio devices
+python -c "import sounddevice; print(sounddevice.query_devices())"
 ```
 
-### Issue 7: ChromaDB Installation Fails
+### Issue 7: ChromaDB installation fails
 
-**Solution:**
 ```powershell
 # Install Visual C++ Build Tools
 # Download from: https://visualstudio.microsoft.com/visual-cpp-build-tools/
 
-# Or install pre-built wheel
+# Then retry
 pip install chromadb --no-build-isolation
-
-# Alternative: Use SQLite for memory instead
 ```
 
----
-
-## 10. Using Jarvis
-
-### Basic Task Execution
+### Issue 8: YAML configuration errors
 
 ```powershell
-# Create a simple task file
-$task = @"
-{
-  "task": "Create a Python script that calculates fibonacci numbers",
-  "requirements": [
-    "Function should take n as parameter",
-    "Return list of first n fibonacci numbers",
-    "Include docstring and type hints"
-  ],
-  "output_path": "sites/fibonacci"
-}
-"@
-
-$task | Out-File -FilePath task.json -Encoding UTF8
-
-# Run task
-python agent/mission_runner.py task.json
-```
-
-### Using the Web Interface
-
-1. **Start the server:**
-   ```powershell
-   cd agent\webapp
-   python app.py
-   ```
-
-2. **Open browser:** http://localhost:8000
-
-3. **Create a new task:**
-   - Click "New Task"
-   - Enter task description
-   - Set options (model, temperature, etc.)
-   - Click "Execute"
-
-4. **Monitor progress:**
-   - View real-time logs
-   - Check task status
-   - Download results
-
-### Using Ollama for Local LLMs
-
-```python
-import asyncio
-from agent.llm.ollama_client import OllamaClient
-
-async def test_ollama():
-    client = OllamaClient(base_url="http://localhost:11434")
-
-    # List available models
-    models = await client.list_models()
-    print("Available models:", models)
-
-    # Chat completion
-    response = await client.chat(
-        prompt="Explain quantum computing in simple terms",
-        model="llama3"
-    )
-
-    print(response.content)
-
-# Run
-asyncio.run(test_ollama())
-```
-
-### Using Hybrid LLM Strategy
-
-```python
-from agent.llm.hybrid_strategy import HybridStrategy
-
-async def hybrid_example():
-    strategy = HybridStrategy(
-        local_ratio=0.8,  # 80% local, 20% cloud
-        quality_threshold=0.7
-    )
-
-    # Automatically routes to best model
-    result = await strategy.execute_with_quality_check(
-        prompt="Write a Python function to reverse a string",
-        task_type="code_generation"
-    )
-
-    print(f"Used model: {result['model']}")
-    print(f"Response: {result['content']}")
-
-asyncio.run(hybrid_example())
+# Validate YAML
+python -c "import yaml; yaml.safe_load(open('config/agents.yaml'))"
 ```
 
 ---
@@ -738,74 +685,67 @@ asyncio.run(hybrid_example())
 
 ### Activation
 ```powershell
-# Navigate to project
-cd C:\Users\YourName\Documents\AI-Projects\two_agent_web_starter_complete
-
-# Activate virtual environment
+cd $env:USERPROFILE\Documents\AI-Projects\two_agent_web_starter_complete
 .\venv\Scripts\Activate.ps1
 ```
 
-### Starting Jarvis
+### Starting JARVIS
 ```powershell
-# Start web interface
 cd agent\webapp
 python app.py
 ```
 
-### Testing Components
+### Testing
 ```powershell
-# Test OpenAI connection
-python -c "from dotenv import load_dotenv; load_dotenv(); import openai, os; print(openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY')).models.list())"
-
-# Test Ollama connection
-ollama list
+# Test dependencies
+python -c "import fastapi, anthropic; print('OK')"
 
 # Run tests
-python -m pytest agent/tests/
+python -m pytest tests/
 ```
 
 ### Updating
 ```powershell
-# Pull latest changes
 git pull origin main
-
-# Update dependencies
 pip install --upgrade -r requirements.txt
 ```
 
 ---
 
-## System Capabilities
+## JARVIS 2.0 Features
 
-Jarvis now includes:
+### New in Version 2.0
 
-**Phase 9: Ollama Integration**
-- Local LLM inference (Llama 3, Mistral, Phi3)
-- Intelligent model routing
-- Performance tracking
-- Hybrid cloud/local strategy (80% local, 20% cloud)
+| Feature | Description |
+|---------|-------------|
+| **Voice System** | Talk to JARVIS using speech |
+| **Vision System** | Image analysis, OCR, camera capture |
+| **Agents Dashboard** | Real-time view of AI agents |
+| **Council System** | Weighted voting for decisions |
+| **Flow Engine** | Visual workflow execution |
+| **Memory System** | Short-term, long-term, entity memory |
+| **YAML Configuration** | Declarative agent/task setup |
+| **Pattern Orchestration** | 5 coordination patterns |
+| **Multi-Provider LLM** | Anthropic, OpenAI, DeepSeek, Ollama |
 
-**Phase 10: Business Memory**
-- Long-term context storage with ChromaDB
-- Semantic search and retrieval
-- Personal preference learning
-- Cross-session continuity
+### Key URLs
 
-**Phase 11: Production Features**
-- **11.1:** Error handling with circuit breakers
-- **11.2:** Monitoring with metrics and alerts
-- **11.3:** Security with authentication and rate limiting
-- **11.4:** Performance optimization with caching
+| Page | URL |
+|------|-----|
+| Main Dashboard | http://localhost:8000/ |
+| JARVIS Chat | http://localhost:8000/jarvis |
+| API Docs | http://localhost:8000/docs |
+| Health Check | http://localhost:8000/health |
 
 ---
 
 ## Next Steps
 
-1. **Explore the web interface** at http://localhost:8000
-2. **Try sample tasks** in the dashboard
-3. **Configure Ollama** for local LLM usage
-4. **Read the system manual** at `docs/SYSTEM_1_2_MANUAL.md`
-5. **Review examples** in `examples/` directory
+1. **Explore Chat Interface:** http://localhost:8000/jarvis
+2. **Try Voice Features:** Click microphone button
+3. **Test Vision:** Upload an image for analysis
+4. **Configure Agents:** Edit `config/agents.yaml`
+5. **Read Documentation:** `docs/` directory
 
 ---
 
@@ -813,8 +753,11 @@ Jarvis now includes:
 
 - **Documentation:** `docs/` directory
 - **Issues:** Report on GitHub
-- **API Keys:** Manage at https://platform.openai.com/
+- **API Keys:**
+  - Anthropic: https://console.anthropic.com/
+  - OpenAI: https://platform.openai.com/
+  - ElevenLabs: https://elevenlabs.io
 
 ---
 
-**Congratulations! Jarvis is now running on your Windows machine.** 🎉
+**JARVIS 2.0 is now running on your Windows machine!**

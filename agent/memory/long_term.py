@@ -77,8 +77,48 @@ class LongTermMemory:
         self.embedding_fn = embedding_fn
         self.async_embedding_fn = async_embedding_fn
 
-        # Learned patterns cache
+        # Learned patterns cache - loaded from and persisted to storage
         self._patterns: Dict[str, LearnedPattern] = {}
+        self._load_patterns_from_storage()
+
+    def _load_patterns_from_storage(self):
+        """Load persisted patterns from storage on startup."""
+        try:
+            # Get patterns from storage metadata
+            patterns_data = self.storage.get_metadata("learned_patterns")
+            if patterns_data:
+                for pattern_id, pdata in patterns_data.items():
+                    self._patterns[pattern_id] = LearnedPattern(
+                        id=pdata["id"],
+                        pattern_type=pdata["pattern_type"],
+                        description=pdata["description"],
+                        examples=pdata.get("examples", []),
+                        confidence=pdata.get("confidence", 0.0),
+                        usage_count=pdata.get("usage_count", 0),
+                        last_used=datetime.fromisoformat(pdata["last_used"]) if pdata.get("last_used") else None
+                    )
+        except Exception:
+            # Storage may not support metadata yet, start with empty patterns
+            pass
+
+    def _persist_patterns_to_storage(self):
+        """Persist patterns cache to storage."""
+        try:
+            patterns_data = {}
+            for pattern_id, pattern in self._patterns.items():
+                patterns_data[pattern_id] = {
+                    "id": pattern.id,
+                    "pattern_type": pattern.pattern_type,
+                    "description": pattern.description,
+                    "examples": pattern.examples,
+                    "confidence": pattern.confidence,
+                    "usage_count": pattern.usage_count,
+                    "last_used": pattern.last_used.isoformat() if pattern.last_used else None
+                }
+            self.storage.set_metadata("learned_patterns", patterns_data)
+        except Exception:
+            # Storage may not support metadata, patterns stay in memory only
+            pass
 
     def store_task_result(
         self,
@@ -299,6 +339,9 @@ class LongTermMemory:
                 last_used=datetime.now()
             )
             self._patterns[pattern_id] = pattern
+
+        # Persist patterns to storage
+        self._persist_patterns_to_storage()
 
         return pattern_id
 

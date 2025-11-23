@@ -137,8 +137,38 @@ class VectorMemoryStore:
         self.total_searches = 0
         self.cache_hits = 0
 
-        # Simple embedding cache
+        # Bounded embedding cache with LRU eviction to prevent memory leaks
         self._embedding_cache: Dict[str, List[float]] = {}
+        self._cache_access_order: List[str] = []  # Track access order for LRU
+        self._max_cache_size: int = 1000  # Maximum cached embeddings
+
+    def _cache_put(self, key: str, embedding: List[float]):
+        """Add embedding to cache with LRU eviction."""
+        # If key already exists, update access order
+        if key in self._embedding_cache:
+            self._cache_access_order.remove(key)
+            self._cache_access_order.append(key)
+            self._embedding_cache[key] = embedding
+            return
+
+        # Evict oldest entries if cache is full
+        while len(self._embedding_cache) >= self._max_cache_size:
+            oldest_key = self._cache_access_order.pop(0)
+            del self._embedding_cache[oldest_key]
+
+        # Add new entry
+        self._embedding_cache[key] = embedding
+        self._cache_access_order.append(key)
+
+    def _cache_get(self, key: str) -> Optional[List[float]]:
+        """Get embedding from cache, updating access order."""
+        if key in self._embedding_cache:
+            # Update access order (move to end)
+            self._cache_access_order.remove(key)
+            self._cache_access_order.append(key)
+            self.cache_hits += 1
+            return self._embedding_cache[key]
+        return None
 
     async def _create_embedding(self, text: str) -> List[float]:
         """
@@ -152,9 +182,9 @@ class VectorMemoryStore:
         """
         # Check cache first
         cache_key = hashlib.md5(text.encode()).hexdigest()
-        if cache_key in self._embedding_cache:
-            self.cache_hits += 1
-            return self._embedding_cache[cache_key]
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
 
         if not OPENAI_AVAILABLE:
             # Fallback: generate dummy embedding for testing
@@ -181,8 +211,8 @@ class VectorMemoryStore:
 
             embedding = response.data[0].embedding
 
-            # Cache it
-            self._embedding_cache[cache_key] = embedding
+            # Cache it with LRU eviction
+            self._cache_put(cache_key, embedding)
 
             return embedding
 

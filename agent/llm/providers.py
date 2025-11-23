@@ -248,6 +248,11 @@ class OpenAIProvider(LLMProvider):
         max_tokens: Optional[int] = None,
         **kwargs
     ) -> ChatResponse:
+        if not HAS_HTTPX:
+            raise RuntimeError(
+                "httpx is required for OpenAI provider. Install with: pip install httpx"
+            )
+
         model = model or self.default_model
         start_time = datetime.now()
 
@@ -316,8 +321,19 @@ class OpenAIProvider(LLMProvider):
         return self.MODEL_COSTS.get(model, (0.01, 0.03))
 
     async def health_check(self) -> ProviderHealth:
+        if not HAS_HTTPX:
+            self._health.status = ProviderStatus.UNHEALTHY
+            self._health.last_error = "httpx not installed"
+            return self._health
+
+        if not self.api_key:
+            self._health.status = ProviderStatus.UNHEALTHY
+            self._health.last_error = "API key not configured"
+            return self._health
+
         try:
-            # Simple models list call
+            # Test actual API connectivity with a lightweight request
+            start_time = datetime.now()
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.get(
                     f"{self.base_url}/models",
@@ -325,8 +341,10 @@ class OpenAIProvider(LLMProvider):
                 )
                 response.raise_for_status()
 
+            latency = (datetime.now() - start_time).total_seconds() * 1000
             self._health.status = ProviderStatus.HEALTHY
             self._health.last_check = datetime.now()
+            self._health.latency_ms = latency
             self._health.consecutive_failures = 0
 
         except Exception as e:
@@ -390,6 +408,11 @@ class AnthropicProvider(LLMProvider):
         max_tokens: Optional[int] = None,
         **kwargs
     ) -> ChatResponse:
+        if not HAS_HTTPX:
+            raise RuntimeError(
+                "httpx is required for Anthropic provider. Install with: pip install httpx"
+            )
+
         model = model or self.default_model
         start_time = datetime.now()
 

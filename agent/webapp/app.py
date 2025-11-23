@@ -123,6 +123,14 @@ try:
 except ImportError as e:
     print(f"[Startup] Agents API not available: {e}")
 
+# JARVIS VISION: Include vision API router
+try:
+    from vision_api import router as vision_router
+    app.include_router(vision_router)
+    print("[Startup] Jarvis vision API loaded")
+except ImportError as e:
+    print(f"[Startup] Vision API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 

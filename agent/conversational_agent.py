@@ -25,10 +25,19 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import random
 import core_logging
 from config import Config, get_config
 from exec_tools import get_tool_metadata
 from llm import chat, chat_json
+from jarvis_persona import (
+    JARVIS_SYSTEM_PROMPT,
+    JARVIS_GREETINGS,
+    JARVIS_FAREWELLS,
+    format_task_acknowledgment,
+    format_task_completion,
+    format_error_response,
+)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -408,35 +417,31 @@ I'll work on this and update you. You can continue chatting or ask for status wi
         """Answer user questions"""
         context = self._build_conversation_context(last_n=10)
 
-        prompt = f"""You are a helpful AI assistant for System-1.2, a multi-agent orchestration platform.
-
-CONVERSATION HISTORY:
+        prompt = f"""CONVERSATION HISTORY:
 {context}
 
-{memory_info}
 USER QUESTION: {user_message}
 
-Answer clearly and concisely. Keep under 200 words unless more detail needed.
-If asked about System-1.2 capabilities, mention:
+You have access to System-1.2, a multi-agent orchestration platform with:
 - Multi-agent orchestration (manager, supervisor, employee loops)
 - Tool execution (format code, run tests, git operations)
 - Web dashboard and CLI interfaces
-- Conversational interface (this chat!)"""
-- Conversational interface (this chat!)
+- This conversational interface
 
-Use the business context if relevant to answer the question accurately."""
+Answer in your characteristic British butler manner - dry wit, understated,
+addressing the user as "sir". Keep responses concise but helpful."""
 
         try:
             response = chat(
                 role="employee",
-                system_prompt="",
+                system_prompt=JARVIS_SYSTEM_PROMPT,
                 user_content=prompt,
                 model="gpt-4o",
                 temperature=0.7
             )
             return response
         except Exception as e:
-            return f"I had trouble processing that question: {str(e)}"
+            return format_error_response(str(e))
 
     async def _handle_clarification(self, intent: Intent) -> str:
         """Handle requests needing clarification"""
@@ -444,25 +449,20 @@ Use the business context if relevant to answer the question accurately."""
 
     async def _handle_conversation(self, user_message: str) -> str:
         """Handle casual conversation"""
-        greetings = ["hello", "hi", "hey", "greetings"]
-        farewells = ["bye", "goodbye", "see you", "farewell"]
+        greetings = ["hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening"]
+        farewells = ["bye", "goodbye", "see you", "farewell", "later", "goodnight"]
 
         msg_lower = user_message.lower()
 
         if any(g in msg_lower for g in greetings):
-            return (
-    "Hello! I'm the System-1.2 conversational agent. "
-    "I can help you run coding tasks, manage jobs, explore projects, "
-    "and tune your AI workflows."
-)
-
+            return random.choice(JARVIS_GREETINGS)
 
         elif any(f in msg_lower for f in farewells):
-            return "Goodbye! Feel free to return anytime you need assistance."
+            return random.choice(JARVIS_FAREWELLS)
 
         else:
-            # General conversational response
-            return "I'm here to help with tasks and questions about System-1.2. What can I do for you?"
+            # General conversational response in JARVIS style
+            return "At your service, sir. I remain ready to assist with tasks, questions, or whatever schemes you've concocted. How may I be of help?"
 
     # ══════════════════════════════════════════════════════════════════════
     # Parameter Extraction and Validation

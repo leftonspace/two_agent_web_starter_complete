@@ -11,11 +11,22 @@ import asyncio
 import importlib.util
 import json
 import os
+import random
 import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional
+
+# Import JARVIS persona
+from jarvis_persona import (
+    JARVIS_SYSTEM_PROMPT,
+    JARVIS_GREETINGS,
+    JARVIS_FAREWELLS,
+    format_task_acknowledgment,
+    format_task_completion,
+    format_error_response,
+)
 
 # Import existing components
 try:
@@ -525,7 +536,7 @@ Jarvis:"""
             response_text = await asyncio.to_thread(
                 llm_chat,
                 role="employee",
-                system_prompt="You are Jarvis, a helpful AI assistant. Answer questions clearly and concisely.",
+                system_prompt=JARVIS_SYSTEM_PROMPT,
                 user_content=full_prompt,
                 temperature=0.7
             )
@@ -773,7 +784,7 @@ Jarvis:"""
             response_text = await asyncio.to_thread(
                 llm_chat,
                 role="employee",
-                system_prompt="You are Jarvis, a helpful AI assistant.",
+                system_prompt=JARVIS_SYSTEM_PROMPT,
                 user_content=full_prompt,
                 temperature=0.7
             )

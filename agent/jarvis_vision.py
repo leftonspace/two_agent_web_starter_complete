@@ -147,9 +147,7 @@ class OpenAIVision:
         self.config = config
         self.client = openai.AsyncOpenAI(api_key=config.openai_api_key)
 
-        core_logging.log_event("openai_vision_initialized", {
-            "model": config.openai_model
-        })
+        print(f"[Vision] OpenAI vision initialized with model: {config.openai_model}")
 
     async def analyze(
         self,
@@ -230,11 +228,7 @@ For documents, extract and summarize key information."""
             if any(word in prompt.lower() for word in ["text", "read", "ocr", "words", "written"]):
                 text_content = description
 
-            core_logging.log_event("openai_vision_analyzed", {
-                "prompt_preview": prompt[:50],
-                "description_length": len(description),
-                "processing_time_ms": processing_time
-            })
+            print(f"[Vision] OpenAI analyzed image in {processing_time:.0f}ms")
 
             return VisionAnalysis(
                 description=description,
@@ -245,7 +239,7 @@ For documents, extract and summarize key information."""
             )
 
         except Exception as e:
-            core_logging.log_event("openai_vision_error", {"error": str(e)})
+            print(f"[Vision] OpenAI vision error: {e}")
             raise
 
     def _detect_image_type(self, image_bytes: bytes) -> str:
@@ -288,9 +282,7 @@ class AnthropicVision:
         self.config = config
         self.client = anthropic.AsyncAnthropic(api_key=config.anthropic_api_key)
 
-        core_logging.log_event("anthropic_vision_initialized", {
-            "model": config.anthropic_model
-        })
+        print(f"[Vision] Anthropic vision initialized with model: {config.anthropic_model}")
 
     async def analyze(
         self,
@@ -349,11 +341,7 @@ When describing what you see:
 
             processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
-            core_logging.log_event("anthropic_vision_analyzed", {
-                "prompt_preview": prompt[:50],
-                "description_length": len(description),
-                "processing_time_ms": processing_time
-            })
+            print(f"[Vision] Anthropic analyzed image in {processing_time:.0f}ms")
 
             return VisionAnalysis(
                 description=description,
@@ -363,7 +351,7 @@ When describing what you see:
             )
 
         except Exception as e:
-            core_logging.log_event("anthropic_vision_error", {"error": str(e)})
+            print(f"[Vision] Anthropic vision error: {e}")
             raise
 
     def _detect_media_type(self, image_bytes: bytes) -> str:
@@ -430,9 +418,7 @@ class JarvisVision:
         self.engine = None
         self._init_engine()
 
-        core_logging.log_event("jarvis_vision_initialized", {
-            "provider": self.config.provider.value
-        })
+        print(f"[Vision] JARVIS vision initialized with provider: {self.config.provider.value}")
 
     def _init_engine(self):
         """Initialize the vision engine based on config"""
@@ -450,7 +436,7 @@ class JarvisVision:
                     self.config.provider = VisionProvider.OPENAI
                     self.engine = OpenAIVision(self.config)
         except Exception as e:
-            core_logging.log_event("vision_engine_init_error", {"error": str(e)})
+            print(f"[Vision] Engine init error: {e}")
 
     async def analyze_image(
         self,

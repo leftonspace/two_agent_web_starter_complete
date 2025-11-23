@@ -29,12 +29,14 @@ import core_logging
 
 # Import auth if available
 try:
-    from webapp.auth import User, require_auth
+    from webapp.auth import User, require_auth, get_current_user
     AUTH_AVAILABLE = True
 except ImportError:
     AUTH_AVAILABLE = False
     User = None
     def require_auth():
+        return None
+    def get_current_user():
         return None
 
 # Import agent messaging
@@ -427,7 +429,7 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 @router.get("/status")
 async def get_all_agents_status(
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """
     Get status of all AI agents.
@@ -445,7 +447,7 @@ async def get_all_agents_status(
 
 @router.get("/summary")
 async def get_agents_summary(
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """Get summary statistics of agent status"""
     registry = get_agent_registry()
@@ -455,7 +457,7 @@ async def get_agents_summary(
 @router.get("/{agent_id}/status")
 async def get_agent_status(
     agent_id: str,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """Get status of a specific agent"""
     registry = get_agent_registry()
@@ -471,7 +473,7 @@ async def get_agent_status(
 async def update_agent_status(
     agent_id: str,
     request: UpdateAgentStatusRequest,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """Update status of an agent (for internal use)"""
     registry = get_agent_registry()
@@ -498,7 +500,7 @@ async def update_agent_status(
 @router.get("/activity")
 async def get_agent_activity(
     limit: int = 20,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """Get recent agent activity log"""
     registry = get_agent_registry()
@@ -512,7 +514,7 @@ async def get_agent_activity(
 @router.get("/by-type/{agent_type}")
 async def get_agents_by_type(
     agent_type: str,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """Get all agents of a specific type"""
     registry = get_agent_registry()
@@ -529,7 +531,7 @@ async def get_agents_by_type(
 @router.get("/by-status/{status}")
 async def get_agents_by_status(
     status: str,
-    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_AVAILABLE else None
 ):
     """Get all agents with a specific status"""
     registry = get_agent_registry()

@@ -621,9 +621,23 @@ Return ONLY valid JSON (no markdown):
                 except Exception as e:
                     print(f"[Jarvis] Adaptation context error: {e}")
 
+            # Process attached files if present
+            files_context = ""
+            if context and context.get("attached_files"):
+                files_context = "\n\n=== ATTACHED FILES ===\n"
+                for file_info in context["attached_files"]:
+                    file_name = file_info.get("name", "unknown")
+                    file_content = file_info.get("content", "")
+                    # Limit content to prevent token overflow
+                    if len(file_content) > 15000:
+                        file_content = file_content[:15000] + "\n... (content truncated)"
+                    files_context += f"\n--- {file_name} ---\n{file_content}\n"
+                files_context += "=== END ATTACHED FILES ===\n"
+                print(f"[Jarvis] Processing {len(context['attached_files'])} attached file(s)")
+
             full_prompt = f"""Previous conversation:
 {history_text}
-{adaptation_prompt}
+{adaptation_prompt}{files_context}
 User: {message}
 
 Jarvis:"""

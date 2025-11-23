@@ -966,9 +966,24 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100%;
+            flex: 1;
             padding: 40px;
             text-align: center;
+            background: #f8f9fa;
+        }
+
+        .welcome-screen.hidden {
+            display: none;
+        }
+
+        /* When welcome screen is hidden, messages take the space */
+        .chat-main {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-container.active {
+            flex: 1;
         }
 
         .welcome-screen h1 {
@@ -1065,32 +1080,32 @@
                 </div>
             </div>
 
-            <div class="messages-container" id="messages">
-                <!-- Welcome Screen -->
-                <div class="welcome-screen" id="welcome-screen">
-                    <h1>👋 Hello!</h1>
-                    <p>I'm Jarvis, your AI assistant. How can I help you today?</p>
-                    <div class="example-prompts">
-                        <div class="example-prompt" onclick="sendExamplePrompt('Build me a simple website')">
-                            <div class="example-prompt-title">🌐 Build a Website</div>
-                            <div class="example-prompt-text">Create a professional website</div>
-                        </div>
-                        <div class="example-prompt" onclick="sendExamplePrompt('Explain how async/await works in Python')">
-                            <div class="example-prompt-title">📚 Learn Something</div>
-                            <div class="example-prompt-text">Ask me to explain concepts</div>
-                        </div>
-                        <div class="example-prompt" onclick="sendExamplePrompt('Create a REST API with authentication')">
-                            <div class="example-prompt-title">⚙️ Build an API</div>
-                            <div class="example-prompt-text">Full-stack development</div>
-                        </div>
-                        <div class="example-prompt" onclick="sendExamplePrompt('Help me debug my code')">
-                            <div class="example-prompt-title">🐛 Debug Code</div>
-                            <div class="example-prompt-text">Fix errors and improve code</div>
-                        </div>
+            <!-- Welcome Screen (outside messages container so it doesn't get deleted) -->
+            <div class="welcome-screen" id="welcome-screen">
+                <h1>👋 Hello!</h1>
+                <p>I'm Jarvis, your AI assistant. How can I help you today?</p>
+                <div class="example-prompts">
+                    <div class="example-prompt" onclick="sendExamplePrompt('Build me a simple website')">
+                        <div class="example-prompt-title">🌐 Build a Website</div>
+                        <div class="example-prompt-text">Create a professional website</div>
+                    </div>
+                    <div class="example-prompt" onclick="sendExamplePrompt('Explain how async/await works in Python')">
+                        <div class="example-prompt-title">📚 Learn Something</div>
+                        <div class="example-prompt-text">Ask me to explain concepts</div>
+                    </div>
+                    <div class="example-prompt" onclick="sendExamplePrompt('Create a REST API with authentication')">
+                        <div class="example-prompt-title">⚙️ Build an API</div>
+                        <div class="example-prompt-text">Full-stack development</div>
+                    </div>
+                    <div class="example-prompt" onclick="sendExamplePrompt('Help me debug my code')">
+                        <div class="example-prompt-title">🐛 Debug Code</div>
+                        <div class="example-prompt-text">Fix errors and improve code</div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Messages will be added here -->
+            <div class="messages-container" id="messages">
+                <!-- Messages will be added here dynamically -->
             </div>
 
             <div class="typing-indicator" id="typing-indicator">
@@ -1270,11 +1285,11 @@
             const messagesContainer = document.getElementById('messages');
             messagesContainer.innerHTML = '';
 
-            // Hide welcome screen
+            // Show/hide welcome screen based on whether chat has messages
             if (chat.messages.length > 0) {
-                document.getElementById('welcome-screen').style.display = 'none';
+                hideWelcomeScreen();
             } else {
-                document.getElementById('welcome-screen').style.display = 'block';
+                showWelcomeScreen();
             }
 
             // Render saved messages
@@ -1337,71 +1352,11 @@
             }
         }
 
-        // Send message
+        // Send message - placeholder, gets overwritten by unified version below
         async function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-
-            // Need either message or files
-            if (!message && pendingFiles.length === 0) return;
-            if (isProcessing) return;
-
-            // Hide welcome screen
-            document.getElementById('welcome-screen').style.display = 'none';
-
-            // Prepare context with attached files
-            const context = {};
-            const userMetadata = {};
-
-            if (pendingFiles.length > 0) {
-                context.attached_files = pendingFiles.map(f => ({
-                    name: f.name,
-                    content: f.content,
-                    type: f.type
-                }));
-                userMetadata.attached_files = pendingFiles.map(f => f.name);
-            }
-
-            // Add user message with file info
-            const displayMessage = message || `Analyze these ${pendingFiles.length} file(s)`;
-            addMessage('user', displayMessage, userMetadata);
-
-            // Clear input and files
-            input.value = '';
-            input.style.height = 'auto';
-            const filesToSend = [...pendingFiles];
-            clearAttachedFiles();
-
-            // Show typing indicator
-            showTyping();
-            isProcessing = true;
-            document.getElementById('send-btn').disabled = true;
-
-            try {
-                const response = await fetch('/api/chat/message', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: message || `Please analyze these files: ${filesToSend.map(f => f.name).join(', ')}`,
-                        context: context
-                    })
-                });
-
-                const data = await response.json();
-
-                // Hide typing indicator
-                hideTyping();
-
-                // Add assistant response
-                addMessage('assistant', data.content, data.metadata);
-
-            } catch (error) {
-                hideTyping();
-                addMessage('assistant', `I'm sorry, I encountered an error: ${error.message}`, { error: true });
-            } finally {
-                isProcessing = false;
-                document.getElementById('send-btn').disabled = false;
-            }
+            // This function is defined properly later in the file
+            // with full support for text, images, and file attachments
+            console.log('sendMessage placeholder called');
         }
 
         // Add message to chat
@@ -1492,10 +1447,25 @@
         // Start new chat
         function startNewChat() {
             document.getElementById('messages').innerHTML = '';
-            document.getElementById('welcome-screen').style.display = 'flex';
+            showWelcomeScreen();
             createNewChatEntry();
             initSession();
             closeSidebar();
+        }
+
+        // Helper functions to show/hide welcome screen
+        function showWelcomeScreen() {
+            const welcome = document.getElementById('welcome-screen');
+            const messages = document.getElementById('messages');
+            welcome.classList.remove('hidden');
+            messages.classList.remove('active');
+        }
+
+        function hideWelcomeScreen() {
+            const welcome = document.getElementById('welcome-screen');
+            const messages = document.getElementById('messages');
+            welcome.classList.add('hidden');
+            messages.classList.add('active');
         }
 
         // Clear chat
@@ -1589,6 +1559,7 @@
             // Start new chat if none exists
             if (chatHistory.length === 0) {
                 createNewChatEntry();
+                showWelcomeScreen();
             } else {
                 // Load most recent chat
                 loadChat(chatHistory[0].id);
@@ -1898,27 +1869,55 @@
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
-        // Modified sendMessage to handle images
-        const originalSendMessage = sendMessage;
+        // Unified sendMessage - handles text, images, AND file attachments
+        // This overwrites the basic sendMessage defined earlier
         sendMessage = async function() {
             const input = document.getElementById('message-input');
             const message = input.value.trim();
 
-            // Need either message or image
-            if (!message && !pendingImage) return;
+            // Need either message, image, or files
+            if (!message && !pendingImage && pendingFiles.length === 0) return;
             if (isProcessing) return;
 
-            // Hide welcome screen
-            document.getElementById('welcome-screen').style.display = 'none';
+            // Hide welcome screen and show messages
+            hideWelcomeScreen();
+
+            // Prepare context with attached files
+            const context = {};
+            const userMetadata = {};
+
+            // Add file attachments to context
+            if (pendingFiles.length > 0) {
+                context.attached_files = pendingFiles.map(f => ({
+                    name: f.name,
+                    content: f.content,
+                    type: f.type
+                }));
+                userMetadata.attached_files = pendingFiles.map(f => f.name);
+            }
+
+            // Determine display message
+            let displayMessage = message;
+            if (!message && pendingImage) {
+                displayMessage = 'What do you see in this image?';
+            } else if (!message && pendingFiles.length > 0) {
+                displayMessage = `Analyze these ${pendingFiles.length} file(s)`;
+            }
 
             // Add user message (with image if present)
-            addMessageWithImage('user', message || 'What do you see in this image?', pendingImage);
+            if (pendingImage) {
+                addMessageWithImage('user', displayMessage, pendingImage);
+            } else {
+                addMessage('user', displayMessage, userMetadata);
+            }
 
-            // Clear input
+            // Clear inputs
             input.value = '';
             input.style.height = 'auto';
             const imageToSend = pendingImage;
+            const filesToSend = [...pendingFiles];
             removeUploadedImage();
+            clearAttachedFiles();
 
             // Show typing indicator
             showTyping();
@@ -1935,18 +1934,25 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            message: message || 'What do you see in this image?',
+                            message: displayMessage,
                             image_base64: imageToSend.base64,
-                            context: {}
+                            context: context
                         })
                     });
                     data = await response.json();
                 } else {
-                    // Send to regular chat API
+                    // Send to regular chat API with file context
+                    const requestMessage = filesToSend.length > 0 && !message
+                        ? `Please analyze these files: ${filesToSend.map(f => f.name).join(', ')}`
+                        : message;
+
                     response = await fetch('/api/chat/message', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message, context: {} })
+                        body: JSON.stringify({
+                            message: requestMessage,
+                            context: context
+                        })
                     });
                     data = await response.json();
                 }
@@ -1967,7 +1973,7 @@
         };
 
         // Add message with image
-        function addMessageWithImage(role, content, image = null) {
+        function addMessageWithImage(role, content, image = null, saveToHistory = true) {
             const messages = document.getElementById('messages');
 
             const messageDiv = document.createElement('div');
@@ -2003,6 +2009,16 @@
 
             // Scroll to bottom
             messages.scrollTop = messages.scrollHeight;
+
+            // Save to chat history (note: image dataUrl is NOT saved to avoid localStorage bloat)
+            if (saveToHistory && currentChatId) {
+                const chat = chatHistory.find(c => c.id === currentChatId);
+                if (chat) {
+                    const metadata = image ? { hasImage: true, imageName: image.filename } : {};
+                    chat.messages.push({ role, content, metadata, timestamp: Date.now() });
+                    updateCurrentChat(chat.messages);
+                }
+            }
         }
 
         // ============================================================

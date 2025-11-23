@@ -17,7 +17,60 @@ import sqlite3
 import threading
 import uuid
 import math
+import struct
 from collections import defaultdict
+
+
+# =============================================================================
+# SQLite Vector Similarity Functions
+# =============================================================================
+
+def _cosine_similarity_sqlite(blob1: bytes, blob2: bytes) -> float:
+    """
+    SQLite custom function for cosine similarity between two embedding blobs.
+
+    Embeddings are stored as packed floats for efficient storage and comparison.
+    This allows similarity computation at the database level instead of loading
+    all embeddings into memory.
+    """
+    if not blob1 or not blob2:
+        return 0.0
+
+    try:
+        # Unpack floats from binary blobs
+        n1 = len(blob1) // 4  # 4 bytes per float
+        n2 = len(blob2) // 4
+
+        if n1 != n2:
+            return 0.0
+
+        vec1 = struct.unpack(f'{n1}f', blob1)
+        vec2 = struct.unpack(f'{n2}f', blob2)
+
+        # Calculate cosine similarity
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        norm1 = math.sqrt(sum(a * a for a in vec1))
+        norm2 = math.sqrt(sum(b * b for b in vec2))
+
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+
+        return dot_product / (norm1 * norm2)
+    except (struct.error, TypeError):
+        return 0.0
+
+
+def _embedding_to_blob(embedding: List[float]) -> bytes:
+    """Convert embedding list to binary blob for SQLite storage."""
+    return struct.pack(f'{len(embedding)}f', *embedding)
+
+
+def _blob_to_embedding(blob: bytes) -> List[float]:
+    """Convert binary blob back to embedding list."""
+    if not blob:
+        return []
+    n = len(blob) // 4
+    return list(struct.unpack(f'{n}f', blob))
 
 
 # =============================================================================
@@ -286,12 +339,21 @@ class SQLiteStorage(MemoryStorage):
 
     Suitable for long-term memory and task history.
     Thread-safe with connection locking.
+
+    Features:
+    - Database-level vector similarity using custom SQLite function
+    - Binary embedding storage for efficient memory usage
+    - Pagination support for large result sets
     """
 
     def __init__(self, db_path: str = ":memory:"):
         self.db_path = db_path
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._lock = threading.RLock()  # Thread safety for connection
+
+        # Register custom SQLite function for vector similarity
+        self._conn.create_function("cosine_similarity", 2, _cosine_similarity_sqlite)
+
         self._create_tables()
 
     def _create_tables(self):
@@ -302,6 +364,7 @@ class SQLiteStorage(MemoryStorage):
                     id TEXT PRIMARY KEY,
                     content TEXT NOT NULL,
                     embedding TEXT,
+                    embedding_blob BLOB,
                     metadata TEXT,
                     timestamp TEXT NOT NULL
                 )
@@ -309,19 +372,27 @@ class SQLiteStorage(MemoryStorage):
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_timestamp ON memory_items(timestamp)
             """)
+            # Add embedding_blob column if it doesn't exist (migration)
+            try:
+                cursor.execute("ALTER TABLE memory_items ADD COLUMN embedding_blob BLOB")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
             self._conn.commit()
 
     def add(self, item: MemoryItem) -> str:
         with self._lock:
             cursor = self._conn.cursor()
+            # Store both JSON (for compatibility) and binary blob (for performance)
+            embedding_blob = _embedding_to_blob(item.embedding) if item.embedding else None
             cursor.execute(
                 """INSERT OR REPLACE INTO memory_items
-                   (id, content, embedding, metadata, timestamp)
-                   VALUES (?, ?, ?, ?, ?)""",
+                   (id, content, embedding, embedding_blob, metadata, timestamp)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
                 (
                     item.id,
                     item.content,
                     json.dumps(item.embedding) if item.embedding else None,
+                    embedding_blob,
                     json.dumps(item.metadata),
                     item.timestamp.isoformat()
                 )
@@ -342,27 +413,116 @@ class SQLiteStorage(MemoryStorage):
         return None
 
     def search(self, query_embedding: List[float], top_k: int = 5) -> List[MemoryItem]:
-        """Search by embedding similarity (loads all, calculates in memory)"""
+        """
+        Search by embedding similarity using database-level computation.
+
+        Uses custom SQLite function for cosine similarity, computing similarity
+        directly in the database query. This avoids loading all embeddings into
+        memory and provides pagination at the database level.
+
+        Args:
+            query_embedding: Query vector for similarity search
+            top_k: Maximum number of results to return
+
+        Returns:
+            List of MemoryItems sorted by similarity score (descending)
+        """
         if not query_embedding:
             return []
 
+        # Convert query embedding to binary blob for database comparison
+        query_blob = _embedding_to_blob(query_embedding)
+
         with self._lock:
             cursor = self._conn.cursor()
+            # Use database-level similarity computation with LIMIT for pagination
             cursor.execute(
-                "SELECT id, content, embedding, metadata, timestamp FROM memory_items WHERE embedding IS NOT NULL"
+                """SELECT id, content, embedding, metadata, timestamp,
+                          cosine_similarity(embedding_blob, ?) as score
+                   FROM memory_items
+                   WHERE embedding_blob IS NOT NULL
+                   ORDER BY score DESC
+                   LIMIT ?""",
+                (query_blob, top_k)
             )
             rows = cursor.fetchall()
 
-        scored_items = []
+        # Convert rows to MemoryItems with scores
+        items = []
         for row in rows:
-            item = self._row_to_item(row)
-            if item.embedding:
-                similarity = InMemoryStorage._cosine_similarity(query_embedding, item.embedding)
-                item.score = similarity
-                scored_items.append(item)
+            item = self._row_to_item(row[:5])  # First 5 columns are the standard fields
+            item.score = row[5] if row[5] is not None else 0.0
+            items.append(item)
 
-        scored_items.sort(key=lambda x: x.score, reverse=True)
-        return scored_items[:top_k]
+        return items
+
+    def search_paginated(
+        self,
+        query_embedding: List[float],
+        page: int = 1,
+        page_size: int = 10,
+        min_score: float = 0.0
+    ) -> Dict[str, Any]:
+        """
+        Paginated similarity search with score filtering.
+
+        Args:
+            query_embedding: Query vector for similarity search
+            page: Page number (1-indexed)
+            page_size: Results per page
+            min_score: Minimum similarity score threshold
+
+        Returns:
+            Dict with results, pagination info, and total count
+        """
+        if not query_embedding:
+            return {"results": [], "page": page, "page_size": page_size, "total": 0}
+
+        query_blob = _embedding_to_blob(query_embedding)
+        offset = (page - 1) * page_size
+
+        with self._lock:
+            cursor = self._conn.cursor()
+
+            # Get total count of items above min_score
+            cursor.execute(
+                """SELECT COUNT(*) FROM memory_items
+                   WHERE embedding_blob IS NOT NULL
+                   AND cosine_similarity(embedding_blob, ?) >= ?""",
+                (query_blob, min_score)
+            )
+            total = cursor.fetchone()[0]
+
+            # Get paginated results
+            cursor.execute(
+                """SELECT id, content, embedding, metadata, timestamp,
+                          cosine_similarity(embedding_blob, ?) as score
+                   FROM memory_items
+                   WHERE embedding_blob IS NOT NULL
+                   AND cosine_similarity(embedding_blob, ?) >= ?
+                   ORDER BY score DESC
+                   LIMIT ? OFFSET ?""",
+                (query_blob, query_blob, min_score, page_size, offset)
+            )
+            rows = cursor.fetchall()
+
+        items = []
+        for row in rows:
+            item = self._row_to_item(row[:5])
+            item.score = row[5] if row[5] is not None else 0.0
+            items.append(item)
+
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+
+        return {
+            "results": items,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1
+        }
 
     def search_by_text(self, query: str, top_k: int = 5) -> List[MemoryItem]:
         """Full-text search using LIKE"""

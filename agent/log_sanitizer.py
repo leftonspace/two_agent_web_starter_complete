@@ -115,6 +115,9 @@ ENV_VAR_ALLOWLIST = {
 # Redaction string
 REDACTED = "***REDACTED***"
 
+# Cached pattern for detecting long random tokens (used in is_likely_sensitive)
+_RANDOM_TOKEN_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.=]+$")
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Core Sanitization Functions
@@ -463,8 +466,8 @@ def is_likely_sensitive(value: str) -> bool:
         if pattern.search(value):
             return True
 
-    # Check if it looks like a long random token
-    if len(value) >= 32 and re.match(r"^[a-zA-Z0-9_\-\.=]+$", value):
+    # Check if it looks like a long random token (use cached pattern)
+    if len(value) >= 32 and _RANDOM_TOKEN_PATTERN.match(value):
         return True
 
     return False

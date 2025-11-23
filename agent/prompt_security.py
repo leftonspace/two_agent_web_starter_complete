@@ -53,6 +53,15 @@ INJECTION_CATEGORIES = [
     "format_violation",
 ]
 
+# Pre-compiled regex patterns for performance
+_BASE64_PATTERN = re.compile(r"\b([A-Za-z0-9+/]{40,}={0,2})\b")
+_HEX_PATTERN = re.compile(r"\b([0-9a-fA-F]{64,})\b")
+_NEWLINE_PATTERN = re.compile(r'\n{4,}')
+_SYSTEM_TAG_PATTERN = re.compile(
+    r'</?\s*(system|assistant|user)(?:\s+[^>]*)?>',
+    re.IGNORECASE
+)
+
 # ══════════════════════════════════════════════════════════════════════
 # Data Models
 # ══════════════════════════════════════════════════════════════════════
@@ -229,12 +238,12 @@ def _looks_like_malicious_encoding(text: str) -> bool:
     """
     # Strategy 1: Flag long base64 strings (>= 40 chars) as suspicious
     # Legitimate short base64 (API keys, hashes) are < 40 chars typically
-    base64_matches = re.findall(r"\b([A-Za-z0-9+/]{40,}={0,2})\b", text)
+    base64_matches = _BASE64_PATTERN.findall(text)
     if base64_matches:
         return True  # Flag any suspicious-length base64
 
     # Strategy 2: Flag long hex strings (>= 64 chars) as suspicious
-    hex_matches = re.findall(r"\b([0-9a-fA-F]{64,})\b", text)
+    hex_matches = _HEX_PATTERN.findall(text)
     if hex_matches:
         return True  # Flag any suspicious-length hex
 
@@ -286,13 +295,10 @@ def sanitize_user_input(text: str, context: str = "task") -> str:
         text = text.replace(token, "[REMOVED]")
 
     # 2. Normalize excessive newlines (prevent visual separation attacks)
-    text = re.sub(r'\n{4,}', '\n\n\n', text)
+    text = _NEWLINE_PATTERN.sub('\n\n\n', text)
 
     # 3. Remove XML-style system tags (prevent delimiter escape)
-    text = re.sub(r'</?\s*(system|assistant|user)(?:\s+[^>]*)?>',
-                  '[REMOVED]',
-                  text,
-                  flags=re.IGNORECASE)
+    text = _SYSTEM_TAG_PATTERN.sub('[REMOVED]', text)
 
     # 4. Remove triple quote attempts (prevent string escape)
     text = text.replace('"""', '"').replace("'''", "'")

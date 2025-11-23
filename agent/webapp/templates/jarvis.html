@@ -142,6 +142,273 @@
             background: #f0f0f0;
         }
 
+        .icon-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        /* Agents Dashboard Panel */
+        .agents-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .agents-panel.open {
+            right: 0;
+        }
+
+        .agents-panel-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .agents-panel-header h2 {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .close-panel-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 5px;
+        }
+
+        .close-panel-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .agents-summary {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .summary-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+        }
+
+        .summary-stat .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .summary-stat .dot.active { background: #2ecc71; }
+        .summary-stat .dot.idle { background: #3498db; }
+        .summary-stat .dot.offline { background: #95a5a6; }
+        .summary-stat .dot.error { background: #e74c3c; }
+        .summary-stat .dot.waiting { background: #f39c12; }
+
+        .agents-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .agent-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .agent-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .agent-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .agent-info {
+            flex: 1;
+        }
+
+        .agent-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #2c3e50;
+        }
+
+        .agent-type {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .agent-status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .agent-status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .agent-status-badge.idle {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .agent-status-badge.offline {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .agent-status-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .agent-status-badge.waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .agent-description {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .agent-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+
+        .agent-current-task {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #2c3e50;
+        }
+
+        .agent-current-task .label {
+            font-weight: 600;
+            color: #7f8c8d;
+        }
+
+        /* Activity Feed */
+        .activity-section {
+            border-top: 1px solid #e0e0e0;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .activity-section h3 {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 12px;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-time {
+            color: #95a5a6;
+            min-width: 50px;
+        }
+
+        .activity-agent {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .activity-action {
+            color: #7f8c8d;
+        }
+
+        /* Overlay */
+        .panel-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s;
+        }
+
+        .panel-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Pulse animation for active status */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+
+        .agent-card.is-active {
+            border-color: #2ecc71;
+            animation: pulse 2s infinite;
+        }
+
         /* Messages */
         .messages-container {
             flex: 1;
@@ -435,7 +702,8 @@
             <div class="chat-header">
                 <h2>Chat with Jarvis</h2>
                 <div class="header-actions">
-                    <button class="icon-btn" onclick="location.href='/'" title="Dashboard">🏠</button>
+                    <button class="icon-btn" onclick="toggleAgentsPanel()" title="AI Agents Dashboard" id="agents-btn">🤖</button>
+                    <button class="icon-btn" onclick="location.href='/dashboard'" title="Dashboard">🏠</button>
                     <button class="icon-btn" onclick="clearChat()" title="Clear chat">🗑️</button>
                 </div>
             </div>
@@ -480,6 +748,46 @@
                 <button class="attach-btn" onclick="attachFile()" title="Attach file">📎</button>
                 <textarea id="message-input" placeholder="Message Jarvis..." rows="1" onkeydown="handleKeyPress(event)"></textarea>
                 <button class="send-btn" onclick="sendMessage()" id="send-btn">Send ➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay for panel -->
+    <div class="panel-overlay" id="panel-overlay" onclick="closeAgentsPanel()"></div>
+
+    <!-- AI Agents Dashboard Panel -->
+    <div class="agents-panel" id="agents-panel">
+        <div class="agents-panel-header">
+            <h2>🤖 AI Agents</h2>
+            <button class="close-panel-btn" onclick="closeAgentsPanel()">✕</button>
+        </div>
+
+        <div class="agents-summary" id="agents-summary">
+            <div class="summary-stat">
+                <span class="dot active"></span>
+                <span id="summary-active">0</span> Active
+            </div>
+            <div class="summary-stat">
+                <span class="dot idle"></span>
+                <span id="summary-idle">0</span> Idle
+            </div>
+            <div class="summary-stat">
+                <span class="dot offline"></span>
+                <span id="summary-offline">0</span> Offline
+            </div>
+        </div>
+
+        <div class="agents-list" id="agents-list">
+            <!-- Agent cards will be loaded here -->
+            <div style="text-align: center; padding: 40px; color: #95a5a6;">
+                Loading agents...
+            </div>
+        </div>
+
+        <div class="activity-section" id="activity-section">
+            <h3>Recent Activity</h3>
+            <div id="activity-list">
+                <!-- Activity items will be loaded here -->
             </div>
         </div>
     </div>
@@ -641,6 +949,240 @@
         // Initialize on load
         window.addEventListener('load', () => {
             initSession();
+            loadAgentsStatus();
+        });
+
+        // ============================================================
+        // AI Agents Dashboard Functions
+        // ============================================================
+
+        let agentsWebSocket = null;
+        let agentsPanelOpen = false;
+
+        // Toggle agents panel
+        function toggleAgentsPanel() {
+            if (agentsPanelOpen) {
+                closeAgentsPanel();
+            } else {
+                openAgentsPanel();
+            }
+        }
+
+        // Open agents panel
+        function openAgentsPanel() {
+            document.getElementById('agents-panel').classList.add('open');
+            document.getElementById('panel-overlay').classList.add('visible');
+            document.getElementById('agents-btn').classList.add('active');
+            agentsPanelOpen = true;
+
+            // Load fresh data
+            loadAgentsStatus();
+            loadAgentActivity();
+
+            // Connect WebSocket for real-time updates
+            connectAgentsWebSocket();
+        }
+
+        // Close agents panel
+        function closeAgentsPanel() {
+            document.getElementById('agents-panel').classList.remove('open');
+            document.getElementById('panel-overlay').classList.remove('visible');
+            document.getElementById('agents-btn').classList.remove('active');
+            agentsPanelOpen = false;
+
+            // Disconnect WebSocket
+            if (agentsWebSocket) {
+                agentsWebSocket.close();
+                agentsWebSocket = null;
+            }
+        }
+
+        // Load agents status
+        async function loadAgentsStatus() {
+            try {
+                const response = await fetch('/api/agents/status');
+                const data = await response.json();
+
+                renderAgentsList(data.agents);
+                updateSummary(data.summary);
+            } catch (error) {
+                console.error('Failed to load agents:', error);
+                document.getElementById('agents-list').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #e74c3c;">
+                        Failed to load agents. Is the API running?
+                    </div>
+                `;
+            }
+        }
+
+        // Load agent activity
+        async function loadAgentActivity() {
+            try {
+                const response = await fetch('/api/agents/activity?limit=10');
+                const data = await response.json();
+
+                renderActivityList(data.activities);
+            } catch (error) {
+                console.error('Failed to load activity:', error);
+            }
+        }
+
+        // Render agents list
+        function renderAgentsList(agents) {
+            const container = document.getElementById('agents-list');
+
+            if (!agents || agents.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #95a5a6;">
+                        No agents registered
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort: active first, then idle, then offline
+            const statusOrder = { 'active': 0, 'waiting': 1, 'idle': 2, 'error': 3, 'offline': 4 };
+            agents.sort((a, b) => (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5));
+
+            container.innerHTML = agents.map(agent => `
+                <div class="agent-card ${agent.status === 'active' ? 'is-active' : ''}" data-agent-id="${agent.id}">
+                    <div class="agent-card-header">
+                        <div class="agent-avatar" style="background-color: ${agent.color}20;">
+                            ${agent.avatar}
+                        </div>
+                        <div class="agent-info">
+                            <div class="agent-name">${agent.name}</div>
+                            <div class="agent-type">${agent.type}</div>
+                        </div>
+                        <span class="agent-status-badge ${agent.status}">${agent.status}</span>
+                    </div>
+                    <div class="agent-description">${agent.description}</div>
+                    <div class="agent-stats">
+                        <span>Tasks: ${agent.tasks_completed}</span>
+                        ${agent.last_activity ? `<span>Last active: ${formatTimeAgo(agent.last_activity)}</span>` : ''}
+                    </div>
+                    ${agent.current_task ? `
+                        <div class="agent-current-task">
+                            <span class="label">Working on:</span> ${agent.current_task}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Update summary counts
+        function updateSummary(summary) {
+            document.getElementById('summary-active').textContent = summary.active || 0;
+            document.getElementById('summary-idle').textContent = summary.idle || 0;
+            document.getElementById('summary-offline').textContent = summary.offline || 0;
+        }
+
+        // Render activity list
+        function renderActivityList(activities) {
+            const container = document.getElementById('activity-list');
+
+            if (!activities || activities.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #95a5a6; font-size: 12px;">
+                        No recent activity
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = activities.map(activity => `
+                <div class="activity-item">
+                    <span class="activity-time">${formatTimeAgo(activity.timestamp)}</span>
+                    <span class="activity-agent">${activity.agent_name}</span>
+                    <span class="activity-action">${activity.action}</span>
+                </div>
+            `).join('');
+        }
+
+        // Format time ago
+        function formatTimeAgo(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+
+            if (seconds < 60) return 'Just now';
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+            return `${Math.floor(seconds / 86400)}d ago`;
+        }
+
+        // Connect WebSocket for real-time updates
+        function connectAgentsWebSocket() {
+            if (agentsWebSocket) return;
+
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/api/agents/stream`;
+
+            try {
+                agentsWebSocket = new WebSocket(wsUrl);
+
+                agentsWebSocket.onopen = () => {
+                    console.log('Agents WebSocket connected');
+                };
+
+                agentsWebSocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'initial') {
+                        renderAgentsList(data.agents);
+                        updateSummary(data.summary);
+                    } else if (data.type === 'agent_update') {
+                        updateAgentCard(data.agent);
+                        loadAgentsStatus(); // Refresh full list
+                    } else if (data.type === 'heartbeat') {
+                        // Keep-alive, no action needed
+                    }
+                };
+
+                agentsWebSocket.onclose = () => {
+                    console.log('Agents WebSocket disconnected');
+                    agentsWebSocket = null;
+                };
+
+                agentsWebSocket.onerror = (error) => {
+                    console.error('Agents WebSocket error:', error);
+                };
+            } catch (error) {
+                console.error('Failed to connect WebSocket:', error);
+            }
+        }
+
+        // Update single agent card
+        function updateAgentCard(agent) {
+            const card = document.querySelector(`[data-agent-id="${agent.id}"]`);
+            if (card) {
+                // Update status badge
+                const badge = card.querySelector('.agent-status-badge');
+                if (badge) {
+                    badge.className = `agent-status-badge ${agent.status}`;
+                    badge.textContent = agent.status;
+                }
+
+                // Update active animation
+                if (agent.status === 'active') {
+                    card.classList.add('is-active');
+                } else {
+                    card.classList.remove('is-active');
+                }
+
+                // Flash card to show update
+                card.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    card.style.transform = '';
+                }, 200);
+            }
+        }
+
+        // Keyboard shortcut: Escape to close panel
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && agentsPanelOpen) {
+                closeAgentsPanel();
+            }
         });
     </script>
 </body>

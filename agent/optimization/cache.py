@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import pickle
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -286,14 +285,16 @@ class CacheManager:
             try:
                 redis_value = await self.redis_client.get(key)
                 if redis_value:
-                    # Deserialize
-                    value = pickle.loads(redis_value)
+                    # SECURITY: Use JSON instead of pickle to prevent code execution
+                    value = json.loads(redis_value)
 
                     # Promote to memory cache
                     self.memory_cache.set(key, value)
 
                     return value
 
+            except json.JSONDecodeError as e:
+                print(f"Redis JSON decode error (possibly old pickle data): {e}")
             except Exception as e:
                 print(f"Redis get error: {e}")
 
@@ -321,8 +322,8 @@ class CacheManager:
         # Set in Redis if enabled
         if self.use_redis and self.redis_client:
             try:
-                # Serialize value
-                serialized = pickle.dumps(value)
+                # SECURITY: Use JSON instead of pickle to prevent code execution
+                serialized = json.dumps(value)
 
                 # Set with expiration
                 if ttl > 0:
@@ -330,6 +331,8 @@ class CacheManager:
                 else:
                     await self.redis_client.set(key, serialized)
 
+            except TypeError as e:
+                print(f"Redis serialization error (non-JSON-serializable value): {e}")
             except Exception as e:
                 print(f"Redis set error: {e}")
 

@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import pickle
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -300,24 +299,34 @@ class LLMCache:
         return self.stats
 
     def _save_cache(self) -> None:
-        """Save cache to disk (persistent mode)."""
+        """Save cache to disk (persistent mode) using JSON for security."""
         if not self.cache_file:
             return
 
         try:
-            with open(self.cache_file, "wb") as f:
-                pickle.dump(self.cache, f)
+            # SECURITY: Use JSON instead of pickle to prevent code execution attacks
+            serializable_cache = {
+                key: asdict(entry) for key, entry in self.cache.items()
+            }
+            with open(self.cache_file, "w", encoding="utf-8") as f:
+                json.dump(serializable_cache, f)
         except Exception as e:
             print(f"[LLMCache] Error saving cache: {e}")
 
     def _load_cache(self) -> None:
-        """Load cache from disk (persistent mode)."""
+        """Load cache from disk (persistent mode) using JSON for security."""
         if not self.cache_file or not self.cache_file.exists():
             return
 
         try:
-            with open(self.cache_file, "rb") as f:
-                self.cache = pickle.load(f)
+            # SECURITY: Use JSON instead of pickle to prevent code execution attacks
+            with open(self.cache_file, "r", encoding="utf-8") as f:
+                raw_cache = json.load(f)
+
+            # Convert JSON dicts back to CacheEntry objects
+            self.cache = {
+                key: CacheEntry(**data) for key, data in raw_cache.items()
+            }
 
             # Remove expired entries on load
             expired_keys = [k for k, entry in self.cache.items() if entry.is_expired()]
@@ -326,6 +335,9 @@ class LLMCache:
 
             print(f"[LLMCache] Loaded {len(self.cache)} entries from persistent cache")
 
+        except json.JSONDecodeError as e:
+            print(f"[LLMCache] Invalid cache file format: {e}")
+            self.cache = {}
         except Exception as e:
             print(f"[LLMCache] Error loading cache: {e}")
             self.cache = {}

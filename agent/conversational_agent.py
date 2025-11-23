@@ -122,6 +122,8 @@ class ConversationalAgent:
         core_logging.log_event("conversational_agent_initialized", {
             "session_id": self.session_id,
             "available_tools": len(self.available_tools)
+        })
+
         # PHASE 7.2: Subscribe to agent messages from Manager/Supervisor/Employee
         self.message_bus = get_message_bus()
         self.message_bus.subscribe(self._handle_agent_message)
@@ -332,7 +334,6 @@ Return JSON:
     # Intent Handlers
     # ══════════════════════════════════════════════════════════════════════
 
-    async def _handle_simple_action(self, intent: Intent, user_message: str) -> str:
     async def _handle_simple_action(self, intent: Intent, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
         """Handle simple actions with single tool call"""
         tool_name = intent.suggested_tool
@@ -345,13 +346,11 @@ Return JSON:
         if not tool_schema:
             return f"Tool '{tool_name}' not found."
 
-        # Extract parameters if not provided
         # Extract parameters if not provided (with memory context)
         if not intent.parameters:
             intent.parameters = await self._extract_parameters(
                 tool_name,
                 tool_schema,
-                user_message
                 user_message,
                 memory_context
             )
@@ -381,7 +380,6 @@ Return JSON:
         except Exception as e:
             return f"Error executing {tool_name}: {str(e)}"
 
-    async def _handle_complex_task(self, intent: Intent, user_message: str) -> str:
     async def _handle_complex_task(self, intent: Intent, user_message: str, memory_context: Optional[Dict[str, Any]] = None) -> str:
         """Handle complex multi-step tasks"""
         # Create task execution tracker
@@ -472,11 +470,6 @@ addressing the user as "sir". Keep responses concise but helpful."""
         self,
         tool_name: str,
         schema: Dict[str, Any],
-        message: str
-    ) -> Dict[str, Any]:
-        """Use LLM to extract parameter values from message"""
-        context = self._build_conversation_context(last_n=3)
-
         message: str,
         memory_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
@@ -549,9 +542,6 @@ Return only the parameters JSON object."""
     async def _create_execution_plan(
         self,
         task_description: str,
-        intent: Intent
-    ) -> Dict[str, Any]:
-        """Create multi-step execution plan for complex task"""
         intent: Intent,
         memory_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
@@ -677,13 +667,11 @@ Return JSON:
     # Helper Methods
     # ══════════════════════════════════════════════════════════════════════
 
-    def _add_message(self, role: str, content: str):
     def _add_message(self, role: str, content: str, metadata: Optional[Dict[str, Any]] = None):
         """Add message to conversation history"""
         message = ConversationMessage(
             role=role,
             content=content,
-            timestamp=datetime.now()
             timestamp=datetime.now(),
             metadata=metadata or {}
         )

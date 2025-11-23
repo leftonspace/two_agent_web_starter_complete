@@ -121,10 +121,29 @@ agent/
 │
 ├── webapp/                   # Web application
 │   ├── app.py                # FastAPI application
+│   ├── admin_api.py          # Administration API endpoints
 │   ├── templates/            # Jinja2 templates
 │   │   ├── jarvis.html       # JARVIS chat interface
 │   │   └── ...
 │   └── static/               # Static assets
+│
+├── admin/                    # Administration tools
+│   ├── __init__.py
+│   ├── email_integration.py  # Email summarization, drafting
+│   ├── calendar_intelligence.py  # Meeting briefs, action items
+│   └── workflow_automation.py    # Zapier/Make style automation
+│
+├── finance/                  # Finance tools
+│   ├── __init__.py
+│   ├── spreadsheet_integration.py  # Excel/Google Sheets
+│   ├── document_intelligence.py    # Invoice, receipt processing
+│   └── financial_templates.py      # Budget, expense reports
+│
+├── engineering/              # Engineering tools
+│   ├── __init__.py
+│   ├── vscode_extension.py   # VS Code integration
+│   ├── cli_tool.py           # Command-line interface
+│   └── code_review_agent.py  # Automated code review
 │
 ├── voice_api.py              # Voice REST endpoints
 ├── vision_api.py             # Vision REST endpoints
@@ -808,6 +827,250 @@ async def process(
 # AVOID: No type hints
 async def process(message, context=None, temperature=0.7):
     ...
+```
+
+---
+
+## Document Processing System
+
+JARVIS 2.0 includes intelligent document processing that analyzes attached files and generates outputs.
+
+### Intent Classification
+
+The system classifies user intents to route requests appropriately:
+
+```python
+from agent.jarvis_chat import IntentType
+
+class IntentType(Enum):
+    SIMPLE_QUERY = "simple_query"        # Quick questions
+    COMPLEX_TASK = "complex_task"        # Code generation, multi-step tasks
+    FILE_OPERATION = "file_operation"    # File management
+    CONVERSATION = "conversation"        # Casual chat
+    DOCUMENT_PROCESSING = "document_processing"  # Document analysis/creation
+```
+
+### Document Processing Handler
+
+When users attach files and request document creation (resumes, summaries, extractions):
+
+```python
+from agent.jarvis_chat import JarvisChat
+
+jarvis = JarvisChat()
+
+# Process document with attached files
+response = await jarvis.process_message(
+    message="Make me a resume from this document",
+    context={
+        "attached_files": [
+            {"name": "profile.pdf", "content": "...", "type": "application/pdf"}
+        ]
+    }
+)
+```
+
+### Format Preference Prompting
+
+For document creation tasks, JARVIS asks for preferred output format:
+
+```python
+# Response includes format options when no format specified:
+# - PDF - Professional, ready to print/share
+# - Word (DOCX) - Editable document format
+# - Plain Text - Simple text file
+# - Markdown - Formatted text for web/docs
+
+# Users can specify format in request:
+# "Make me a PDF resume from this document"
+```
+
+---
+
+## Administration Tools
+
+Located in `agent/admin/`
+
+### Email Integration
+
+```python
+from agent.admin.email_integration import EmailIntegration
+
+email = EmailIntegration()
+
+# Summarize emails
+summary = await email.summarize_emails(emails, context)
+
+# Draft response
+draft = await email.draft_response(
+    original_email=email_content,
+    intent="polite_decline",
+    context={"sender": "client@example.com"}
+)
+
+# Classify email
+classification = await email.classify_email(email_content)
+# Returns: {"category": "urgent", "priority": 1, "sentiment": "neutral"}
+```
+
+### Calendar Intelligence
+
+```python
+from agent.admin.calendar_intelligence import CalendarIntelligence
+
+calendar = CalendarIntelligence()
+
+# Generate meeting brief
+brief = await calendar.generate_meeting_brief(
+    meeting=meeting_data,
+    context={"attendees": [...], "previous_meetings": [...]}
+)
+
+# Extract action items from meeting notes
+actions = await calendar.extract_action_items(meeting_notes)
+
+# Optimize schedule
+optimized = await calendar.optimize_schedule(
+    events=calendar_events,
+    preferences={"focus_time": "morning", "meeting_blocks": True}
+)
+```
+
+### Workflow Automation
+
+```python
+from agent.admin.workflow_automation import WorkflowEngine, Trigger, Action
+
+engine = WorkflowEngine()
+
+# Create workflow
+workflow = engine.create_workflow(
+    name="Email to Slack",
+    trigger=Trigger(type="email", conditions={"from": "*@important.com"}),
+    actions=[
+        Action(type="ai_process", config={"prompt": "Summarize this email"}),
+        Action(type="http", config={"url": "https://slack.webhook/...", "method": "POST"})
+    ]
+)
+
+# Execute workflow
+result = await engine.execute_workflow(workflow, trigger_data)
+```
+
+---
+
+## Finance Tools
+
+Located in `agent/finance/`
+
+### Spreadsheet Integration
+
+```python
+from agent.finance.spreadsheet_integration import SpreadsheetProcessor
+
+processor = SpreadsheetProcessor()
+
+# Process Excel file
+data = await processor.process_excel(file_path, query="Sum of Q3 sales")
+
+# Generate pivot table
+pivot = await processor.create_pivot(
+    data=df,
+    rows=["Region"],
+    columns=["Month"],
+    values=["Sales"]
+)
+```
+
+### Document Intelligence
+
+```python
+from agent.finance.document_intelligence import DocumentIntelligence
+
+doc_ai = DocumentIntelligence()
+
+# Process invoice
+invoice_data = await doc_ai.process_invoice(image_data)
+# Returns: {"vendor": "...", "amount": 1234.56, "date": "...", "items": [...]}
+
+# Process receipt
+receipt_data = await doc_ai.process_receipt(image_data)
+```
+
+### Financial Templates
+
+```python
+from agent.finance.financial_templates import FinancialTemplates
+
+templates = FinancialTemplates()
+
+# Generate budget template
+budget = await templates.create_budget(
+    categories=["Marketing", "Engineering", "Operations"],
+    periods=["Q1", "Q2", "Q3", "Q4"]
+)
+
+# Generate expense report
+report = await templates.create_expense_report(expenses_list)
+```
+
+---
+
+## Engineering Tools
+
+Located in `agent/engineering/`
+
+### VS Code Extension Integration
+
+```python
+from agent.engineering.vscode_extension import VSCodeExtension
+
+vscode = VSCodeExtension()
+
+# Get workspace context
+context = await vscode.get_workspace_context()
+
+# Execute command
+result = await vscode.execute_command("editor.action.formatDocument")
+
+# Get diagnostics
+diagnostics = await vscode.get_diagnostics(file_path)
+```
+
+### CLI Tool
+
+```python
+from agent.engineering.cli_tool import JarvisCLI
+
+cli = JarvisCLI()
+
+# Process command
+result = await cli.process_command("jarvis review src/main.py")
+
+# Interactive session
+async for response in cli.interactive_session():
+    print(response)
+```
+
+### Code Review Agent
+
+```python
+from agent.engineering.code_review_agent import CodeReviewAgent
+
+reviewer = CodeReviewAgent()
+
+# Review pull request
+review = await reviewer.review_pr(
+    repo="owner/repo",
+    pr_number=123,
+    focus=["security", "performance", "style"]
+)
+
+# Review single file
+file_review = await reviewer.review_file(
+    file_path="src/main.py",
+    context={"language": "python", "framework": "fastapi"}
+)
 ```
 
 ---

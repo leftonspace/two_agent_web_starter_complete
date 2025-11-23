@@ -838,4 +838,170 @@ from agent.types import (
 
 ---
 
+## Document Processing API
+
+### Document Processing Handler
+
+```python
+from agent.jarvis_chat import JarvisChat, IntentType
+
+class IntentType(Enum):
+    SIMPLE_QUERY = "simple_query"
+    COMPLEX_TASK = "complex_task"
+    FILE_OPERATION = "file_operation"
+    CONVERSATION = "conversation"
+    DOCUMENT_PROCESSING = "document_processing"  # For document analysis
+
+# Process document with attached files
+jarvis = JarvisChat()
+response = await jarvis.process_message(
+    message="Make me a resume from this document",
+    context={
+        "attached_files": [
+            {"name": "profile.pdf", "content": "...", "type": "application/pdf"}
+        ]
+    }
+)
+```
+
+### Format Options
+
+When document creation is detected, JARVIS offers format options:
+- **PDF** - Professional, ready to print/share
+- **Word (DOCX)** - Editable document format
+- **Plain Text** - Simple text file
+- **Markdown** - Formatted text for web/docs
+
+---
+
+## Administration Tools API
+
+Located in `agent/admin/`
+
+### Email Integration
+
+```python
+from agent.admin.email_integration import EmailIntegration
+
+email = EmailIntegration()
+
+# Summarize emails
+summary = await email.summarize_emails(emails, context)
+
+# Draft response
+draft = await email.draft_response(original_email, intent, context)
+
+# Classify email
+classification = await email.classify_email(email_content)
+# Returns: {"category": "urgent", "priority": 1, "sentiment": "neutral"}
+```
+
+### Calendar Intelligence
+
+```python
+from agent.admin.calendar_intelligence import CalendarIntelligence
+
+calendar = CalendarIntelligence()
+
+# Generate meeting brief
+brief = await calendar.generate_meeting_brief(meeting, context)
+
+# Extract action items
+actions = await calendar.extract_action_items(meeting_notes)
+
+# Optimize schedule
+optimized = await calendar.optimize_schedule(events, preferences)
+```
+
+### Workflow Automation
+
+```python
+from agent.admin.workflow_automation import WorkflowEngine, Trigger, Action
+
+engine = WorkflowEngine()
+
+# Create workflow
+workflow = engine.create_workflow(
+    name="Email to Slack",
+    trigger=Trigger(type="email", conditions={"from": "*@important.com"}),
+    actions=[
+        Action(type="ai_process", config={"prompt": "Summarize"}),
+        Action(type="http", config={"url": "https://slack.webhook/..."})
+    ]
+)
+
+# Execute workflow
+result = await engine.execute_workflow(workflow, trigger_data)
+```
+
+---
+
+## Finance Tools API
+
+Located in `agent/finance/`
+
+### Spreadsheet Integration
+
+```python
+from agent.finance.spreadsheet_integration import SpreadsheetProcessor
+
+processor = SpreadsheetProcessor()
+
+# Process Excel file
+data = await processor.process_excel(file_path, query)
+
+# Create pivot table
+pivot = await processor.create_pivot(data, rows, columns, values)
+```
+
+### Document Intelligence
+
+```python
+from agent.finance.document_intelligence import DocumentIntelligence
+
+doc_ai = DocumentIntelligence()
+
+# Process invoice
+invoice_data = await doc_ai.process_invoice(image_data)
+
+# Process receipt
+receipt_data = await doc_ai.process_receipt(image_data)
+```
+
+---
+
+## Engineering Tools API
+
+Located in `agent/engineering/`
+
+### Code Review Agent
+
+```python
+from agent.engineering.code_review_agent import CodeReviewAgent
+
+reviewer = CodeReviewAgent()
+
+# Review pull request
+review = await reviewer.review_pr(repo, pr_number, focus)
+
+# Review single file
+file_review = await reviewer.review_file(file_path, context)
+```
+
+### VS Code Extension
+
+```python
+from agent.engineering.vscode_extension import VSCodeExtension
+
+vscode = VSCodeExtension()
+
+# Get workspace context
+context = await vscode.get_workspace_context()
+
+# Execute command
+result = await vscode.execute_command("editor.action.formatDocument")
+```
+
+---
+
 *API Reference - JARVIS 2.0*

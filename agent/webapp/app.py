@@ -155,6 +155,14 @@ try:
 except ImportError as e:
     print(f"[Startup] Admin API not available: {e}")
 
+# JARVIS AGENT API: Include agent API for real-time tool-using agent
+try:
+    from agent_api import router as agent_router
+    app.include_router(agent_router)
+    print("[Startup] Jarvis Agent API loaded (real-time tool execution)")
+except ImportError as e:
+    print(f"[Startup] Agent API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 

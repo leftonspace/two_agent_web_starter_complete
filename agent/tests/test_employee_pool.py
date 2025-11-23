@@ -538,5 +538,5 @@ async def test_shutdown_with_active_tasks():
     try:
         result = await task
         # Either succeeds or fails, but shouldn't hang
-    except:
+    except Exception:
         pass  # Acceptable to fail during shutdown

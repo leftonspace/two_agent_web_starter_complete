@@ -302,7 +302,7 @@ class DeployWebsiteTool(ActionTool):
                     check=True,
                     capture_output=True
                 )
-            except:
+            except subprocess.CalledProcessError:
                 pass  # Use global git config
 
             # Add all files
@@ -329,7 +329,7 @@ class DeployWebsiteTool(ActionTool):
                     check=True,
                     capture_output=True
                 )
-            except:
+            except subprocess.CalledProcessError:
                 pass  # Already on main
 
             return {"success": True, "initialized": True}
@@ -531,7 +531,7 @@ class DeployWebsiteTool(ActionTool):
                 json={"name": domain},
                 timeout=30
             )
-        except:
+        except requests.RequestException:
             # Non-critical - deployment succeeded even if domain addition failed
             core_logging.log_event("custom_domain_failed", {
                 "domain": domain,

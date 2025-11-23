@@ -298,7 +298,7 @@ class FormatCodeTool(ToolPlugin):
                 # Prettier lists each file changed
                 return stdout.count("\n")
 
-        except:
+        except (ValueError, IndexError, AttributeError):
             pass
 
         return 0  # Unknown

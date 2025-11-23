@@ -198,7 +198,7 @@ class SendSMSTool(ActionTool):
                 if hasattr(e, 'response') and e.response is not None:
                     error_data = e.response.json()
                     error_msg = f"Twilio error: {error_data.get('message', str(e))}"
-            except:
+            except (ValueError, KeyError, AttributeError):
                 pass
 
             return ToolResult(

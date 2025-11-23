@@ -210,7 +210,7 @@ class EmailTemplateRenderer:
             from datetime import datetime
             date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             return date.strftime(format)
-        except:
+        except (ValueError, TypeError):
             return date_str
 
     def _format_currency(self, amount: float, currency: str = "USD") -> str:

@@ -422,7 +422,7 @@ class CreateCalendarEventTool(ToolPlugin):
                 # Try to load from authorized user file
                 try:
                     creds = Credentials.from_authorized_user_file(str(creds_path))
-                except:
+                except (ValueError, KeyError, OSError):
                     # Try loading as service account or other format
                     with open(creds_path) as f:
                         creds_data = json.load(f)

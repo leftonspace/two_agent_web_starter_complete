@@ -318,7 +318,7 @@ Return ONLY valid JSON, no other text."""
 
         try:
             return datetime.fromisoformat(deadline_str)
-        except:
+        except (ValueError, TypeError):
             # Try to parse relative deadlines
             lower = deadline_str.lower()
 

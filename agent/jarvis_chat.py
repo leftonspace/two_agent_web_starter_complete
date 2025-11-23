@@ -195,7 +195,7 @@ class JarvisChat:
         """Start a new conversation session"""
         if self.memory_enabled:
             try:
-                session = await self.session_manager.start_session(user=user_id)
+                session = self.session_manager.start_session(metadata={"user": user_id})
                 self.current_session = session
                 return session.id
             except Exception as e:

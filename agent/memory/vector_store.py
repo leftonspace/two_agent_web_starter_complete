@@ -51,6 +51,7 @@ class MemoryType(Enum):
     FEEDBACK = "feedback"
     NOTE = "note"
     INSIGHT = "insight"
+    OBSERVATION = "observation"  # For storing conversation interactions
 
 
 @dataclass

@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import asyncio
+import threading
 import time
 import logging
 
@@ -375,8 +376,9 @@ class Throttler:
 
         self._tokens = rate + burst
         self._last_refill = time.time()
-        self._lock = asyncio.Lock()
-        self._sync_lock = None
+        self._lock: Optional[asyncio.Lock] = None  # Deferred to avoid event loop issues
+        self._sync_lock = threading.Lock()  # Initialize immediately to avoid race condition
+        self._async_lock_init = threading.Lock()  # Lock for initializing async lock
 
     def _refill_tokens(self):
         """Refill tokens based on elapsed time."""
@@ -386,6 +388,14 @@ class Throttler:
 
         self._tokens = min(self.rate + self.burst, self._tokens + new_tokens)
         self._last_refill = now
+
+    async def _get_async_lock(self) -> asyncio.Lock:
+        """Get or create the async lock (deferred initialization)."""
+        if self._lock is None:
+            with self._async_lock_init:
+                if self._lock is None:
+                    self._lock = asyncio.Lock()
+        return self._lock
 
     async def acquire(self, tokens: int = 1) -> float:
         """
@@ -397,7 +407,8 @@ class Throttler:
         Returns:
             Wait time in seconds
         """
-        async with self._lock:
+        lock = await self._get_async_lock()
+        async with lock:
             self._refill_tokens()
 
             if self._tokens >= tokens:
@@ -416,11 +427,6 @@ class Throttler:
 
     def acquire_sync(self, tokens: int = 1) -> float:
         """Synchronous version of acquire."""
-        import threading
-
-        if self._sync_lock is None:
-            self._sync_lock = threading.Lock()
-
         with self._sync_lock:
             self._refill_tokens()
 

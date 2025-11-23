@@ -17,8 +17,20 @@ from .models import (
 
 
 class InsufficientQuorumError(Exception):
-    """Raised when a vote doesn't meet quorum requirements"""
-    pass
+    """Raised when a vote doesn't meet quorum requirements."""
+
+    def __init__(
+        self,
+        message: str = "Insufficient quorum for vote",
+        votes_received: int = 0,
+        votes_required: int = 0
+    ):
+        self.votes_received = votes_received
+        self.votes_required = votes_required
+        self.message = message
+        super().__init__(
+            f"[QUORUM_ERROR] {message} (received={votes_received}, required={votes_required})"
+        )
 
 
 @dataclass

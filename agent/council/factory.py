@@ -259,10 +259,10 @@ class CouncillorFactory:
         """
         Determine if a councillor should be fired.
 
-        Criteria:
-        - Performance below threshold (40%)
-        - 5+ consecutive failures
-        - Happiness below threshold (20%)
+        Uses configurable thresholds from FactoryConfig:
+        - Performance below threshold (default: 40%)
+        - Consecutive failures at threshold (default: 5)
+        - Happiness below threshold (default: 20%)
 
         Args:
             councillor: The councillor to evaluate
@@ -270,17 +270,19 @@ class CouncillorFactory:
         Returns:
             Tuple of (should_fire, reason)
         """
-        # Check performance
-        if councillor.metrics.overall_performance < self.config.fire_performance_threshold:
-            return True, f"Performance below {self.config.fire_performance_threshold}%"
-
-        # Check consecutive failures
-        if councillor.metrics.consecutive_failures >= self.config.fire_consecutive_failures:
-            return True, f"{councillor.metrics.consecutive_failures} consecutive failures"
-
-        # Check happiness
-        if councillor.happiness < self.config.fire_happiness_threshold:
-            return True, f"Happiness below {self.config.fire_happiness_threshold}"
+        # Use councillor's is_fireable method with factory config thresholds
+        if councillor.is_fireable(
+            performance_threshold=self.config.fire_performance_threshold,
+            consecutive_failures_threshold=self.config.fire_consecutive_failures,
+            happiness_threshold=self.config.fire_happiness_threshold
+        ):
+            # Determine the specific reason
+            if councillor.metrics.overall_performance < self.config.fire_performance_threshold:
+                return True, f"Performance below {self.config.fire_performance_threshold}%"
+            if councillor.metrics.consecutive_failures >= self.config.fire_consecutive_failures:
+                return True, f"{councillor.metrics.consecutive_failures} consecutive failures"
+            if councillor.happiness < self.config.fire_happiness_threshold:
+                return True, f"Happiness below {self.config.fire_happiness_threshold}"
 
         return False, ""
 
@@ -322,10 +324,10 @@ class CouncillorFactory:
         """
         Check if councillor can be promoted from probation.
 
-        Criteria:
-        - On probation
-        - 10+ tasks completed
-        - Performance >= 60%
+        Uses configurable thresholds from FactoryConfig:
+        - Must be on probation
+        - Tasks completed at threshold (default: 10)
+        - Performance at threshold (default: 60%)
 
         Args:
             councillor: The councillor to check
@@ -336,11 +338,16 @@ class CouncillorFactory:
         if councillor.status != CouncillorStatus.PROBATION:
             return False, "Not on probation"
 
-        if councillor.metrics.tasks_completed < self.config.probation_tasks:
-            return False, f"Only {councillor.metrics.tasks_completed}/{self.config.probation_tasks} tasks"
-
-        if councillor.metrics.overall_performance < self.config.promotion_performance:
-            return False, f"Performance {councillor.metrics.overall_performance:.1f}% < {self.config.promotion_performance}%"
+        # Use councillor's is_promotable method with factory config thresholds
+        if not councillor.is_promotable(
+            min_tasks=self.config.probation_tasks,
+            min_performance=self.config.promotion_performance
+        ):
+            # Determine the specific reason
+            if councillor.metrics.tasks_completed < self.config.probation_tasks:
+                return False, f"Only {councillor.metrics.tasks_completed}/{self.config.probation_tasks} tasks"
+            if councillor.metrics.overall_performance < self.config.promotion_performance:
+                return False, f"Performance {councillor.metrics.overall_performance:.1f}% < {self.config.promotion_performance}%"
 
         return True, "Meets all criteria"
 

@@ -87,6 +87,9 @@ class HierarchicalPattern(Pattern):
         self._hierarchy: Dict[str, HierarchicalAgent] = {}
         self._build_hierarchy(agents, hierarchy)
 
+        # Validate hierarchy for circular dependencies
+        self._validate_hierarchy()
+
         # Track delegation state
         self._delegation_stack: List[str] = []
         self._pending_reports: Dict[str, List[str]] = {}
@@ -146,6 +149,59 @@ class HierarchicalPattern(Pattern):
                 agents_list[-1].reports_to = agents_list[-2].name
             else:
                 agents_list[-1].reports_to = agents_list[0].name
+
+    def _validate_hierarchy(self):
+        """
+        Validate hierarchy structure for circular dependencies.
+
+        Raises:
+            ValueError: If circular dependency is detected
+        """
+        def detect_cycle_from_reports_to(agent_name: str, visited: Set[str], path: Set[str]) -> None:
+            """Check for cycles following reports_to chain"""
+            if agent_name in path:
+                raise ValueError(
+                    f"Circular dependency detected in reports_to chain at '{agent_name}'"
+                )
+            if agent_name in visited:
+                return
+
+            visited.add(agent_name)
+            path.add(agent_name)
+
+            agent = self._hierarchy.get(agent_name)
+            if agent and agent.reports_to:
+                detect_cycle_from_reports_to(agent.reports_to, visited, path)
+
+            path.remove(agent_name)
+
+        def detect_cycle_from_subordinates(agent_name: str, visited: Set[str], path: Set[str]) -> None:
+            """Check for cycles following subordinates chain"""
+            if agent_name in path:
+                raise ValueError(
+                    f"Circular dependency detected in subordinates chain at '{agent_name}'"
+                )
+            if agent_name in visited:
+                return
+
+            visited.add(agent_name)
+            path.add(agent_name)
+
+            agent = self._hierarchy.get(agent_name)
+            if agent:
+                for sub_name in agent.subordinates:
+                    if sub_name in self._hierarchy:
+                        detect_cycle_from_subordinates(sub_name, visited, path)
+
+            path.remove(agent_name)
+
+        # Check all agents for cycles
+        visited_reports = set()
+        visited_subs = set()
+
+        for agent_name in self._hierarchy:
+            detect_cycle_from_reports_to(agent_name, visited_reports, set())
+            detect_cycle_from_subordinates(agent_name, visited_subs, set())
 
     def _get_top_level_agents(self) -> List[HierarchicalAgent]:
         """Get agents at the top of the hierarchy"""

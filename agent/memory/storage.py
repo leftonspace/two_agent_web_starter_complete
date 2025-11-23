@@ -695,8 +695,17 @@ class GraphStorage:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "GraphStorage":
-        """Deserialize"""
+        """Deserialize from dict representation.
+
+        Creates a fresh instance with its own state to avoid sharing
+        between deserialized instances.
+        """
         storage = cls()
+        # Explicitly reset instance dicts to ensure fresh state
+        storage._entities = {}
+        storage._name_to_id = {}
+        storage._edges = defaultdict(list)
+
         for entity_id, entity_data in data.get("entities", {}).items():
             entity = Entity(
                 id=entity_data["id"],
@@ -708,7 +717,10 @@ class GraphStorage:
             storage._entities[entity_id] = entity
             storage._name_to_id[entity.name.lower()] = entity_id
 
-        storage._edges = defaultdict(list, data.get("edges", {}))
+        # Merge edges from data
+        for source_id, edges_list in data.get("edges", {}).items():
+            storage._edges[source_id] = edges_list
+
         return storage
 
 

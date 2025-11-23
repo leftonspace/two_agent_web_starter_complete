@@ -432,6 +432,8 @@ def memoize_with_ttl(ttl_seconds: int = 300) -> Callable:
     """
     Simple memoization decorator with TTL.
 
+    Thread-safe: uses a lock to ensure atomic cache operations.
+
     Args:
         ttl_seconds: Cache TTL in seconds
 
@@ -439,19 +441,26 @@ def memoize_with_ttl(ttl_seconds: int = 300) -> Callable:
         Decorator function
     """
     cache: Dict[str, tuple] = {}
+    lock = threading.Lock()
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             key = str((args, tuple(sorted(kwargs.items()))))
 
-            if key in cache:
-                result, timestamp = cache[key]
-                if time.time() - timestamp < ttl_seconds:
-                    return result
+            # Fast path: check cache without lock
+            with lock:
+                if key in cache:
+                    result, timestamp = cache[key]
+                    if time.time() - timestamp < ttl_seconds:
+                        return result
 
+            # Compute outside lock to avoid blocking other cache reads
             result = func(*args, **kwargs)
-            cache[key] = (result, time.time())
+
+            # Update cache atomically
+            with lock:
+                cache[key] = (result, time.time())
             return result
         return wrapper
     return decorator

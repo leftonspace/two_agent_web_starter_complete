@@ -92,6 +92,7 @@ def lazy_property(func: Callable[[Any], T]) -> property:
     Decorator for lazy property initialization.
 
     The property value is computed once on first access and cached.
+    Thread-safe: uses a lock to prevent race conditions.
 
     Usage:
         class MyClass:
@@ -100,12 +101,30 @@ def lazy_property(func: Callable[[Any], T]) -> property:
                 return load_heavy_resource()
     """
     attr_name = f'_lazy_{func.__name__}'
+    lock_name = f'_lazy_lock_{func.__name__}'
 
     @wraps(func)
     def wrapper(self):
-        if not hasattr(self, attr_name):
-            setattr(self, attr_name, func(self))
-        return getattr(self, attr_name)
+        # Fast path: already initialized
+        if hasattr(self, attr_name):
+            return getattr(self, attr_name)
+
+        # Get or create lock for this property
+        if not hasattr(self, lock_name):
+            # Use a class-level lock for initializing instance locks
+            cls_lock_name = f'_lazy_cls_lock_{func.__name__}'
+            cls = type(self)
+            if not hasattr(cls, cls_lock_name):
+                setattr(cls, cls_lock_name, threading.Lock())
+            with getattr(cls, cls_lock_name):
+                if not hasattr(self, lock_name):
+                    setattr(self, lock_name, threading.Lock())
+
+        # Thread-safe initialization
+        with getattr(self, lock_name):
+            if not hasattr(self, attr_name):
+                setattr(self, attr_name, func(self))
+            return getattr(self, attr_name)
 
     return property(wrapper)
 

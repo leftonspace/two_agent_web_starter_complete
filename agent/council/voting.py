@@ -16,6 +16,11 @@ from .models import (
 )
 
 
+class InsufficientQuorumError(Exception):
+    """Raised when a vote doesn't meet quorum requirements"""
+    pass
+
+
 @dataclass
 class VotingConfig:
     """Configuration for voting sessions"""
@@ -301,16 +306,34 @@ class VotingManager:
 
         return choice, confidence, review_reasons.get(choice, "")
 
-    def close_session(self, session_id: str) -> Optional[str]:
-        """Close a voting session and determine winner"""
+    def close_session(
+        self,
+        session_id: str,
+        eligible_voters: Optional[int] = None
+    ) -> Optional[str]:
+        """Close a voting session and determine winner
+
+        Args:
+            session_id: The voting session ID
+            eligible_voters: Total number of eligible voters (required for quorum check)
+
+        Returns:
+            The winning option, or None if session not found
+
+        Raises:
+            InsufficientQuorumError: If quorum is required but not met
+        """
         session = self.sessions.get(session_id)
         if not session:
             return None
 
         # Check quorum if required
-        if self.config.require_quorum:
-            # Quorum check would need total eligible voters
-            pass
+        if self.config.require_quorum and eligible_voters is not None:
+            required_votes = int(eligible_voters * self.config.quorum_percentage)
+            if len(session.votes) < required_votes:
+                raise InsufficientQuorumError(
+                    f"Quorum not met: need {required_votes} votes, got {len(session.votes)}"
+                )
 
         winner = session.close()
         return winner

@@ -186,15 +186,15 @@ class Councillor:
         """
         Calculate happiness modifier for vote weight.
 
-        - 100 happiness = 1.2x
-        - 70 happiness = 1.0x (baseline)
-        - 40 happiness = 0.8x
-        - 10 happiness = 0.6x
+        Uses unified linear formula for smooth transitions:
+        - 100 happiness = 1.3x
+        - 70 happiness = 1.09x
+        - 50 happiness = 0.95x
+        - 0 happiness = 0.6x
         """
-        if self.happiness >= 70:
-            return 1.0 + ((self.happiness - 70) / 100)  # 1.0 to 1.3
-        else:
-            return 0.6 + (self.happiness / 175)  # 0.6 to 1.0
+        # Unified linear formula: 0.6 at happiness=0, 1.3 at happiness=100
+        # This avoids discontinuity at the old boundary (happiness=70)
+        return 0.6 + (self.happiness / 100 * 0.7)
 
     @property
     def vote_weight(self) -> float:

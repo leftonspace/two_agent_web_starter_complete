@@ -30,6 +30,18 @@ class FlowExecutionError(Exception):
         self.cause = cause
 
 
+class AggregateError(FlowExecutionError):
+    """Error containing multiple errors from parallel execution"""
+
+    def __init__(self, message: str, errors: List[Exception]):
+        super().__init__(message)
+        self.errors = errors
+
+    def __str__(self):
+        error_details = "\n".join(f"  - {type(e).__name__}: {e}" for e in self.errors)
+        return f"{self.args[0]}\n{error_details}"
+
+
 class Flow(BaseModel):
     """Base class for flows with dynamic routing
 
@@ -349,10 +361,15 @@ class Flow(BaseModel):
 
                 if tasks:
                     results = await asyncio.gather(*tasks, return_exceptions=True)
-                    # Check for errors
-                    for r in results:
-                        if isinstance(r, Exception):
-                            raise r
+                    # Collect all errors from parallel execution
+                    errors = [r for r in results if isinstance(r, Exception)]
+                    if errors:
+                        if len(errors) == 1:
+                            raise errors[0]
+                        raise AggregateError(
+                            f"Parallel execution failed with {len(errors)} errors",
+                            errors
+                        )
                     return results
 
             return result
@@ -371,9 +388,15 @@ class Flow(BaseModel):
                 # Multiple next nodes (parallel execution)
                 tasks = [self._execute_node(n, result) for n in next_nodes]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                for r in results:
-                    if isinstance(r, Exception):
-                        raise r
+                # Collect all errors from parallel execution
+                errors = [r for r in results if isinstance(r, Exception)]
+                if errors:
+                    if len(errors) == 1:
+                        raise errors[0]
+                    raise AggregateError(
+                        f"Parallel execution failed with {len(errors)} errors",
+                        errors
+                    )
                 return results
 
     async def _emit_event(self, event_type: EventType, data: Any, source: str = None):

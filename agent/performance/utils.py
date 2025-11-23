@@ -11,6 +11,7 @@ from datetime import datetime
 from functools import wraps
 from contextlib import contextmanager, asynccontextmanager
 import asyncio
+import threading
 import time
 import logging
 import statistics
@@ -352,20 +353,24 @@ def debounce(wait: float) -> Callable:
         Decorator function
     """
     def decorator(func: Callable) -> Callable:
-        last_called = [0.0]
         timer = [None]
+        lock = threading.Lock()
 
         @wraps(func)
         def wrapper(*args, **kwargs):
             def call_func():
+                with lock:
+                    timer[0] = None
                 func(*args, **kwargs)
 
-            # Cancel previous timer
-            if timer[0]:
-                timer[0].cancel()
+            with lock:
+                # Cancel previous timer if running
+                if timer[0] is not None:
+                    timer[0].cancel()
 
-            # Set new timer
-            timer[0] = asyncio.get_event_loop().call_later(wait, call_func)
+                # Create and start new timer
+                timer[0] = threading.Timer(wait, call_func)
+                timer[0].start()
 
         return wrapper
     return decorator

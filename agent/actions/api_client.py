@@ -3,6 +3,11 @@ Universal API client with authentication and retry logic.
 
 PHASE 8.2: Robust HTTP client for external API integration with auth,
 rate limiting, and exponential backoff retry.
+
+Features connection pooling for improved performance:
+- Shared connection pool reduces connection overhead
+- Configurable connection limits prevent resource exhaustion
+- Keep-alive connections for repeated requests to same host
 """
 
 import asyncio
@@ -11,9 +16,60 @@ from typing import Dict, Any, Optional, Union, List
 from enum import Enum
 from datetime import datetime
 import base64
+import threading
 
 from agent.actions.rate_limiter import RateLimiter
 from agent.core_logging import log_event
+
+
+# Global shared HTTP client pool for connection reuse
+_shared_client: Optional[httpx.AsyncClient] = None
+_shared_client_lock = threading.Lock()
+
+
+def get_shared_http_client(timeout: float = 60.0) -> httpx.AsyncClient:
+    """
+    Get or create a shared HTTP client with connection pooling.
+
+    Uses httpx's built-in connection pooling with configured limits.
+    Sharing a client across multiple APIClient instances reduces
+    connection overhead and improves performance.
+
+    Args:
+        timeout: Default request timeout
+
+    Returns:
+        Shared AsyncClient instance
+    """
+    global _shared_client
+
+    if _shared_client is None:
+        with _shared_client_lock:
+            if _shared_client is None:
+                # Configure connection limits for pooling
+                limits = httpx.Limits(
+                    max_keepalive_connections=20,  # Max idle connections
+                    max_connections=100,  # Max total connections
+                    keepalive_expiry=30.0,  # Keep connections alive for 30s
+                )
+                _shared_client = httpx.AsyncClient(
+                    timeout=timeout,
+                    follow_redirects=True,
+                    limits=limits,
+                )
+
+    return _shared_client
+
+
+async def close_shared_http_client():
+    """Close the shared HTTP client (call on application shutdown)."""
+    global _shared_client
+
+    if _shared_client is not None:
+        with _shared_client_lock:
+            if _shared_client is not None:
+                await _shared_client.aclose()
+                _shared_client = None
 
 
 class AuthType(Enum):
@@ -62,7 +118,8 @@ class APIClient:
         auth_config: Optional[Dict[str, Any]] = None,
         rate_limit: float = 10.0,
         max_retries: int = 3,
-        timeout: float = 30.0
+        timeout: float = 30.0,
+        use_shared_pool: bool = True
     ):
         """
         Initialize API client.
@@ -73,17 +130,30 @@ class APIClient:
             rate_limit: Requests per second (default 10)
             max_retries: Maximum retry attempts (default 3)
             timeout: Request timeout in seconds (default 30)
+            use_shared_pool: Use shared connection pool (default True, recommended)
         """
         self.base_url = base_url.rstrip("/")
         self.auth_config = auth_config or {"type": "none"}
         self.max_retries = max_retries
         self.timeout = timeout
+        self.use_shared_pool = use_shared_pool
 
-        # Setup HTTP client
-        self.session = httpx.AsyncClient(
-            timeout=timeout,
-            follow_redirects=True
-        )
+        # Setup HTTP client - use shared pool for connection reuse
+        if use_shared_pool:
+            self.session = get_shared_http_client(timeout)
+            self._owns_session = False  # Don't close shared client
+        else:
+            # Create dedicated client with connection pooling
+            limits = httpx.Limits(
+                max_keepalive_connections=5,
+                max_connections=20,
+            )
+            self.session = httpx.AsyncClient(
+                timeout=timeout,
+                follow_redirects=True,
+                limits=limits,
+            )
+            self._owns_session = True
 
         # Setup rate limiter
         self.rate_limiter = RateLimiter(rate=rate_limit)
@@ -415,8 +485,9 @@ class APIClient:
         }
 
     async def close(self):
-        """Close HTTP session"""
-        await self.session.aclose()
+        """Close HTTP session (only if client owns it, not shared pool)"""
+        if self._owns_session:
+            await self.session.aclose()
 
     async def __aenter__(self):
         """Async context manager entry"""

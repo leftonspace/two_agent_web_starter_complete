@@ -375,7 +375,22 @@ class MemoryDatabase:
 
     def close(self):
         """Close database connection"""
-        self.conn.close()
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+
+    def __del__(self):
+        """Ensure connection is closed on garbage collection"""
+        self.close()
+
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures connection is closed"""
+        self.close()
+        return False
 
 
 __all__ = ["MemoryDatabase"]

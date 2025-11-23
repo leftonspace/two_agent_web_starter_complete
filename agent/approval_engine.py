@@ -706,19 +706,43 @@ class ApprovalEngine:
 
     def _evaluate_condition(self, condition: str, payload: Dict[str, Any]) -> bool:
         """
-        Safely evaluate a condition expression.
+        Safely evaluate a condition expression using AST-based evaluation.
 
         Condition has access to:
         - payload: The approval request payload
-        - Any safe built-in functions
+        - Safe built-in functions (len, str, int, float, bool, etc.)
 
         Example conditions:
         - "payload['amount'] > 10000"
         - "payload['department'] == 'engineering'"
         - "payload.get('is_urgent', False)"
+
+        Security: Uses AST parsing to validate expression structure before
+        evaluation, preventing code injection attacks.
         """
+        import ast
+
         try:
-            # Create safe namespace
+            # Parse the condition to validate it's a safe expression
+            tree = ast.parse(condition, mode='eval')
+
+            # Validate AST nodes are safe (no function definitions, imports, etc.)
+            for node in ast.walk(tree):
+                # Allow only safe node types
+                allowed_types = (
+                    ast.Expression, ast.BoolOp, ast.BinOp, ast.UnaryOp,
+                    ast.Compare, ast.Call, ast.Constant, ast.Num, ast.Str,
+                    ast.Name, ast.Attribute, ast.Subscript, ast.Index,
+                    ast.Load, ast.And, ast.Or, ast.Not, ast.Eq, ast.NotEq,
+                    ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.In, ast.NotIn,
+                    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod,
+                    ast.List, ast.Tuple, ast.Dict, ast.Set,
+                )
+                if not isinstance(node, allowed_types):
+                    logger.warning(f"Unsafe AST node type in condition: {type(node).__name__}")
+                    return False
+
+            # Create safe namespace with restricted builtins
             namespace = {
                 'payload': payload,
                 'len': len,
@@ -732,12 +756,19 @@ class ApprovalEngine:
                 'sum': sum,
                 'any': any,
                 'all': all,
+                'True': True,
+                'False': False,
+                'None': None,
             }
 
-            # Evaluate
-            result = eval(condition, {"__builtins__": {}}, namespace)
+            # Compile and evaluate with restricted globals
+            code = compile(tree, '<condition>', 'eval')
+            result = eval(code, {"__builtins__": {}}, namespace)
             return bool(result)
 
+        except SyntaxError as e:
+            logger.error(f"Invalid condition syntax '{condition}': {e}")
+            return False
         except Exception as e:
             logger.error(f"Failed to evaluate condition '{condition}': {e}")
             return False
@@ -1052,19 +1083,30 @@ class ApprovalEngine:
         conn = self._get_connection()
         cursor = conn.cursor()
 
-        query_filter = f"WHERE domain = '{domain}'" if domain else ""
-
-        cursor.execute(f"""
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-                SUM(CASE WHEN status = 'escalated' THEN 1 ELSE 0 END) as escalated,
-                SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) as timeout
-            FROM approval_requests
-            {query_filter}
-        """)
+        # Use parameterized query to prevent SQL injection
+        if domain:
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+                    SUM(CASE WHEN status = 'escalated' THEN 1 ELSE 0 END) as escalated,
+                    SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) as timeout
+                FROM approval_requests
+                WHERE domain = ?
+            """, (domain,))
+        else:
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+                    SUM(CASE WHEN status = 'escalated' THEN 1 ELSE 0 END) as escalated,
+                    SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) as timeout
+                FROM approval_requests
+            """)
 
         row = cursor.fetchone()
         conn.close()

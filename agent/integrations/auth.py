@@ -325,7 +325,11 @@ class OAuth2Client:
                 'client_secret': self.config.client_secret
             }
 
-            async with session.post(self.config.token_url, data=data) as resp:
+            async with session.post(
+                self.config.token_url,
+                data=data,
+                timeout=aiohttp.ClientTimeout(total=30)  # 30 second timeout
+            ) as resp:
                 resp.raise_for_status()
                 token_data = await resp.json()
 
@@ -350,7 +354,11 @@ class OAuth2Client:
             if self.config.scope:
                 data['scope'] = self.config.scope
 
-            async with session.post(self.config.token_url, data=data) as resp:
+            async with session.post(
+                self.config.token_url,
+                data=data,
+                timeout=aiohttp.ClientTimeout(total=30)  # 30 second timeout
+            ) as resp:
                 resp.raise_for_status()
                 token_data = await resp.json()
 
@@ -381,7 +389,11 @@ class OAuth2Client:
                 'client_secret': self.config.client_secret
             }
 
-            async with session.post(self.config.token_url, data=data) as resp:
+            async with session.post(
+                self.config.token_url,
+                data=data,
+                timeout=aiohttp.ClientTimeout(total=30)  # 30 second timeout
+            ) as resp:
                 resp.raise_for_status()
                 token_data = await resp.json()
 

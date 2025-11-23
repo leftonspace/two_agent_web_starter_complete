@@ -221,8 +221,8 @@ class CodeExecutor:
             # Clean up temp file
             try:
                 os.unlink(temp_file)
-            except:
-                pass
+            except (OSError, FileNotFoundError):
+                pass  # File may already be deleted or not exist
 
     async def execute_javascript(
         self,
@@ -338,8 +338,8 @@ class CodeExecutor:
         finally:
             try:
                 os.unlink(temp_file)
-            except:
-                pass
+            except (OSError, FileNotFoundError):
+                pass  # File may already be deleted or not exist
 
     async def execute_shell(
         self,

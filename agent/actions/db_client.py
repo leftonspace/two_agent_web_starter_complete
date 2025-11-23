@@ -24,6 +24,19 @@ from sqlalchemy.pool import NullPool, QueuePool
 from agent.core_logging import log_event
 
 
+# Pre-compiled regex patterns for SQL validation (performance optimization)
+_SQL_LINE_COMMENT_PATTERN = re.compile(r'--.*$', re.MULTILINE)
+_SQL_BLOCK_COMMENT_PATTERN = re.compile(r'/\*.*?\*/', re.DOTALL)
+_READ_ONLY_PATTERNS = [
+    re.compile(r'^SELECT\s', re.IGNORECASE),
+    re.compile(r'^WITH\s', re.IGNORECASE),
+    re.compile(r'^EXPLAIN\s', re.IGNORECASE),
+    re.compile(r'^SHOW\s', re.IGNORECASE),
+    re.compile(r'^DESCRIBE\s', re.IGNORECASE),
+    re.compile(r'^DESC\s', re.IGNORECASE),
+]
+
+
 class DatabaseType(Enum):
     """Supported database types"""
     POSTGRESQL = "postgresql"
@@ -157,29 +170,22 @@ class DatabaseClient:
         """
         Check if SQL query is read-only.
 
+        Uses pre-compiled regex patterns for better performance.
+
         Args:
             sql: SQL query string
 
         Returns:
             True if query is read-only (SELECT, WITH)
         """
-        # Normalize SQL (remove comments, extra whitespace)
-        normalized = re.sub(r'--.*$', '', sql, flags=re.MULTILINE)
-        normalized = re.sub(r'/\*.*?\*/', '', normalized, flags=re.DOTALL)
+        # Normalize SQL (remove comments, extra whitespace) using cached patterns
+        normalized = _SQL_LINE_COMMENT_PATTERN.sub('', sql)
+        normalized = _SQL_BLOCK_COMMENT_PATTERN.sub('', normalized)
         normalized = normalized.strip().upper()
 
-        # Check for read-only statements
-        read_only_patterns = [
-            r'^SELECT\s',
-            r'^WITH\s',
-            r'^EXPLAIN\s',
-            r'^SHOW\s',
-            r'^DESCRIBE\s',
-            r'^DESC\s'
-        ]
-
-        for pattern in read_only_patterns:
-            if re.match(pattern, normalized):
+        # Check for read-only statements using cached patterns
+        for pattern in _READ_ONLY_PATTERNS:
+            if pattern.match(normalized):
                 return True
 
         return False

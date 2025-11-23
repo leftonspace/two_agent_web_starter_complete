@@ -741,6 +741,17 @@
             background: #f0f0f0;
         }
 
+        .input-btn.listening {
+            background: #e74c3c;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
         .input-btn.active {
             background: #3498db;
             color: white;
@@ -1106,6 +1117,7 @@
                     <button class="input-btn" onclick="document.getElementById('image-input').click()" title="Upload image">🖼️</button>
                     <button class="input-btn" onclick="openCamera()" title="Camera">📷</button>
                     <button class="input-btn" onclick="attachFile()" title="Attach file">📎</button>
+                    <button class="input-btn" onclick="toggleVoiceInput()" title="Voice input" id="voice-btn">🎤</button>
                 </div>
                 <textarea id="message-input" placeholder="Message Jarvis..." rows="1" onkeydown="handleKeyPress(event)"></textarea>
                 <button class="send-btn" onclick="sendMessage()" id="send-btn">Send ➤</button>
@@ -1180,6 +1192,7 @@
         let isProcessing = false;
         let currentChatId = null;
         let chatHistory = [];  // All saved chats
+        let pendingFiles = [];  // Array of attached files (must be declared early)
 
         // ============================================================
         // Chat History Management (localStorage persistence)
@@ -1493,8 +1506,6 @@
         }
 
         // Attach file - real implementation
-        let pendingFiles = [];  // Array of attached files
-
         function attachFile() {
             const input = document.createElement('input');
             input.type = 'file';
@@ -2140,6 +2151,97 @@
                 cameraStream.getTracks().forEach(track => track.stop());
             }
         });
+
+        // ============================================================
+        // Voice Input Functions
+        // ============================================================
+
+        let voiceRecognition = null;
+        let isListening = false;
+
+        function toggleVoiceInput() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                alert('Voice input is not supported in your browser. Please use Chrome or Edge.');
+                return;
+            }
+
+            if (isListening) {
+                stopVoiceInput();
+            } else {
+                startVoiceInput();
+            }
+        }
+
+        function startVoiceInput() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            voiceRecognition = new SpeechRecognition();
+            voiceRecognition.continuous = false;
+            voiceRecognition.interimResults = true;
+            voiceRecognition.lang = 'en-US';
+
+            voiceRecognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-btn').classList.add('listening');
+                document.getElementById('voice-btn').textContent = '🔴';
+                document.getElementById('message-input').placeholder = 'Listening...';
+            };
+
+            voiceRecognition.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                const input = document.getElementById('message-input');
+                if (finalTranscript) {
+                    input.value = finalTranscript;
+                } else if (interimTranscript) {
+                    input.value = interimTranscript;
+                }
+            };
+
+            voiceRecognition.onerror = (event) => {
+                console.error('Voice recognition error:', event.error);
+                if (event.error === 'not-allowed') {
+                    alert('Microphone access denied. Please allow microphone access to use voice input.');
+                }
+                stopVoiceInput();
+            };
+
+            voiceRecognition.onend = () => {
+                stopVoiceInput();
+                // Auto-send if we got a result
+                const input = document.getElementById('message-input');
+                if (input.value.trim()) {
+                    // Give user a moment to see what was transcribed
+                    setTimeout(() => {
+                        if (confirm('Send this message?\n\n"' + input.value + '"')) {
+                            sendMessage();
+                        }
+                    }, 500);
+                }
+            };
+
+            voiceRecognition.start();
+        }
+
+        function stopVoiceInput() {
+            if (voiceRecognition) {
+                voiceRecognition.stop();
+                voiceRecognition = null;
+            }
+            isListening = false;
+            document.getElementById('voice-btn').classList.remove('listening');
+            document.getElementById('voice-btn').textContent = '🎤';
+            document.getElementById('message-input').placeholder = 'Message Jarvis...';
+        }
     </script>
 </body>
 </html>

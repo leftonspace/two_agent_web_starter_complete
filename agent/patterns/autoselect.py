@@ -74,6 +74,11 @@ class KeywordSelector(AgentSelector):
         # Fall back to first agent if no good match
         return agents[0]
 
+    def _word_matches(self, word: str, text: str) -> bool:
+        """Check if word matches in text using word boundaries (not substring)."""
+        pattern = rf'\b{re.escape(word.lower())}\b'
+        return bool(re.search(pattern, text.lower()))
+
     def _calculate_score(
         self,
         agent: Agent,
@@ -84,35 +89,35 @@ class KeywordSelector(AgentSelector):
         score = 0.0
         total_weight = 0.0
 
-        # Check agent capabilities
+        # Check agent capabilities (use word boundary matching)
         if agent.capabilities:
             weight = 0.4
-            matches = sum(1 for cap in agent.capabilities if cap.lower() in content)
+            matches = sum(1 for cap in agent.capabilities if self._word_matches(cap, content))
             if matches > 0:
                 score += weight * (matches / len(agent.capabilities))
             total_weight += weight
 
-        # Check role relevance
+        # Check role relevance (use word boundary matching)
         if agent.role:
             weight = 0.3
-            if agent.role.lower() in content:
+            if self._word_matches(agent.role, content):
                 score += weight
             total_weight += weight
 
-        # Check description relevance
+        # Check description relevance (use word boundary matching)
         if agent.description:
             weight = 0.2
             desc_words = agent.description.lower().split()
-            matches = sum(1 for word in desc_words if word in content)
+            matches = sum(1 for word in desc_words if self._word_matches(word, content))
             if matches > 0:
                 score += weight * min(1.0, matches / 5)
             total_weight += weight
 
-        # Check criteria keywords
+        # Check criteria keywords (use word boundary matching)
         if criteria.keywords:
             weight = 0.1
             agent_text = f"{agent.role} {agent.description} {' '.join(agent.capabilities)}".lower()
-            matches = sum(1 for kw in criteria.keywords if kw.lower() in agent_text)
+            matches = sum(1 for kw in criteria.keywords if self._word_matches(kw, agent_text))
             if matches > 0:
                 score += weight * (matches / len(criteria.keywords))
             total_weight += weight
@@ -271,6 +276,7 @@ class AutoSelectPattern(Pattern):
 
         self._selection_history: List[str] = []
         self._agent_scores: Dict[str, float] = {}
+        self._max_selection_history: int = 100  # Prevent unbounded growth
 
     def select_next_agent(self, context: Dict[str, Any]) -> Optional[Agent]:
         """
@@ -308,33 +314,41 @@ class AutoSelectPattern(Pattern):
 
         selected = best_agent or available_agents[0]
         self._selection_history.append(selected.name)
+        # Trim history to prevent unbounded growth
+        if len(self._selection_history) > self._max_selection_history:
+            self._selection_history = self._selection_history[-self._max_selection_history:]
         return selected
+
+    def _word_matches(self, word: str, text: str) -> bool:
+        """Check if word matches in text using word boundaries (not substring)."""
+        pattern = rf'\b{re.escape(word.lower())}\b'
+        return bool(re.search(pattern, text.lower()))
 
     def _calculate_keyword_score(self, agent: Agent, content: str) -> float:
         """Calculate keyword-based relevance score for consistent sync/async behavior."""
         score = 0.0
 
-        # Check agent capabilities (weight: 0.4)
+        # Check agent capabilities (weight: 0.4) - use word boundary matching
         if agent.capabilities:
-            matches = sum(1 for cap in agent.capabilities if cap.lower() in content)
+            matches = sum(1 for cap in agent.capabilities if self._word_matches(cap, content))
             if matches > 0:
                 score += 0.4 * (matches / len(agent.capabilities))
 
-        # Check role relevance (weight: 0.3)
-        if agent.role and agent.role.lower() in content:
+        # Check role relevance (weight: 0.3) - use word boundary matching
+        if agent.role and self._word_matches(agent.role, content):
             score += 0.3
 
-        # Check description relevance (weight: 0.2)
+        # Check description relevance (weight: 0.2) - use word boundary matching
         if agent.description:
             desc_words = agent.description.lower().split()
-            matches = sum(1 for word in desc_words if word in content)
+            matches = sum(1 for word in desc_words if self._word_matches(word, content))
             if matches > 0:
                 score += 0.2 * min(1.0, matches / 5)
 
-        # Check criteria keywords (weight: 0.1)
+        # Check criteria keywords (weight: 0.1) - use word boundary matching
         if self.criteria.keywords:
             agent_text = f"{agent.role} {agent.description} {' '.join(agent.capabilities)}".lower()
-            matches = sum(1 for kw in self.criteria.keywords if kw.lower() in agent_text)
+            matches = sum(1 for kw in self.criteria.keywords if self._word_matches(kw, agent_text))
             if matches > 0:
                 score += 0.1 * (matches / len(self.criteria.keywords))
 
@@ -355,6 +369,9 @@ class AutoSelectPattern(Pattern):
 
         if selected:
             self._selection_history.append(selected.name)
+            # Trim history to prevent unbounded growth
+            if len(self._selection_history) > self._max_selection_history:
+                self._selection_history = self._selection_history[-self._max_selection_history:]
 
         return selected
 
@@ -388,100 +405,9 @@ class AutoSelectPattern(Pattern):
 
         return False
 
-    async def run(self, initial_message: str) -> PatternResult:
-        """Execute the pattern with async agent selection"""
-        from datetime import datetime
-        import asyncio
-
-        start_time = datetime.now()
-        self.status = PatternStatus.RUNNING
-        agents_used = set()
-
-        try:
-            # Add initial message
-            user_message = Message(
-                content=initial_message,
-                sender="user",
-                role=self._get_message_role("USER")
-            )
-            self.add_message(user_message)
-
-            # Execute rounds
-            while self.current_round < self.config.max_rounds:
-                self.current_round += 1
-                context = self.get_context()
-
-                # Use async selection
-                next_agent = await self._select_next_agent_async(context)
-
-                if next_agent is None:
-                    break
-
-                # Trigger callbacks
-                for callback in self._on_agent_selected:
-                    callback(next_agent)
-
-                # Execute agent
-                agents_used.add(next_agent.name)
-                last_content = self.history[-1].content if self.history else initial_message
-
-                try:
-                    response = await asyncio.wait_for(
-                        next_agent.execute(last_content, context),
-                        timeout=self.config.timeout_seconds
-                    )
-                except asyncio.TimeoutError:
-                    self.status = PatternStatus.TIMEOUT
-                    return PatternResult(
-                        status=PatternStatus.TIMEOUT,
-                        messages=self.history,
-                        rounds_completed=self.current_round,
-                        agents_used=list(agents_used),
-                        duration_seconds=(datetime.now() - start_time).total_seconds(),
-                        error=f"Timeout waiting for {next_agent.name}"
-                    )
-
-                # Add response
-                agent_message = Message(
-                    content=response,
-                    sender=next_agent.name,
-                    role=self._get_message_role("AGENT")
-                )
-                self.add_message(agent_message)
-
-                # Check termination
-                if self.should_terminate(agent_message):
-                    break
-
-                # Trigger round complete
-                for callback in self._on_round_complete:
-                    callback(self.current_round)
-
-            self.status = PatternStatus.COMPLETED
-            return PatternResult(
-                status=PatternStatus.COMPLETED,
-                messages=self.history,
-                final_output=self.history[-1].content if self.history else None,
-                rounds_completed=self.current_round,
-                agents_used=list(agents_used),
-                duration_seconds=(datetime.now() - start_time).total_seconds()
-            )
-
-        except Exception as e:
-            self.status = PatternStatus.FAILED
-            return PatternResult(
-                status=PatternStatus.FAILED,
-                messages=self.history,
-                rounds_completed=self.current_round,
-                agents_used=list(agents_used),
-                duration_seconds=(datetime.now() - start_time).total_seconds(),
-                error=str(e)
-            )
-
-    def _get_message_role(self, role_name: str):
-        """Get MessageRole enum value"""
-        from .base import MessageRole
-        return getattr(MessageRole, role_name)
+    async def _select_agent_for_run(self, context: Dict[str, Any]) -> Optional[Agent]:
+        """Override to use async agent selection during run loop."""
+        return await self._select_next_agent_async(context)
 
     def reset(self):
         """Reset pattern state"""

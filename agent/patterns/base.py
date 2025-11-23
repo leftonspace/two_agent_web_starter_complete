@@ -58,7 +58,7 @@ class Message:
     """A message in the conversation"""
     content: str
     sender: str
-    role: MessageRole = MessageRole.AGENT
+    role: MessageRole  # Required - no default to ensure explicit role assignment
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -201,6 +201,18 @@ class Pattern(ABC):
             "last_agent_name": self._last_agent_name
         }
 
+    async def _select_agent_for_run(self, context: Dict[str, Any]) -> Optional[Agent]:
+        """
+        Select next agent during run loop. Override in subclasses for async selection.
+
+        Args:
+            context: Current conversation context
+
+        Returns:
+            Next agent to speak, or None if pattern complete
+        """
+        return self.select_next_agent(context)
+
     async def run(self, initial_message: str) -> PatternResult:
         """
         Execute the pattern.
@@ -229,8 +241,8 @@ class Pattern(ABC):
                 self.current_round += 1
                 context = self.get_context()
 
-                # Select next agent
-                next_agent = self.select_next_agent(context)
+                # Select next agent (allows async override)
+                next_agent = await self._select_agent_for_run(context)
 
                 if next_agent is None:
                     # No more agents to select

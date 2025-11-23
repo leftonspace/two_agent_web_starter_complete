@@ -90,7 +90,9 @@ class VagueRequestDetector:
             ],
             RequestType.ANALYSIS: [
                 'analyze', 'analysis', 'report', 'metrics', 'dashboard',
-                'visualization', 'insights', 'statistics', 'chart'
+                'visualization', 'insights', 'statistics', 'chart',
+                'review', 'investigate', 'check', 'inspect', 'examine',
+                'audit', 'scan', 'code review', 'find issues', 'find bugs'
             ],
             RequestType.CONTENT: [
                 'write', 'content', 'article', 'documentation', 'copy',
@@ -257,8 +259,13 @@ class VagueRequestDetector:
         missing = []
         request_lower = request.lower()
 
-        # Common missing details
-        if 'target_audience' not in specific_elements:
+        # Common missing details - but NOT for analysis/review requests
+        # Analysis requests don't need "target audience" questions
+        audience_relevant_types = [
+            RequestType.WEBSITE, RequestType.APPLICATION,
+            RequestType.CONTENT, RequestType.GENERAL
+        ]
+        if request_type in audience_relevant_types and 'target_audience' not in specific_elements:
             missing.append('target_audience')
 
         # Type-specific missing details
@@ -422,6 +429,11 @@ def should_request_clarification(
     skip_phrases = ['just do it', 'skip questions', 'no questions', 'figure it out',
                     'use defaults', 'your choice', 'surprise me']
     if any(phrase in request.lower() for phrase in skip_phrases):
+        should_clarify = False
+
+    # Skip clarification for ANALYSIS requests - they're typically well-defined
+    # Code review/analysis doesn't need questions about "target audience" etc.
+    if analysis.detected_type == RequestType.ANALYSIS:
         should_clarify = False
 
     return should_clarify, analysis

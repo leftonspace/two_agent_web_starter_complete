@@ -547,9 +547,10 @@ Classify as one of:
 1. "simple_query" - Questions, explanations, info lookup, definitions
    Examples: "What is Python?", "Explain recursion", "How do I use async?"
 
-2. "complex_task" - Building projects, creating applications, multi-step CODE work
+2. "complex_task" - Building projects, creating applications, multi-step CODE GENERATION
    Examples: "Build a website", "Create a REST API", "Code a game"
-   Note: Use this ONLY for tasks that require writing code files
+   Note: Use this ONLY for tasks that require CREATING/BUILDING new code
+   NEVER use for code analysis, code review, or examining existing code
 
 3. "document_processing" - Analyze/process/transform attached documents into output
    Examples: "Make me a resume from this document", "Summarize this file",
@@ -564,20 +565,24 @@ Classify as one of:
    "Make this into a Word document", "Export to Excel"
    Note: Use when user wants to create actual files from content
 
-6. "file_system_access" - Listing directories, reading external files
+6. "file_system_access" - Listing directories, reading external files, CODE ANALYSIS
    Examples: "List files in D:/Documents", "Show me what's in /home/user",
-   "Read the file at C:/Users/Kevin/notes.txt", "Open D:/project/config.json"
-   Note: Use when user wants to browse or read files from external paths
+   "Read the file at C:/Users/Kevin/notes.txt", "Open D:/project/config.json",
+   "Analyze the code in D:/myproject", "Review files in /home/user/src"
+   Note: Use when user wants to browse, read, ANALYZE, or REVIEW files from external paths
+   IMPORTANT: Code analysis/review requests with paths should use THIS type, NOT complex_task
 
 7. "conversation" - Casual chat, greetings, unclear requests
    Examples: "Hello", "Thanks!", "Can you help?"
 
 Consider:
 - Does user have attached files that need analysis? -> document_processing
-- Is the output code/software? -> complex_task
+- Is the output NEW code/software being CREATED? -> complex_task
 - Is it processing documents to produce documents? -> document_processing
 - Is user asking to create/save a file (PDF, Word, etc.)? -> file_creation
 - Is user asking to browse directories or read external files? -> file_system_access
+- Is user asking to ANALYZE, REVIEW, or EXAMINE existing code? -> file_system_access (NOT complex_task!)
+- Does the request mention an external path AND analysis/review keywords? -> file_system_access
 
 Return ONLY valid JSON (no markdown):
 {{
@@ -631,6 +636,13 @@ Return ONLY valid JSON (no markdown):
             "read file", "open file", "read the file", "show me the file"
         ]
 
+        # CODE ANALYSIS keywords - these should READ code, not BUILD things
+        code_analysis_keywords = [
+            "analyze", "review", "investigate", "check", "inspect",
+            "look at", "examine", "audit", "find inconsistencies",
+            "find issues", "find bugs", "find errors", "scan"
+        ]
+
         # Path patterns indicating external file system access
         import re
         has_windows_path = bool(re.search(r'[A-Za-z]:[/\\]', message))
@@ -643,6 +655,15 @@ Return ONLY valid JSON (no markdown):
                 type=IntentType.FILE_CREATION,
                 confidence=0.85,
                 reasoning="Detected file creation/export keywords",
+                requires_orchestrator=False
+            )
+
+        # CODE ANALYSIS with external path - should READ, not BUILD
+        if has_external_path and any(kw in message_lower for kw in code_analysis_keywords):
+            return Intent(
+                type=IntentType.FILE_SYSTEM_ACCESS,
+                confidence=0.90,
+                reasoning="Detected code analysis request with external path - will read and analyze",
                 requires_orchestrator=False
             )
 
@@ -681,10 +702,12 @@ Return ONLY valid JSON (no markdown):
                 requires_orchestrator=False
             )
 
-        # Complex task keywords (for CODE generation)
+        # Complex task keywords (for CODE GENERATION - building new things)
+        # Note: "analyze", "review" should NOT trigger this
         complex_keywords = [
-            "build", "code", "develop", "implement", "program",
-            "website", "app", "application", "api", "system"
+            "build", "develop", "implement", "program",
+            "website", "app", "application", "api", "system",
+            "create a", "make a", "generate a"
         ]
 
         # File operation keywords
@@ -693,8 +716,9 @@ Return ONLY valid JSON (no markdown):
             "bug", ".py", ".js", ".css", ".html", "line"
         ]
 
-        # Only use complex_task for actual code-writing tasks
-        if any(kw in message_lower for kw in complex_keywords) and not has_attached_files:
+        # Only use complex_task for actual code-BUILDING tasks (not analysis)
+        is_analysis_request = any(kw in message_lower for kw in code_analysis_keywords)
+        if any(kw in message_lower for kw in complex_keywords) and not has_attached_files and not is_analysis_request:
             return Intent(
                 type=IntentType.COMPLEX_TASK,
                 confidence=0.7,

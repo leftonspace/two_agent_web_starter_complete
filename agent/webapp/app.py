@@ -147,6 +147,14 @@ try:
 except ImportError as e:
     print(f"[Startup] Finance API not available: {e}")
 
+# ADMIN API: Include admin tools for email, calendar, and workflow automation
+try:
+    from admin_api import router as admin_router
+    app.include_router(admin_router)
+    print("[Startup] Admin API loaded (email, calendar, workflow automation)")
+except ImportError as e:
+    print(f"[Startup] Admin API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 

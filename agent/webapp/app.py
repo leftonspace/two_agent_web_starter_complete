@@ -1359,31 +1359,31 @@ async def api_get_approvals(
 @app.post("/api/approvals/{request_id}/approve")
 async def api_approve_request(
     request_id: str,
-    approver_user_id: str = Form(...),
-    approver_role: Optional[str] = Form(None),
-    comments: Optional[str] = Form(None)
+    comments: Optional[str] = Form(None),
+    current_user: User = Depends(require_auth)  # SECURITY: Use authenticated user
 ):
     """
     Approve an approval request.
 
     PHASE 3.1: Processes an approval decision.
+    SECURITY: Uses authenticated user from session, not client-supplied data.
 
     Args:
         request_id: ID of the approval request
-        approver_user_id: ID of the user approving
-        approver_role: Role of the approver
         comments: Optional comments
+        current_user: Authenticated user from session
 
     Returns:
         JSON with updated request status
     """
     try:
+        # SECURITY: Use authenticated user's ID and role from session
         updated_request = approval_engine.process_decision(
             request_id=request_id,
-            approver_user_id=approver_user_id,
+            approver_user_id=current_user.id,
             decision=DecisionType.APPROVE,
             comments=comments,
-            approver_role=approver_role
+            approver_role=current_user.role
         )
 
         return {
@@ -1396,37 +1396,37 @@ async def api_approve_request(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to approve request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to approve request")
 
 
 @app.post("/api/approvals/{request_id}/reject")
 async def api_reject_request(
     request_id: str,
-    approver_user_id: str = Form(...),
-    approver_role: Optional[str] = Form(None),
-    comments: Optional[str] = Form(None)
+    comments: Optional[str] = Form(None),
+    current_user: User = Depends(require_auth)  # SECURITY: Use authenticated user
 ):
     """
     Reject an approval request.
 
     PHASE 3.1: Processes a rejection decision.
+    SECURITY: Uses authenticated user from session, not client-supplied data.
 
     Args:
         request_id: ID of the approval request
-        approver_user_id: ID of the user rejecting
-        approver_role: Role of the approver
         comments: Optional comments
+        current_user: Authenticated user from session
 
     Returns:
         JSON with updated request status
     """
     try:
+        # SECURITY: Use authenticated user's ID and role from session
         updated_request = approval_engine.process_decision(
             request_id=request_id,
-            approver_user_id=approver_user_id,
+            approver_user_id=current_user.id,
             decision=DecisionType.REJECT,
             comments=comments,
-            approver_role=approver_role
+            approver_role=current_user.role
         )
 
         return {
@@ -1439,37 +1439,37 @@ async def api_reject_request(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to reject request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to reject request")
 
 
 @app.post("/api/approvals/{request_id}/escalate")
 async def api_escalate_request(
     request_id: str,
-    approver_user_id: str = Form(...),
-    approver_role: Optional[str] = Form(None),
-    comments: Optional[str] = Form(None)
+    comments: Optional[str] = Form(None),
+    current_user: User = Depends(require_auth)  # SECURITY: Use authenticated user
 ):
     """
     Escalate an approval request.
 
     PHASE 3.1: Escalates a request to the next level.
+    SECURITY: Uses authenticated user from session, not client-supplied data.
 
     Args:
         request_id: ID of the approval request
-        approver_user_id: ID of the user escalating
-        approver_role: Role of the approver
         comments: Optional comments
+        current_user: Authenticated user from session
 
     Returns:
         JSON with updated request status
     """
     try:
+        # SECURITY: Use authenticated user's ID and role from session
         updated_request = approval_engine.process_decision(
             request_id=request_id,
-            approver_user_id=approver_user_id,
+            approver_user_id=current_user.id,
             decision=DecisionType.ESCALATE,
             comments=comments,
-            approver_role=approver_role
+            approver_role=current_user.role
         )
 
         return {
@@ -1482,7 +1482,7 @@ async def api_escalate_request(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to escalate request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to escalate request")
 
 
 @app.get("/api/approvals/{request_id}")

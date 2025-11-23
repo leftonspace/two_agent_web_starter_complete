@@ -1,0 +1,205 @@
+{
+  "name": "jarvis-ai-assistant",
+  "displayName": "JARVIS AI Assistant",
+  "description": "AI-powered coding assistant with inline suggestions, chat sidebar, and code review",
+  "version": "1.0.0",
+  "publisher": "jarvis-ai",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "assistant",
+    "copilot",
+    "code completion",
+    "jarvis"
+  ],
+  "icon": "media/jarvis-icon.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "jarvis.openChat",
+        "title": "JARVIS: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "jarvis.explainCode",
+        "title": "JARVIS: Explain Selected Code"
+      },
+      {
+        "command": "jarvis.improveCode",
+        "title": "JARVIS: Improve Selected Code"
+      },
+      {
+        "command": "jarvis.generateTests",
+        "title": "JARVIS: Generate Tests for Selection"
+      },
+      {
+        "command": "jarvis.reviewCode",
+        "title": "JARVIS: Review Current File"
+      },
+      {
+        "command": "jarvis.generateCommitMessage",
+        "title": "JARVIS: Generate Commit Message"
+      },
+      {
+        "command": "jarvis.askAboutCode",
+        "title": "JARVIS: Ask About Code"
+      },
+      {
+        "command": "jarvis.inlineComplete",
+        "title": "JARVIS: Trigger Inline Completion"
+      },
+      {
+        "command": "jarvis.indexWorkspace",
+        "title": "JARVIS: Index Workspace"
+      },
+      {
+        "command": "jarvis.securityScan",
+        "title": "JARVIS: Security Scan"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "jarvis-sidebar",
+          "title": "JARVIS",
+          "icon": "media/jarvis-sidebar.svg"
+        }
+      ]
+    },
+    "views": {
+      "jarvis-sidebar": [
+        {
+          "type": "webview",
+          "id": "jarvis.chatView",
+          "name": "Chat"
+        },
+        {
+          "id": "jarvis.codebaseView",
+          "name": "Codebase Index"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "jarvis.explainCode",
+          "when": "editorHasSelection",
+          "group": "jarvis@1"
+        },
+        {
+          "command": "jarvis.improveCode",
+          "when": "editorHasSelection",
+          "group": "jarvis@2"
+        },
+        {
+          "command": "jarvis.generateTests",
+          "when": "editorHasSelection",
+          "group": "jarvis@3"
+        },
+        {
+          "command": "jarvis.askAboutCode",
+          "when": "editorHasSelection",
+          "group": "jarvis@4"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "jarvis.openChat"
+        },
+        {
+          "command": "jarvis.reviewCode"
+        },
+        {
+          "command": "jarvis.generateCommitMessage"
+        },
+        {
+          "command": "jarvis.securityScan"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "jarvis.openChat",
+        "key": "ctrl+shift+j",
+        "mac": "cmd+shift+j"
+      },
+      {
+        "command": "jarvis.inlineComplete",
+        "key": "ctrl+shift+space",
+        "mac": "cmd+shift+space",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "jarvis.explainCode",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      }
+    ],
+    "configuration": {
+      "title": "JARVIS AI Assistant",
+      "properties": {
+        "jarvis.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:5000",
+          "description": "URL of the JARVIS server"
+        },
+        "jarvis.enableInlineCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline code completion suggestions"
+        },
+        "jarvis.completionDelay": {
+          "type": "number",
+          "default": 500,
+          "description": "Delay in milliseconds before showing completions"
+        },
+        "jarvis.maxCompletionTokens": {
+          "type": "number",
+          "default": 150,
+          "description": "Maximum tokens for inline completions"
+        },
+        "jarvis.enableCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show JARVIS actions as CodeLens"
+        },
+        "jarvis.autoIndexWorkspace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically index workspace on startup"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

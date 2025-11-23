@@ -1,131 +1,104 @@
-# Complete Installation Guide
+# JARVIS 2.0 Installation Guide
 
-Complete installation requirements for the Department-in-a-Box system from scratch.
+**Version:** 2.0.0
+**Date:** November 23, 2025
+
+Complete installation guide for JARVIS 2.0 - the AI Agent Orchestration Platform.
+
+---
+
+## Table of Contents
+
+1. [System Requirements](#system-requirements)
+2. [Quick Install](#quick-install)
+3. [Detailed Installation](#detailed-installation)
+4. [Configuration Files](#configuration-files)
+5. [Voice System Setup](#voice-system-setup)
+6. [Vision System Setup](#vision-system-setup)
+7. [Database Setup](#database-setup)
+8. [Verification](#verification)
+9. [Production Deployment](#production-deployment)
+10. [Troubleshooting](#troubleshooting)
+
+---
 
 ## System Requirements
 
 ### Operating System
-- **Linux** (Ubuntu 20.04+, Debian 10+, CentOS 8+)
+- **Linux** (Ubuntu 20.04+, Debian 10+, CentOS 8+) - Recommended
 - **macOS** (10.15+)
-- **Windows** (WSL2 recommended)
+- **Windows** (WSL2 recommended) - See [WINDOWS_SETUP_GUIDE.md](./WINDOWS_SETUP_GUIDE.md)
 
 ### Hardware
-- **CPU:** 2+ cores
-- **RAM:** 4GB minimum, 8GB recommended
-- **Disk:** 10GB free space
-- **Network:** Internet connection for package downloads
+- **CPU:** 2+ cores (4+ recommended)
+- **RAM:** 8GB minimum, 16GB recommended
+- **Disk:** 20GB free space (more for local LLMs)
+- **GPU:** Optional, for local LLM inference
+
+### Software Prerequisites
+- Python 3.9+ (3.11 recommended)
+- Git 2.30+
+- SQLite3
+- Node.js 18+ (optional, for frontend development)
 
 ---
 
-## Part 1: Core System Dependencies
+## Quick Install
 
-### 1. Python 3.8+
-
-**Check if installed:**
 ```bash
-python3 --version
+# Clone repository
+git clone https://github.com/your-org/jarvis.git
+cd jarvis
+
+# Run automated setup
+./scripts/install.sh
+
+# Configure environment
+cp .env.example .env
+nano .env  # Add your API keys
+
+# Start JARVIS
+python -m agent.webapp.app
 ```
 
-**Ubuntu/Debian:**
+---
+
+## Detailed Installation
+
+### Part 1: System Dependencies
+
+#### Ubuntu/Debian
+
 ```bash
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-venv python3-dev
+sudo apt-get install -y \
+    python3 python3-pip python3-venv python3-dev \
+    git sqlite3 libsqlite3-dev \
+    build-essential libssl-dev libffi-dev pkg-config \
+    ffmpeg libportaudio2  # For voice system
 ```
 
-**macOS:**
+#### macOS
+
 ```bash
-# Install Homebrew if not installed
+# Install Homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Install Python
-brew install python@3.11
+# Install dependencies
+brew install python@3.11 git sqlite3 openssl libffi pkg-config
+brew install ffmpeg portaudio  # For voice system
 ```
 
-**CentOS/RHEL:**
-```bash
-sudo yum install -y python3 python3-pip python3-devel
-```
+#### CentOS/RHEL
 
-**Windows (WSL2):**
-```bash
-# First install WSL2, then:
-sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-venv python3-dev
-```
-
-### 2. Git
-
-**Check if installed:**
-```bash
-git --version
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install -y git
-```
-
-**macOS:**
-```bash
-brew install git
-```
-
-**CentOS/RHEL:**
-```bash
-sudo yum install -y git
-```
-
-### 3. SQLite3
-
-**Check if installed:**
-```bash
-sqlite3 --version
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install -y sqlite3 libsqlite3-dev
-```
-
-**macOS:**
-```bash
-brew install sqlite3
-```
-
-**CentOS/RHEL:**
-```bash
-sudo yum install -y sqlite sqlite-devel
-```
-
-### 4. Build Tools (Required for Python packages)
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install -y \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
-    python3-dev \
-    pkg-config
-```
-
-**macOS:**
-```bash
-xcode-select --install
-brew install openssl libffi pkg-config
-```
-
-**CentOS/RHEL:**
 ```bash
 sudo yum groupinstall -y "Development Tools"
-sudo yum install -y openssl-devel libffi-devel
+sudo yum install -y python3 python3-pip python3-devel \
+    git sqlite sqlite-devel openssl-devel libffi-devel \
+    ffmpeg portaudio-devel
 ```
 
----
-
-## Part 2: Python Dependencies
-
-### 1. Create Virtual Environment (Recommended)
+### Part 2: Python Environment
 
 ```bash
 cd /home/user/two_agent_web_starter_complete
@@ -133,298 +106,363 @@ cd /home/user/two_agent_web_starter_complete
 # Create virtual environment
 python3 -m venv venv
 
-# Activate (Linux/macOS)
+# Activate virtual environment
 source venv/bin/activate
 
-# Activate (Windows WSL)
-source venv/bin/activate
-```
-
-### 2. Upgrade pip
-
-```bash
+# Upgrade pip
 pip install --upgrade pip setuptools wheel
 ```
 
-### 3. Install Core Dependencies
-
-**Required for all functionality:**
-```bash
-pip install \
-    fastapi==0.104.1 \
-    uvicorn[standard]==0.24.0 \
-    aiohttp==3.9.0 \
-    jinja2==3.1.2 \
-    python-multipart==0.0.6 \
-    cryptography==41.0.7
-```
-
-**Explanation:**
-- `fastapi` - Web framework for REST API
-- `uvicorn` - ASGI server for FastAPI
-- `aiohttp` - Async HTTP client for integrations
-- `jinja2` - Template engine for web UI
-- `python-multipart` - Form data parsing
-- `cryptography` - Credential encryption (Fernet)
-
-### 4. Install Database Drivers
-
-**For PostgreSQL support:**
-```bash
-pip install asyncpg==0.29.0
-```
-
-**For MySQL support:**
-```bash
-pip install aiomysql==0.2.0
-```
-
-**For SQLite support (async):**
-```bash
-pip install aiosqlite==0.19.0
-```
-
-**Install all database drivers:**
-```bash
-pip install asyncpg==0.29.0 aiomysql==0.2.0 aiosqlite==0.19.0
-```
-
-### 5. Install Optional Dependencies
-
-**For enhanced functionality:**
-```bash
-pip install \
-    python-dotenv==1.0.0 \
-    pyyaml==6.0.1 \
-    requests==2.31.0 \
-    pydantic==2.5.0
-```
-
-**Explanation:**
-- `python-dotenv` - Environment variable management
-- `pyyaml` - YAML configuration files
-- `requests` - Synchronous HTTP client (for tools)
-- `pydantic` - Data validation
-
----
-
-## Part 3: Complete Requirements File
-
-### Create requirements.txt
+### Part 3: Install Python Dependencies
 
 ```bash
-cat > /home/user/two_agent_web_starter_complete/requirements.txt << 'EOF'
-# Core Web Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-jinja2==3.1.2
-python-multipart==0.0.6
-
-# HTTP Client & Async
-aiohttp==3.9.0
-httpx==0.25.2
-
-# Security & Encryption
-cryptography==41.0.7
-
-# Database Drivers
-asyncpg==0.29.0        # PostgreSQL
-aiomysql==0.2.0        # MySQL
-aiosqlite==0.19.0      # SQLite
-
-# Data Validation & Parsing
-pydantic==2.5.0
-python-dotenv==1.0.0
-pyyaml==6.0.1
-
-# Utilities
-requests==2.31.0
-python-dateutil==2.8.2
-
-# Optional: Enhanced Features
-# Uncomment if needed:
-# redis==5.0.1          # For caching
-# celery==5.3.4         # For background tasks
-# prometheus-client     # For metrics
-EOF
-```
-
-### Install from requirements.txt
-
-```bash
-cd /home/user/two_agent_web_starter_complete
+# Install all requirements
 pip install -r requirements.txt
 ```
 
----
-
-## Part 4: Optional Database Servers
-
-### PostgreSQL (Optional - for production)
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install -y postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Create database and user
-sudo -u postgres psql << EOF
-CREATE DATABASE department_box;
-CREATE USER dbuser WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE department_box TO dbuser;
-\q
-EOF
-```
-
-**macOS:**
-```bash
-brew install postgresql@15
-brew services start postgresql@15
-
-# Create database
-createdb department_box
-```
-
-**Connection String:**
-```
-postgresql://dbuser:your_password@localhost:5432/department_box
-```
-
-### MySQL (Optional - for production)
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install -y mysql-server
-sudo systemctl start mysql
-sudo systemctl enable mysql
-
-# Secure installation
-sudo mysql_secure_installation
-
-# Create database and user
-sudo mysql << EOF
-CREATE DATABASE department_box;
-CREATE USER 'dbuser'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON department_box.* TO 'dbuser'@'localhost';
-FLUSH PRIVILEGES;
-EXIT;
-EOF
-```
-
-**macOS:**
-```bash
-brew install mysql
-brew services start mysql
-
-# Create database
-mysql -u root << EOF
-CREATE DATABASE department_box;
-EXIT;
-EOF
-```
-
-**Connection String:**
-```
-mysql://dbuser:your_password@localhost:3306/department_box
-```
-
----
-
-## Part 5: System Configuration
-
-### 1. Create Data Directory
+**Or install manually:**
 
 ```bash
-cd /home/user/two_agent_web_starter_complete
+# Core Web Framework
+pip install fastapi==0.104.1 uvicorn[standard]==0.24.0 jinja2==3.1.2 python-multipart==0.0.6
+
+# HTTP Client & Async
+pip install aiohttp==3.9.0 httpx==0.25.2
+
+# LLM Providers
+pip install anthropic>=0.18.0 openai>=1.12.0
+
+# Security & Encryption
+pip install cryptography==41.0.7 pyjwt==2.8.0
+
+# Database Drivers
+pip install asyncpg==0.29.0 aiomysql==0.2.0 aiosqlite==0.19.0
+
+# Data Validation & Configuration
+pip install pydantic==2.5.0 python-dotenv==1.0.0 pyyaml==6.0.1
+
+# Memory System
+pip install chromadb==0.4.22 sentence-transformers==2.2.2
+
+# Voice System (optional)
+pip install elevenlabs==0.2.27 openai-whisper==20231117 sounddevice==0.4.6 numpy==1.26.2
+
+# Vision System (optional)
+pip install pillow==10.1.0
+
+# Utilities
+pip install requests==2.31.0 python-dateutil==2.8.2 networkx==3.2.1
+```
+
+### Part 4: Create Configuration Directory
+
+```bash
+mkdir -p config
 mkdir -p data
 mkdir -p logs
-mkdir -p run_logs_main
-mkdir -p run_workflows
-
-# Set permissions
-chmod 755 data
-chmod 755 logs
+mkdir -p artifacts
 ```
 
-### 2. Create Environment File
+### Part 5: Environment Configuration
+
+Create `.env` file:
 
 ```bash
-cat > /home/user/two_agent_web_starter_complete/.env << 'EOF'
-# Application Settings
-APP_ENV=development
-APP_DEBUG=true
-APP_PORT=8000
+cat > .env << 'EOF'
+# =============================================================================
+# JARVIS 2.0 Environment Configuration
+# =============================================================================
 
-# Database (if using PostgreSQL/MySQL)
-# DATABASE_URL=postgresql://dbuser:password@localhost:5432/department_box
-# DATABASE_URL=mysql://dbuser:password@localhost:3306/department_box
+# LLM Provider API Keys (at least one required)
+ANTHROPIC_API_KEY=sk-ant-api03-...
+OPENAI_API_KEY=sk-...
 
-# Integration Security
-INTEGRATION_MASTER_KEY=your-secure-key-here-change-in-production
+# Optional LLM Providers
+DEEPSEEK_API_KEY=
+QWEN_API_KEY=
 
-# Session Secret (change in production)
-SESSION_SECRET=your-session-secret-here-change-in-production
+# Voice System (optional - for voice features)
+ELEVENLABS_API_KEY=
+VOICE_ID=
 
-# API Keys (add as needed)
-# BAMBOOHR_API_KEY=your-bamboohr-key
-# GOOGLE_API_KEY=your-google-key
+# Database
+DATABASE_URL=sqlite:///data/jarvis.db
 
-# Rate Limiting
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=60
+# Security
+SECRET_KEY=your-secret-key-change-in-production
+JWT_EXPIRATION_HOURS=24
+
+# Features (true/false)
+ENABLE_COUNCIL=true
+ENABLE_MEMORY=true
+ENABLE_FLOWS=true
+ENABLE_VOICE=true
+ENABLE_VISION=true
 
 # Logging
 LOG_LEVEL=INFO
-LOG_FILE=logs/app.log
+LOG_FORMAT=json
+LOG_FILE=logs/jarvis.log
+
+# Performance
+MAX_CONCURRENT_TASKS=10
+CACHE_TTL_SECONDS=3600
+CONNECTION_POOL_SIZE=10
+
+# Application
+APP_ENV=development
+APP_DEBUG=true
+APP_PORT=8000
 EOF
 
+# Secure the file
 chmod 600 .env
 ```
 
-### 3. Initialize Database Schema
+### Part 6: YAML Configuration Files
+
+#### agents.yaml
 
 ```bash
-cd /home/user/two_agent_web_starter_complete
+cat > config/agents.yaml << 'EOF'
+version: "2.0"
+metadata:
+  author: "admin"
+  description: "Default JARVIS 2.0 agent configuration"
 
-# Run approval workflow migration
-python agent/migrations/001_approval_workflows.py
+agents:
+  - id: jarvis
+    name: "JARVIS"
+    role: "Master Orchestrator"
+    goal: "Orchestrate all AI agents and assist users with any task"
+    backstory: |
+      JARVIS is the master AI assistant, inspired by the AI from Iron Man.
+      Speaks with a refined British butler persona, always professional
+      and slightly witty.
+    specialization: orchestration
+    llm_config:
+      provider: anthropic
+      model: claude-3-sonnet
+      temperature: 0.7
+
+  - id: developer
+    name: "Code Employee"
+    role: "Software Developer"
+    goal: "Write clean, efficient, well-tested code"
+    specialization: coding
+    tools:
+      - code_executor
+      - file_manager
+      - git_operations
+    llm_config:
+      provider: anthropic
+      model: claude-3-sonnet
+      temperature: 0.3
+EOF
 ```
 
-**Expected output:**
-```
-================================================================================
-Starting Approval Workflow Migration
-================================================================================
-...
-✓ Migration Complete!
+#### llm_config.yaml
+
+```bash
+cat > config/llm_config.yaml << 'EOF'
+version: "2.0"
+
+defaults:
+  provider: anthropic
+  model: claude-3-sonnet
+  temperature: 0.7
+  max_tokens: 4096
+  timeout_seconds: 60
+
+providers:
+  anthropic:
+    enabled: true
+    api_key_env: ANTHROPIC_API_KEY
+    models:
+      claude-3-opus:
+        max_tokens: 4096
+        supports_vision: true
+      claude-3-sonnet:
+        max_tokens: 4096
+        supports_vision: true
+      claude-3-haiku:
+        max_tokens: 4096
+        supports_vision: true
+
+  openai:
+    enabled: true
+    api_key_env: OPENAI_API_KEY
+    models:
+      gpt-4-turbo:
+        max_tokens: 128000
+        supports_vision: true
+      gpt-4:
+        max_tokens: 8192
+      gpt-3.5-turbo:
+        max_tokens: 16385
+
+routing:
+  cost_optimization: true
+  failover_enabled: true
+EOF
 ```
 
 ---
 
-## Part 6: Verification & Testing
+## Configuration Files
 
-### 1. Verify Python Installation
+JARVIS 2.0 uses YAML-based configuration:
+
+| File | Purpose |
+|------|---------|
+| `config/agents.yaml` | Agent definitions |
+| `config/tasks.yaml` | Task templates |
+| `config/llm_config.yaml` | LLM provider settings |
+| `config/flows.yaml` | Workflow definitions |
+| `config/memory.yaml` | Memory system settings |
+| `config/council.yaml` | Council voting settings |
+| `config/patterns.yaml` | Orchestration patterns |
+
+See [JARVIS_2_0_CONFIGURATION_GUIDE.md](./JARVIS_2_0_CONFIGURATION_GUIDE.md) for detailed configuration options.
+
+---
+
+## Voice System Setup
+
+### Option 1: ElevenLabs (Recommended for JARVIS voice)
+
+1. **Get API Key:**
+   - Sign up at https://elevenlabs.io
+   - Get API key from dashboard
+   - Add to `.env`: `ELEVENLABS_API_KEY=...`
+
+2. **Clone/Create Voice:**
+   - Go to ElevenLabs Voice Lab
+   - Clone a British accent voice or create custom
+   - Copy voice ID to `.env`: `VOICE_ID=...`
+
+### Option 2: OpenAI TTS (Fallback)
+
+```bash
+# Already configured if OPENAI_API_KEY is set
+# Uses "onyx" voice by default
+```
+
+### Speech-to-Text (Whisper)
+
+```bash
+# Install Whisper for local STT
+pip install openai-whisper
+
+# Download model (first use will auto-download)
+python -c "import whisper; whisper.load_model('base')"
+```
+
+### Audio Dependencies
+
+```bash
+# Linux
+sudo apt-get install -y ffmpeg libportaudio2
+
+# macOS
+brew install ffmpeg portaudio
+
+# Test audio
+python -c "import sounddevice; print(sounddevice.query_devices())"
+```
+
+---
+
+## Vision System Setup
+
+### GPT-4 Vision
+
+```bash
+# Already configured if OPENAI_API_KEY is set
+# Supports image analysis via GPT-4 Vision
+```
+
+### Claude Vision
+
+```bash
+# Already configured if ANTHROPIC_API_KEY is set
+# Supports image analysis via Claude 3 Vision
+```
+
+### Image Processing
+
+```bash
+# Install Pillow for image processing
+pip install pillow
+
+# Test
+python -c "from PIL import Image; print('Pillow OK')"
+```
+
+---
+
+## Database Setup
+
+### SQLite (Default - Development)
+
+```bash
+# Initialize database
+python -c "
+from pathlib import Path
+import sqlite3
+
+db_path = Path('data/jarvis.db')
+db_path.parent.mkdir(parents=True, exist_ok=True)
+
+conn = sqlite3.connect(db_path)
+conn.execute('CREATE TABLE IF NOT EXISTS system_info (key TEXT PRIMARY KEY, value TEXT)')
+conn.execute('INSERT OR REPLACE INTO system_info VALUES (?, ?)', ('version', '2.0.0'))
+conn.commit()
+conn.close()
+print('✓ Database initialized')
+"
+```
+
+### PostgreSQL (Production)
+
+```bash
+# Install driver
+pip install asyncpg
+
+# Update .env
+DATABASE_URL=postgresql://user:pass@localhost:5432/jarvis
+
+# Create database
+psql -U postgres << EOF
+CREATE DATABASE jarvis;
+CREATE USER jarvis_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE jarvis TO jarvis_user;
+EOF
+```
+
+### Run Migrations
+
+```bash
+python -m agent.migrate.database --auto
+```
+
+---
+
+## Verification
+
+### Step 1: Verify Dependencies
 
 ```bash
 python3 << 'EOF'
 import sys
-print(f"Python version: {sys.version}")
+print(f"Python: {sys.version}")
 
-# Check required modules
 modules = [
-    'fastapi',
-    'uvicorn',
-    'aiohttp',
-    'cryptography',
-    'asyncpg',
-    'aiomysql',
-    'aiosqlite',
-    'jinja2',
-    'pydantic'
+    'fastapi', 'uvicorn', 'aiohttp', 'anthropic', 'openai',
+    'cryptography', 'pydantic', 'yaml', 'jinja2', 'chromadb'
 ]
 
-print("\nChecking installed modules:")
+print("\nChecking modules:")
 for module in modules:
     try:
         __import__(module)
@@ -434,384 +472,163 @@ for module in modules:
 EOF
 ```
 
-**Expected output:**
-```
-Python version: 3.x.x
-Checking installed modules:
-  ✓ fastapi
-  ✓ uvicorn
-  ✓ aiohttp
-  ✓ cryptography
-  ✓ asyncpg
-  ✓ aiomysql
-  ✓ aiosqlite
-  ✓ jinja2
-  ✓ pydantic
-```
-
-### 2. Run Unit Tests
+### Step 2: Validate Configuration
 
 ```bash
-cd /home/user/two_agent_web_starter_complete
-python tests/test_approval_workflows.py
+python -m agent.config validate
 ```
 
-**Expected output:**
-```
-================================================================================
-TEST SUMMARY
-================================================================================
-Total Tests: 10
-Passed: 10 (100.0%)
-Failed: 0 (0.0%)
-================================================================================
-```
-
-### 3. Start Web Server
+### Step 3: Test LLM Connection
 
 ```bash
-cd /home/user/two_agent_web_starter_complete/agent/webapp
+python -c "
+from agent.llm import get_router
+import asyncio
+
+async def test():
+    router = get_router()
+    result = await router.health_check()
+    print('LLM Health:', result)
+
+asyncio.run(test())
+"
+```
+
+### Step 4: Start Server
+
+```bash
+cd agent/webapp
 python app.py
 ```
 
-**Expected output:**
-```
-============================================================
-  AI Dev Team Dashboard
-============================================================
-  Starting web server on http://127.0.0.1:8000
-  Press Ctrl+C to stop
-============================================================
-INFO:     Started server process [12345]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000
-```
+### Step 5: Test Endpoints
 
-### 4. Test Web Server
-
-In a new terminal:
 ```bash
+# Health check
 curl http://127.0.0.1:8000/health
+
+# API docs
+open http://127.0.0.1:8000/docs
 ```
 
-**Expected output:**
-```json
-{"status":"ok"}
-```
+### Step 6: Access Web Interface
 
-### 5. Test Web UI
-
-Open browser: `http://127.0.0.1:8000`
-
-**You should see:**
-- Main dashboard
-- Navigation menu
-- Project selection
+Open browser: http://127.0.0.1:8000/jarvis
 
 ---
 
-## Part 7: Optional Enhancements
+## Production Deployment
 
-### 1. Redis (For Caching)
+### 1. Nginx Reverse Proxy
 
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install -y redis-server
-sudo systemctl start redis-server
-sudo systemctl enable redis-server
-
-# Python client
-pip install redis==5.0.1
-```
-
-**macOS:**
-```bash
-brew install redis
-brew services start redis
-
-pip install redis==5.0.1
-```
-
-### 2. Nginx (For Production Deployment)
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install -y nginx
-
-# Create site configuration
-sudo cat > /etc/nginx/sites-available/department-box << 'EOF'
+```nginx
 server {
     listen 80;
-    server_name your-domain.com;
+    server_name jarvis.yourdomain.com;
 
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 }
-EOF
-
-sudo ln -s /etc/nginx/sites-available/department-box /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
 ```
 
-### 3. Systemd Service (For Production)
+### 2. Systemd Service
 
 ```bash
-sudo cat > /etc/systemd/system/department-box.service << 'EOF'
+sudo cat > /etc/systemd/system/jarvis.service << 'EOF'
 [Unit]
-Description=Department in a Box
+Description=JARVIS 2.0 AI Agent Platform
 After=network.target
 
 [Service]
 Type=simple
-User=your-user
-WorkingDirectory=/home/user/two_agent_web_starter_complete/agent/webapp
+User=jarvis
+WorkingDirectory=/home/user/two_agent_web_starter_complete
 Environment="PATH=/home/user/two_agent_web_starter_complete/venv/bin"
-ExecStart=/home/user/two_agent_web_starter_complete/venv/bin/python app.py
+ExecStart=/home/user/two_agent_web_starter_complete/venv/bin/python -m agent.webapp.app
 Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable department-box
-sudo systemctl start department-box
+sudo systemctl enable jarvis
+sudo systemctl start jarvis
 ```
 
-### 4. SSL/TLS with Certbot
+### 3. SSL with Certbot
 
 ```bash
-# Ubuntu/Debian
 sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d jarvis.yourdomain.com
+```
 
-# Generate certificate
-sudo certbot --nginx -d your-domain.com
+### 4. Production Environment
+
+```bash
+# Update .env for production
+APP_ENV=production
+APP_DEBUG=false
+LOG_LEVEL=WARNING
+SECRET_KEY=<generate-strong-key>
 ```
 
 ---
 
-## Part 8: Development Tools (Optional)
-
-### 1. Code Quality Tools
-
-```bash
-pip install \
-    black==23.11.0 \
-    flake8==6.1.0 \
-    mypy==1.7.1 \
-    pylint==3.0.3 \
-    isort==5.12.0
-```
-
-### 2. Testing Tools
-
-```bash
-pip install \
-    pytest==7.4.3 \
-    pytest-asyncio==0.21.1 \
-    pytest-cov==4.1.0 \
-    httpx==0.25.2
-```
-
-### 3. Documentation Tools
-
-```bash
-pip install \
-    sphinx==7.2.6 \
-    sphinx-rtd-theme==2.0.0
-```
-
----
-
-## Part 9: Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
-**1. Permission Denied Errors**
+| Issue | Solution |
+|-------|----------|
+| `ModuleNotFoundError` | Run `pip install -r requirements.txt` |
+| Port 8000 in use | `lsof -ti:8000 \| xargs kill -9` |
+| Database locked | Use PostgreSQL for production |
+| API key invalid | Check `.env` file, no quotes needed |
+| Voice not working | Install ffmpeg and portaudio |
+| Camera permission denied | Use HTTPS in production |
+
+### Debug Mode
+
 ```bash
-# Fix directory permissions
-sudo chown -R $USER:$USER /home/user/two_agent_web_starter_complete
-chmod -R 755 /home/user/two_agent_web_starter_complete
-chmod 600 /home/user/two_agent_web_starter_complete/.env
+# Enable debug logging
+export LOG_LEVEL=DEBUG
+export APP_DEBUG=true
+python -m agent.webapp.app
 ```
 
-**2. Port 8000 Already in Use**
-```bash
-# Find process
-lsof -ti:8000
+### View Logs
 
-# Kill process
-lsof -ti:8000 | xargs kill -9
+```bash
+tail -f logs/jarvis.log
 ```
 
-**3. Python Module Not Found**
-```bash
-# Verify Python path
-python3 -c "import sys; print('\n'.join(sys.path))"
-
-# Reinstall packages
-pip install --force-reinstall -r requirements.txt
-```
-
-**4. Database Connection Errors**
-```bash
-# Check PostgreSQL
-sudo systemctl status postgresql
-
-# Check MySQL
-sudo systemctl status mysql
-
-# Check SQLite permissions
-ls -la data/*.db
-chmod 644 data/*.db
-```
-
-**5. Cryptography Installation Fails**
-```bash
-# Ubuntu/Debian - Install dependencies
-sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev
-
-# macOS - Install OpenSSL
-brew install openssl
-export LDFLAGS="-L/usr/local/opt/openssl/lib"
-export CPPFLAGS="-I/usr/local/opt/openssl/include"
-pip install cryptography
-```
-
----
-
-## Part 10: Quick Start Script
-
-### All-in-One Installation Script
+### Full Diagnostics
 
 ```bash
-#!/bin/bash
-# Save as: install.sh
-
-set -e
-
-echo "================================"
-echo "Installing Department in a Box"
-echo "================================"
-
-# Detect OS
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    # Ubuntu/Debian
-    sudo apt-get update
-    sudo apt-get install -y \
-        python3 python3-pip python3-venv python3-dev \
-        git sqlite3 libsqlite3-dev \
-        build-essential libssl-dev libffi-dev pkg-config
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
-    brew install python@3.11 git sqlite3 openssl libffi pkg-config
-else
-    echo "Unsupported OS: $OSTYPE"
-    exit 1
-fi
-
-# Create virtual environment
-cd /home/user/two_agent_web_starter_complete
-python3 -m venv venv
-source venv/bin/activate
-
-# Upgrade pip
-pip install --upgrade pip setuptools wheel
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create directories
-mkdir -p data logs run_logs_main run_workflows
-
-# Initialize database
-python agent/migrations/001_approval_workflows.py
-
-# Run tests
-python tests/test_approval_workflows.py
-
-echo "================================"
-echo "✓ Installation complete!"
-echo "================================"
-echo ""
-echo "Start the server with:"
-echo "  cd agent/webapp && python app.py"
-echo ""
-echo "Then visit: http://127.0.0.1:8000"
-```
-
-**Make executable and run:**
-```bash
-chmod +x install.sh
-./install.sh
-```
-
----
-
-## Summary Checklist
-
-After completing this guide, you should have:
-
-- ✅ Python 3.8+ installed
-- ✅ Git installed
-- ✅ SQLite3 installed
-- ✅ Build tools installed
-- ✅ Virtual environment created
-- ✅ All Python dependencies installed
-- ✅ Database drivers installed (PostgreSQL, MySQL, SQLite)
-- ✅ Data directories created
-- ✅ Environment file configured
-- ✅ Database schema initialized
-- ✅ Unit tests passing (10/10)
-- ✅ Web server running
-- ✅ Web UI accessible
-
----
-
-## Minimum Installation (For Testing)
-
-If you just want to test quickly:
-
-```bash
-# 1. Install Python and SQLite
-sudo apt-get update && sudo apt-get install -y python3 python3-pip sqlite3
-
-# 2. Install core dependencies
-pip install fastapi uvicorn aiohttp cryptography aiosqlite jinja2 python-multipart
-
-# 3. Run migration
-python agent/migrations/001_approval_workflows.py
-
-# 4. Start server
-cd agent/webapp && python app.py
+python -m agent.diagnostics --full-report
 ```
 
 ---
 
 ## Next Steps
 
-After installation:
-1. **Follow Demo Guide:** See [DEMO_GUIDE.md](./DEMO_GUIDE.md)
-2. **Configure Integrations:** Add BambooHR, databases, etc.
-3. **Customize Workflows:** Modify approval workflows for your needs
-4. **Deploy to Production:** Set up Nginx, SSL, systemd service
+1. **Read Demo Guide:** [DEMO_GUIDE.md](./DEMO_GUIDE.md)
+2. **Configure Agents:** [JARVIS_2_0_CONFIGURATION_GUIDE.md](./JARVIS_2_0_CONFIGURATION_GUIDE.md)
+3. **Development:** [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md)
+4. **Troubleshooting:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+5. **Windows Users:** [WINDOWS_SETUP_GUIDE.md](./WINDOWS_SETUP_GUIDE.md)
 
 ---
 
-## Support Resources
+**Installation complete! JARVIS 2.0 is ready.**
 
-- **Demo Guide:** `docs/DEMO_GUIDE.md`
-- **Phase 3.1 Documentation:** `docs/PHASE_3_1_APPROVAL_WORKFLOWS.md`
-- **Phase 3.2 Documentation:** `docs/PHASE_3_2_INTEGRATION_FRAMEWORK.md`
-- **GitHub Issues:** Report problems and get help
-
----
-
-**Installation Complete! You're ready to run the system.** 🎉
-
-For the full demo walkthrough, proceed to [DEMO_GUIDE.md](./DEMO_GUIDE.md).
+Start with: `python -m agent.webapp.app`

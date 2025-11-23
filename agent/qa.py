@@ -402,6 +402,8 @@ def run_smoke_tests(project_path: Path, command: str) -> TestMetrics:
     Returns:
         TestMetrics with test results
     """
+    import shlex
+
     metrics = TestMetrics()
 
     if not command:
@@ -409,9 +411,20 @@ def run_smoke_tests(project_path: Path, command: str) -> TestMetrics:
         return metrics
 
     try:
+        # Parse command into argument list to prevent shell injection
+        try:
+            args = shlex.split(command)
+        except ValueError as e:
+            metrics.test_error = f"Invalid command syntax: {e}"
+            return metrics
+
+        if not args:
+            metrics.test_error = "Empty test command"
+            return metrics
+
         result = subprocess.run(
-            command,
-            shell=True,
+            args,
+            shell=False,  # SECURITY: Prevent command injection
             cwd=str(project_path),
             capture_output=True,
             text=True,
@@ -443,6 +456,8 @@ def run_smoke_tests(project_path: Path, command: str) -> TestMetrics:
 
     except subprocess.TimeoutExpired:
         metrics.test_error = "Test command timed out (60s limit)"
+    except FileNotFoundError:
+        metrics.test_error = f"Test command not found: {args[0] if args else command}"
     except Exception as e:
         metrics.test_error = f"Test execution failed: {str(e)}"
 

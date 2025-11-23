@@ -1019,8 +1019,11 @@ def shell_command(
     """
     Execute a shell command with safety restrictions.
 
+    Uses argument list execution (shell=False) to prevent command injection.
     Dangerous commands are blocked.
     """
+    import shlex
+
     # List of blocked commands/patterns
     blocked_patterns = [
         'rm -rf /',
@@ -1030,6 +1033,9 @@ def shell_command(
         'mkfs',
         'chmod 777 /',
         '> /dev/sda',
+        '$(', '`',  # Command substitution
+        '; ', ' && ', ' || ',  # Command chaining (with spaces)
+        '| ', ' |',  # Pipe operators
     ]
 
     command_lower = command.lower()
@@ -1042,9 +1048,27 @@ def shell_command(
             }
 
     try:
+        # Parse command into safe argument list to prevent shell injection
+        try:
+            args = shlex.split(command)
+        except ValueError as e:
+            return {
+                "success": False,
+                "error": f"Invalid command syntax: {e}",
+                "command": command
+            }
+
+        if not args:
+            return {
+                "success": False,
+                "error": "Empty command",
+                "command": command
+            }
+
+        # Execute with shell=False for security
         result = subprocess.run(
-            command,
-            shell=True,
+            args,
+            shell=False,  # SECURITY: Prevent shell injection
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -1063,6 +1087,12 @@ def shell_command(
         return {
             "success": False,
             "error": f"Command timed out after {timeout} seconds",
+            "command": command
+        }
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "error": f"Command not found: {args[0] if args else command}",
             "command": command
         }
     except Exception as e:

@@ -115,6 +115,14 @@ try:
 except ImportError as e:
     print(f"[Startup] Voice API not available: {e}")
 
+# AI AGENTS: Include agents dashboard API router
+try:
+    from agents_api import router as agents_router
+    app.include_router(agents_router)
+    print("[Startup] AI Agents dashboard API loaded")
+except ImportError as e:
+    print(f"[Startup] Agents API not available: {e}")
+
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
 

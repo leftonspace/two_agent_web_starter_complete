@@ -1,0 +1,107 @@
+# JARVIS LLM Configuration
+# This file configures the LLM routing for the JARVIS agent system
+
+routing_strategy: hybrid  # Options: cost, quality, hybrid, local_first, round_robin
+
+providers:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    models:
+      - gpt-4o
+      - gpt-4o-mini
+    enabled: true
+    max_retries: 3
+    timeout: 30.0
+
+  anthropic:
+    api_key: ${ANTHROPIC_API_KEY}
+    models:
+      - claude-3-5-sonnet-20241022
+    enabled: true
+    max_retries: 3
+    timeout: 30.0
+
+  deepseek:
+    api_key: ${DEEPSEEK_API_KEY}
+    models:
+      - deepseek-chat
+    enabled: true
+    max_retries: 3
+    timeout: 30.0
+
+  ollama:
+    host: http://localhost:11434
+    models:
+      - llama3.1:70b
+      - qwen2.5:72b
+    enabled: false  # Enable if running Ollama locally
+
+# Role-based model assignments
+# Each role can have different models for different task categories
+role_assignments:
+  manager:
+    # Manager uses premium models for complex decisions
+    primary: gpt-4o
+    fallback: claude-3-5-sonnet-20241022
+
+  supervisor:
+    # Supervisor uses cost-effective models for coordination
+    primary: gpt-4o-mini
+    fallback: deepseek-chat
+
+  employee:
+    # Employee has task-specific assignments
+    coding:
+      primary: claude-3-5-sonnet-20241022  # Best at coding (49% SWE-bench)
+      fallback: deepseek-chat              # Cost-effective alternative
+    general:
+      primary: gpt-4o-mini
+      fallback: llama3.1:70b
+    review:
+      primary: claude-3-5-sonnet-20241022
+      fallback: gpt-4o
+    analysis:
+      primary: gpt-4o
+      fallback: claude-3-5-sonnet-20241022
+
+  planner:
+    primary: gpt-4o
+    fallback: claude-3-5-sonnet-20241022
+
+  reviewer:
+    primary: claude-3-5-sonnet-20241022
+    fallback: gpt-4o
+
+  executor:
+    primary: gpt-4o-mini
+    fallback: deepseek-chat
+
+# Cost optimization settings
+cost_optimization:
+  # Tasks that should prefer local/cheap models
+  prefer_local_for:
+    - simple_queries
+    - code_formatting
+    - test_generation
+    - documentation
+    - data_extraction
+
+  # Tasks that require premium models regardless of cost
+  use_premium_for:
+    - architecture_decisions
+    - security_reviews
+    - final_code_review
+    - complex_reasoning
+    - critical_analysis
+
+  # Budget limits (USD)
+  daily_budget: 50.0
+  monthly_budget: 1000.0
+
+  # Alert when this percentage of budget is reached
+  alert_threshold: 0.8
+
+# Default settings
+default_model: gpt-4o-mini
+default_provider: openai
+environment: development

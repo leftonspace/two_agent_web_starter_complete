@@ -966,9 +966,24 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100%;
+            flex: 1;
             padding: 40px;
             text-align: center;
+            background: #f8f9fa;
+        }
+
+        .welcome-screen.hidden {
+            display: none;
+        }
+
+        /* When welcome screen is hidden, messages take the space */
+        .chat-main {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-container.active {
+            flex: 1;
         }
 
         .welcome-screen h1 {
@@ -1065,32 +1080,32 @@
                 </div>
             </div>
 
-            <div class="messages-container" id="messages">
-                <!-- Welcome Screen -->
-                <div class="welcome-screen" id="welcome-screen">
-                    <h1>👋 Hello!</h1>
-                    <p>I'm Jarvis, your AI assistant. How can I help you today?</p>
-                    <div class="example-prompts">
-                        <div class="example-prompt" onclick="sendExamplePrompt('Build me a simple website')">
-                            <div class="example-prompt-title">🌐 Build a Website</div>
-                            <div class="example-prompt-text">Create a professional website</div>
-                        </div>
-                        <div class="example-prompt" onclick="sendExamplePrompt('Explain how async/await works in Python')">
-                            <div class="example-prompt-title">📚 Learn Something</div>
-                            <div class="example-prompt-text">Ask me to explain concepts</div>
-                        </div>
-                        <div class="example-prompt" onclick="sendExamplePrompt('Create a REST API with authentication')">
-                            <div class="example-prompt-title">⚙️ Build an API</div>
-                            <div class="example-prompt-text">Full-stack development</div>
-                        </div>
-                        <div class="example-prompt" onclick="sendExamplePrompt('Help me debug my code')">
-                            <div class="example-prompt-title">🐛 Debug Code</div>
-                            <div class="example-prompt-text">Fix errors and improve code</div>
-                        </div>
+            <!-- Welcome Screen (outside messages container so it doesn't get deleted) -->
+            <div class="welcome-screen" id="welcome-screen">
+                <h1>👋 Hello!</h1>
+                <p>I'm Jarvis, your AI assistant. How can I help you today?</p>
+                <div class="example-prompts">
+                    <div class="example-prompt" onclick="sendExamplePrompt('Build me a simple website')">
+                        <div class="example-prompt-title">🌐 Build a Website</div>
+                        <div class="example-prompt-text">Create a professional website</div>
+                    </div>
+                    <div class="example-prompt" onclick="sendExamplePrompt('Explain how async/await works in Python')">
+                        <div class="example-prompt-title">📚 Learn Something</div>
+                        <div class="example-prompt-text">Ask me to explain concepts</div>
+                    </div>
+                    <div class="example-prompt" onclick="sendExamplePrompt('Create a REST API with authentication')">
+                        <div class="example-prompt-title">⚙️ Build an API</div>
+                        <div class="example-prompt-text">Full-stack development</div>
+                    </div>
+                    <div class="example-prompt" onclick="sendExamplePrompt('Help me debug my code')">
+                        <div class="example-prompt-title">🐛 Debug Code</div>
+                        <div class="example-prompt-text">Fix errors and improve code</div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Messages will be added here -->
+            <div class="messages-container" id="messages">
+                <!-- Messages will be added here dynamically -->
             </div>
 
             <div class="typing-indicator" id="typing-indicator">
@@ -1270,11 +1285,11 @@
             const messagesContainer = document.getElementById('messages');
             messagesContainer.innerHTML = '';
 
-            // Hide welcome screen
+            // Show/hide welcome screen based on whether chat has messages
             if (chat.messages.length > 0) {
-                document.getElementById('welcome-screen').style.display = 'none';
+                hideWelcomeScreen();
             } else {
-                document.getElementById('welcome-screen').style.display = 'block';
+                showWelcomeScreen();
             }
 
             // Render saved messages
@@ -1432,10 +1447,25 @@
         // Start new chat
         function startNewChat() {
             document.getElementById('messages').innerHTML = '';
-            document.getElementById('welcome-screen').style.display = 'flex';
+            showWelcomeScreen();
             createNewChatEntry();
             initSession();
             closeSidebar();
+        }
+
+        // Helper functions to show/hide welcome screen
+        function showWelcomeScreen() {
+            const welcome = document.getElementById('welcome-screen');
+            const messages = document.getElementById('messages');
+            welcome.classList.remove('hidden');
+            messages.classList.remove('active');
+        }
+
+        function hideWelcomeScreen() {
+            const welcome = document.getElementById('welcome-screen');
+            const messages = document.getElementById('messages');
+            welcome.classList.add('hidden');
+            messages.classList.add('active');
         }
 
         // Clear chat
@@ -1529,6 +1559,7 @@
             // Start new chat if none exists
             if (chatHistory.length === 0) {
                 createNewChatEntry();
+                showWelcomeScreen();
             } else {
                 // Load most recent chat
                 loadChat(chatHistory[0].id);
@@ -1848,8 +1879,8 @@
             if (!message && !pendingImage && pendingFiles.length === 0) return;
             if (isProcessing) return;
 
-            // Hide welcome screen
-            document.getElementById('welcome-screen').style.display = 'none';
+            // Hide welcome screen and show messages
+            hideWelcomeScreen();
 
             // Prepare context with attached files
             const context = {};
@@ -1942,7 +1973,7 @@
         };
 
         // Add message with image
-        function addMessageWithImage(role, content, image = null) {
+        function addMessageWithImage(role, content, image = null, saveToHistory = true) {
             const messages = document.getElementById('messages');
 
             const messageDiv = document.createElement('div');
@@ -1978,6 +2009,16 @@
 
             // Scroll to bottom
             messages.scrollTop = messages.scrollHeight;
+
+            // Save to chat history (note: image dataUrl is NOT saved to avoid localStorage bloat)
+            if (saveToHistory && currentChatId) {
+                const chat = chatHistory.find(c => c.id === currentChatId);
+                if (chat) {
+                    const metadata = image ? { hasImage: true, imageName: image.filename } : {};
+                    chat.messages.push({ role, content, metadata, timestamp: Date.now() });
+                    updateCurrentChat(chat.messages);
+                }
+            }
         }
 
         // ============================================================

@@ -22,6 +22,7 @@ class HappinessEvent(Enum):
     PRAISE = "praise"
     OVERWORKED = "overworked"
     VOTE_WON = "vote_won"
+    VOTE_LOST = "vote_lost"  # Added: for when vote didn't win (no impact)
     VOTE_IGNORED = "vote_ignored"
     COLLEAGUE_FIRED = "colleague_fired"
     NEW_COLLEAGUE = "new_colleague"
@@ -31,6 +32,7 @@ class HappinessEvent(Enum):
     BORING_TASK = "boring_task"
     TEAM_SUCCESS = "team_success"
     TEAM_FAILURE = "team_failure"
+    DECAY = "decay"  # Added: for natural happiness decay
 
 
 # Happiness impact values
@@ -42,6 +44,7 @@ HAPPINESS_IMPACTS: Dict[HappinessEvent, float] = {
     HappinessEvent.PRAISE: +8,
     HappinessEvent.OVERWORKED: -12,
     HappinessEvent.VOTE_WON: +3,
+    HappinessEvent.VOTE_LOST: 0,  # No impact for normal vote loss
     HappinessEvent.VOTE_IGNORED: -5,
     HappinessEvent.COLLEAGUE_FIRED: -8,
     HappinessEvent.NEW_COLLEAGUE: +2,
@@ -51,6 +54,7 @@ HAPPINESS_IMPACTS: Dict[HappinessEvent, float] = {
     HappinessEvent.BORING_TASK: -3,
     HappinessEvent.TEAM_SUCCESS: +5,
     HappinessEvent.TEAM_FAILURE: -5,
+    HappinessEvent.DECAY: 0,  # Decay impact is calculated dynamically
 }
 
 
@@ -211,14 +215,16 @@ class HappinessManager:
         elif won:
             return self.apply_event(councillor, HappinessEvent.VOTE_WON)
         else:
-            # No change for normal losing vote
-            return HappinessRecord(
+            # Record vote loss with correct event type (no happiness impact)
+            record = HappinessRecord(
                 councillor_id=councillor.id,
-                event=HappinessEvent.VOTE_WON,  # Placeholder
+                event=HappinessEvent.VOTE_LOST,
                 impact=0,
                 old_happiness=councillor.happiness,
                 new_happiness=councillor.happiness
             )
+            self.history.append(record)
+            return record
 
     def apply_bonus(
         self,
@@ -301,6 +307,9 @@ class HappinessManager:
             records.append(record)
         return records
 
+    # Maximum workload multiplier to prevent excessive happiness penalties
+    MAX_WORKLOAD_MULTIPLIER = 3.0
+
     def check_workload(
         self,
         councillor: Councillor,
@@ -319,11 +328,17 @@ class HappinessManager:
             HappinessRecord if overworked
         """
         if recent_tasks > threshold:
+            # Calculate multiplier with cap to prevent instant councillor burnout
+            raw_multiplier = 1 + (recent_tasks - threshold) * 0.2
+            capped_multiplier = min(raw_multiplier, self.MAX_WORKLOAD_MULTIPLIER)
             return self.apply_event(
                 councillor,
                 HappinessEvent.OVERWORKED,
-                multiplier=1 + (recent_tasks - threshold) * 0.2,
-                metadata={"recent_tasks": recent_tasks}
+                multiplier=capped_multiplier,
+                metadata={
+                    "recent_tasks": recent_tasks,
+                    "multiplier_capped": raw_multiplier > self.MAX_WORKLOAD_MULTIPLIER
+                }
             )
         return None
 
@@ -357,11 +372,11 @@ class HappinessManager:
 
             record = HappinessRecord(
                 councillor_id=councillor.id,
-                event=HappinessEvent.REST_DAY,  # Placeholder for decay
+                event=HappinessEvent.DECAY,
                 impact=councillor.happiness - old,
                 old_happiness=old,
                 new_happiness=councillor.happiness,
-                metadata={"type": "decay"}
+                metadata={"type": "decay", "target": toward}
             )
             records.append(record)
 

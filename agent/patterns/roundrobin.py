@@ -7,8 +7,11 @@ Manual: User selects next agent
 
 from typing import List, Dict, Optional, Any, Callable
 from dataclasses import dataclass, field
+import logging
 
 from .base import Pattern, Agent, Message, PatternConfig, PatternResult, PatternStatus, MessageRole
+
+logger = logging.getLogger(__name__)
 
 
 class RoundRobinPattern(Pattern):
@@ -223,7 +226,7 @@ class ManualPattern(Pattern):
         If no selection has been made:
         - Calls selection_callback if provided
         - Uses default_agent if set
-        - Marks selection as pending and returns None
+        - Falls back to first agent with warning (prevents indefinite halt)
         """
         # If explicit selection was made
         if self._next_agent_name:
@@ -244,8 +247,16 @@ class ManualPattern(Pattern):
             self._record_selection(self.default_agent, "default")
             return self._agent_map[self.default_agent]
 
-        # Mark as pending
+        # Mark as pending but fall back to first agent to prevent indefinite halt
         self._selection_pending = True
+        if self.agents:
+            logger.warning(
+                f"ManualPattern: No agent selected, falling back to first agent '{self.agents[0].name}'. "
+                "Set default_agent or provide selection_callback to avoid this."
+            )
+            self._record_selection(self.agents[0].name, "fallback")
+            return self.agents[0]
+
         return None
 
     def _record_selection(self, agent_name: str, method: str):

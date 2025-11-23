@@ -66,11 +66,15 @@ class HierarchicalPattern(Pattern):
         result = await pattern.run("Complete project X")
     """
 
+    # Maximum delegation depth to prevent memory issues in deep hierarchies
+    MAX_DELEGATION_DEPTH = 50
+
     def __init__(
         self,
         agents: List[Agent],
         config: Optional[PatternConfig] = None,
-        hierarchy: Optional[Dict[str, Dict]] = None
+        hierarchy: Optional[Dict[str, Dict]] = None,
+        max_delegation_depth: int = None
     ):
         """
         Initialize hierarchical pattern.
@@ -80,8 +84,12 @@ class HierarchicalPattern(Pattern):
             config: Pattern configuration
             hierarchy: Optional hierarchy definition mapping agent names to
                       {level: str, reports_to: str, subordinates: [str]}
+            max_delegation_depth: Maximum depth of delegation stack (default: 50)
         """
         super().__init__(agents, config)
+
+        # Set max delegation depth
+        self._max_delegation_depth = max_delegation_depth or self.MAX_DELEGATION_DEPTH
 
         # Convert agents to hierarchical agents if needed
         self._hierarchy: Dict[str, HierarchicalAgent] = {}
@@ -94,6 +102,31 @@ class HierarchicalPattern(Pattern):
         self._delegation_stack: List[str] = []
         self._pending_reports: Dict[str, List[str]] = {}
         self._phase: str = "delegation"  # delegation, execution, reporting
+
+    def _push_delegation(self, agent_name: str) -> bool:
+        """
+        Push agent onto delegation stack with depth checking.
+
+        Args:
+            agent_name: Name of agent being delegated to
+
+        Returns:
+            True if pushed successfully, False if max depth exceeded
+
+        Raises:
+            RuntimeError: If delegation depth would exceed maximum
+        """
+        if len(self._delegation_stack) >= self._max_delegation_depth:
+            raise RuntimeError(
+                f"Maximum delegation depth ({self._max_delegation_depth}) exceeded. "
+                f"Current stack: {' -> '.join(self._delegation_stack[-5:])}..."
+            )
+        self._delegation_stack.append(agent_name)
+        return True
+
+    def _pop_delegation(self) -> Optional[str]:
+        """Pop agent from delegation stack."""
+        return self._delegation_stack.pop() if self._delegation_stack else None
 
     def _build_hierarchy(
         self,

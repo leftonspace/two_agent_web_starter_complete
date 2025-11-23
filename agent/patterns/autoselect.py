@@ -8,9 +8,12 @@ to dynamically choose the most appropriate agent.
 from typing import List, Dict, Optional, Any, Callable, Awaitable
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
+import logging
 import re
 
 from .base import Pattern, Agent, Message, PatternConfig, PatternResult, PatternStatus
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -159,8 +162,9 @@ class LLMSelector(AgentSelector):
                     if agent.name.lower() == selected_name.lower():
                         return agent
 
-        except Exception:
-            pass
+        except Exception as e:
+            # Log the error instead of silently swallowing it
+            logger.warning(f"LLM selection failed, falling back to keyword selection: {e}")
 
         # Fall back to keyword selection
         keyword_selector = KeywordSelector()
@@ -270,12 +274,12 @@ class AutoSelectPattern(Pattern):
 
     def select_next_agent(self, context: Dict[str, Any]) -> Optional[Agent]:
         """
-        Select the next agent using the configured selector.
+        Select the next agent using keyword-based scoring.
 
-        Note: This is a synchronous wrapper - the actual async selection
-        happens in the run() method override.
+        This synchronous method provides consistent selection with the async
+        version by using the same KeywordSelector logic. The async version
+        may additionally use LLM-based selection if configured.
         """
-        # For synchronous selection, use simple scoring
         if not self.agents:
             return None
 
@@ -286,20 +290,55 @@ class AutoSelectPattern(Pattern):
         # Filter out agents that have been selected too many times
         available_agents = self._get_available_agents()
         if not available_agents:
+            # Reset if all agents exhausted (consistent with async behavior)
+            self._selection_history.clear()
             available_agents = self.agents
 
-        # Simple keyword-based selection for sync
+        # Use KeywordSelector for consistent sync behavior
+        # This matches what LLMSelector falls back to
+        content = last_message.content.lower()
         best_agent = None
         best_score = -1.0
 
-        content = last_message.content.lower()
         for agent in available_agents:
-            score = agent.matches_task(content.split())
+            score = self._calculate_keyword_score(agent, content)
             if score > best_score:
                 best_score = score
                 best_agent = agent
 
-        return best_agent or available_agents[0]
+        selected = best_agent or available_agents[0]
+        self._selection_history.append(selected.name)
+        return selected
+
+    def _calculate_keyword_score(self, agent: Agent, content: str) -> float:
+        """Calculate keyword-based relevance score for consistent sync/async behavior."""
+        score = 0.0
+
+        # Check agent capabilities (weight: 0.4)
+        if agent.capabilities:
+            matches = sum(1 for cap in agent.capabilities if cap.lower() in content)
+            if matches > 0:
+                score += 0.4 * (matches / len(agent.capabilities))
+
+        # Check role relevance (weight: 0.3)
+        if agent.role and agent.role.lower() in content:
+            score += 0.3
+
+        # Check description relevance (weight: 0.2)
+        if agent.description:
+            desc_words = agent.description.lower().split()
+            matches = sum(1 for word in desc_words if word in content)
+            if matches > 0:
+                score += 0.2 * min(1.0, matches / 5)
+
+        # Check criteria keywords (weight: 0.1)
+        if self.criteria.keywords:
+            agent_text = f"{agent.role} {agent.description} {' '.join(agent.capabilities)}".lower()
+            matches = sum(1 for kw in self.criteria.keywords if kw.lower() in agent_text)
+            if matches > 0:
+                score += 0.1 * (matches / len(self.criteria.keywords))
+
+        return score
 
     async def _select_next_agent_async(self, context: Dict[str, Any]) -> Optional[Agent]:
         """Async version of agent selection"""

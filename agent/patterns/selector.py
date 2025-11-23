@@ -156,7 +156,14 @@ class PatternSelector:
 
         Returns:
             TaskAnalysis with task characteristics
+
+        Raises:
+            ValueError: If task is empty or None
         """
+        # Validate task string
+        if not task or not task.strip():
+            raise ValueError("Task description cannot be empty or whitespace-only")
+
         task_lower = task.lower()
         agent_count = len(agents) if agents else 0
 
@@ -533,6 +540,12 @@ def select_pattern(
 
     Returns:
         Instantiated Pattern object
+
+    Raises:
+        ValueError: If task is empty or None
     """
+    if not task or not task.strip():
+        raise ValueError("Task description cannot be empty or whitespace-only")
+
     selector = PatternSelector()
     return selector.get_best_pattern(task, agents, config)

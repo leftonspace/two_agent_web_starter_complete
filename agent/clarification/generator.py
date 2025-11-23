@@ -7,8 +7,11 @@ Generate intelligent follow-up questions based on detected vagueness.
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
+import logging
 
 from .detector import ClarityAnalysis, RequestType, RequestClarity
+
+logger = logging.getLogger(__name__)
 
 
 class QuestionPriority(Enum):
@@ -384,6 +387,12 @@ class QuestionGenerator:
                     question_type=QuestionType.MULTIPLE_CHOICE if template.get("options") else QuestionType.TEXT
                 )
                 questions.append(question)
+            else:
+                # Log warning for missing template to provide feedback
+                logger.warning(
+                    f"No question template found for detail '{detail}' "
+                    f"(request type: {type_name}). Consider adding a template."
+                )
 
         # Add type-specific questions
         if analysis.detected_type in self.type_questions:

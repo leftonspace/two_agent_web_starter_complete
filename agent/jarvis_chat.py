@@ -709,8 +709,37 @@ Jarvis:"""
         try:
             print("\n[Jarvis] 📄 Document processing request detected...")
 
+            # Build conversation history for context
+            history_text = ""
+            last_jarvis_output = None
+            for msg in self.conversation_history[-10:]:
+                history_text += f"{msg.role}: {msg.content}\n"
+                if msg.role == "assistant":
+                    last_jarvis_output = msg.content
+
+            # Check if this is a follow-up request referencing previous output
+            message_lower = message.lower()
+            follow_up_indicators = [
+                "that", "this", "it", "the summary", "what you", "you just",
+                "make it", "convert it", "save it", "export it", "into a pdf",
+                "into pdf", "to pdf", "as pdf", "pdf format", "word format"
+            ]
+            is_follow_up = any(indicator in message_lower for indicator in follow_up_indicators)
+
+            # If it's a follow-up about previous output and no new files attached
+            if is_follow_up and last_jarvis_output and (not context or not context.get("attached_files")):
+                print("[Jarvis] Detected follow-up request about previous output")
+                # Handle the follow-up with the previous output
+                return await self._handle_output_conversion(message, last_jarvis_output)
+
             # Check for attached files
             if not context or not context.get("attached_files"):
+                # If no files but we have previous output, offer to work with that
+                if last_jarvis_output and len(last_jarvis_output) > 100:
+                    return {
+                        "content": "I don't see any new attached files, sir. However, I do have my previous output available. Would you like me to convert that into a different format? Just specify: PDF, Word, Plain Text, or Markdown.",
+                        "metadata": {"type": "document_processing", "has_previous_output": True}
+                    }
                 return {
                     "content": "I'd be happy to help with that! However, I don't see any attached files. Please attach the document you'd like me to process.",
                     "metadata": {"type": "document_processing", "needs_file": True}
@@ -871,6 +900,75 @@ Just let me know your preferred format and I'll create the file for you!"""
             return {
                 "content": f"I encountered an error processing your document: {str(e)}",
                 "metadata": {"error": True, "type": "document_processing"}
+            }
+
+    async def _handle_output_conversion(
+        self,
+        message: str,
+        previous_output: str
+    ) -> Dict[str, Any]:
+        """Handle conversion of previous output to different formats"""
+        try:
+            message_lower = message.lower()
+
+            # Detect requested format
+            if "pdf" in message_lower:
+                format_type = "PDF"
+            elif "word" in message_lower or "docx" in message_lower:
+                format_type = "Word (DOCX)"
+            elif "markdown" in message_lower or "md" in message_lower:
+                format_type = "Markdown"
+            elif "text" in message_lower or "txt" in message_lower:
+                format_type = "Plain Text"
+            else:
+                format_type = None
+
+            if format_type:
+                # For now, provide the content formatted appropriately
+                # In a full implementation, this would generate actual files
+                response = f"""Very good, sir. I shall prepare my previous output in {format_type} format.
+
+---
+**Content for {format_type} Export:**
+
+{previous_output}
+
+---
+
+📁 *The content above is ready for {format_type} export. In a production environment, I would generate the actual file for download.*
+
+If you need me to adjust the formatting or content before export, please let me know."""
+
+                return {
+                    "content": response,
+                    "metadata": {
+                        "type": "output_conversion",
+                        "format": format_type,
+                        "has_content": True
+                    }
+                }
+            else:
+                # Ask for format preference
+                return {
+                    "content": f"""Of course, sir. I have my previous output ready. Which format would you prefer?
+
+- **PDF** - Professional, ready to print/share
+- **Word (DOCX)** - Editable document format
+- **Plain Text** - Simple text file
+- **Markdown** - Formatted text for web/docs
+
+Simply tell me the format and I shall prepare it accordingly.""",
+                    "metadata": {
+                        "type": "output_conversion",
+                        "awaiting_format": True
+                    }
+                }
+
+        except Exception as e:
+            print(f"[Jarvis] Output conversion error: {e}")
+            return {
+                "content": f"I encountered an issue preparing the format conversion: {str(e)}",
+                "metadata": {"error": True}
             }
 
     async def handle_complex_task(

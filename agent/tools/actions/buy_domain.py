@@ -316,7 +316,7 @@ class BuyDomainTool(ActionTool):
                 # Try to get public IP
                 response = requests.get("https://api.ipify.org", timeout=5)
                 client_ip = response.text
-            except:
+            except (requests.RequestException, OSError):
                 # Fallback to local IP
                 client_ip = socket.gethostbyname(socket.gethostname())
 

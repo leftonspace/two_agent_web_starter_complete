@@ -416,7 +416,7 @@ class APIClient:
                 # Parse response
                 try:
                     result = response.json()
-                except:
+                except (ValueError, TypeError):
                     # Not JSON, return text
                     result = {"text": response.text}
 

@@ -224,7 +224,7 @@ class ExcelGenerator:
             try:
                 wb_data = load_workbook(str(file_path), data_only=True)
                 return wb_data[sheet_name][cell].value
-            except:
+            except (KeyError, ValueError, OSError):
                 return None
 
         except Exception as e:

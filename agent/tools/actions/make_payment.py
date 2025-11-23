@@ -217,7 +217,7 @@ class MakePaymentTool(ActionTool):
                     if "error" in error_data:
                         stripe_error = error_data["error"]
                         error_msg = f"Stripe error: {stripe_error.get('message', str(e))}"
-            except:
+            except (ValueError, KeyError, AttributeError):
                 pass
 
             return ToolResult(

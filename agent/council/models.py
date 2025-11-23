@@ -205,22 +205,48 @@ class Councillor:
         """
         return self.base_vote_weight * self.performance_coefficient * self.happiness_modifier
 
-    @property
-    def is_fireable(self) -> bool:
-        """Check if councillor meets firing criteria"""
+    def is_fireable(
+        self,
+        performance_threshold: float = 40.0,
+        consecutive_failures_threshold: int = 5,
+        happiness_threshold: float = 20.0
+    ) -> bool:
+        """
+        Check if councillor meets firing criteria.
+
+        Args:
+            performance_threshold: Fire if performance below this (default: 40%)
+            consecutive_failures_threshold: Fire if consecutive failures >= this (default: 5)
+            happiness_threshold: Fire if happiness below this (default: 20)
+
+        Returns:
+            True if councillor should be fired
+        """
         return (
-            self.metrics.overall_performance < 40 or
-            self.metrics.consecutive_failures >= 5 or
-            self.happiness < 20
+            self.metrics.overall_performance < performance_threshold or
+            self.metrics.consecutive_failures >= consecutive_failures_threshold or
+            self.happiness < happiness_threshold
         )
 
-    @property
-    def is_promotable(self) -> bool:
-        """Check if councillor can be promoted from probation"""
+    def is_promotable(
+        self,
+        min_tasks: int = 10,
+        min_performance: float = 60.0
+    ) -> bool:
+        """
+        Check if councillor can be promoted from probation.
+
+        Args:
+            min_tasks: Minimum tasks completed (default: 10)
+            min_performance: Minimum performance score (default: 60%)
+
+        Returns:
+            True if councillor can be promoted
+        """
         return (
             self.status == CouncillorStatus.PROBATION and
-            self.metrics.tasks_completed >= 10 and
-            self.metrics.overall_performance >= 60
+            self.metrics.tasks_completed >= min_tasks and
+            self.metrics.overall_performance >= min_performance
         )
 
     def has_specialization(self, spec: Specialization) -> bool:

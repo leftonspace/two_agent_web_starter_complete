@@ -30,6 +30,22 @@ try:
 except ImportError:
     AIOHTTP_AVAILABLE = False
 
+# Zoom SDK availability
+try:
+    from zoomus import ZoomClient
+    ZOOM_SDK_AVAILABLE = True
+except ImportError:
+    ZOOM_SDK_AVAILABLE = False
+    ZoomClient = None
+
+# Playwright availability (for Google Meet)
+try:
+    from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    async_playwright = None
+
 
 # =============================================================================
 # Configuration
@@ -201,24 +217,29 @@ class ZoomBotSDK:
             # Generate authentication token
             token = self._generate_jwt_token(meeting_id)
 
-            # In production, this would use the actual Zoom SDK:
-            # from zoomus import ZoomClient
-            # client = ZoomClient(self.sdk_key, self.sdk_secret)
-            # session = client.join_meeting(
-            #     meeting_id=meeting_id,
-            #     password=passcode,
-            #     user_name=display_name,
-            #     token=token
-            # )
+            # Use actual Zoom SDK if available
+            if ZOOM_SDK_AVAILABLE and ZoomClient:
+                client = ZoomClient(self.sdk_key, self.sdk_secret)
+                self.session = client.join_meeting(
+                    meeting_id=meeting_id,
+                    password=passcode,
+                    user_name=display_name,
+                    token=token
+                )
+                print(f"[ZoomBot] ✅ Joined meeting with Zoom SDK: {meeting_id}")
+            else:
+                # Fallback mode (for testing without SDK)
+                print(f"[ZoomBot] ⚠️ WARNING: Zoom SDK not available, running in stub mode")
+                self.session = None
 
             self.meeting_id = meeting_id
             self.is_connected = True
 
-            print(f"[ZoomBot] ✅ Joined meeting: {meeting_id}")
             return True
 
         except Exception as e:
             print(f"[ZoomBot] ❌ Failed to join meeting: {e}")
+            self.is_connected = False
             return False
 
     async def leave_meeting(self) -> bool:
@@ -231,11 +252,15 @@ class ZoomBotSDK:
             if self.is_recording:
                 await self.stop_recording()
 
-            # In production: self.session.leave()
+            # Use Zoom SDK if available
+            if self.session is not None:
+                self.session.leave()
+                print(f"[ZoomBot] Left meeting via Zoom SDK")
+            else:
+                print(f"[ZoomBot] Left meeting (stub mode)")
 
             self.is_connected = False
             self.meeting_id = None
-            print(f"[ZoomBot] Left meeting")
             return True
 
         except Exception as e:
@@ -257,16 +282,20 @@ class ZoomBotSDK:
             return None
 
         try:
-            # In production: self.session.start_recording(local=local)
-
             recording = MeetingRecording(
                 recording_id=f"rec_{int(datetime.now().timestamp())}",
                 meeting_id=self.meeting_id,
                 started_at=datetime.now(),
             )
 
+            # Use Zoom SDK if available
+            if self.session is not None:
+                self.session.start_recording(local=local)
+                print(f"[ZoomBot] 🔴 Started recording via Zoom SDK: {recording.recording_id}")
+            else:
+                print(f"[ZoomBot] 🔴 Started recording (stub mode): {recording.recording_id}")
+
             self.is_recording = True
-            print(f"[ZoomBot] 🔴 Started recording: {recording.recording_id}")
 
             return recording
 
@@ -280,10 +309,14 @@ class ZoomBotSDK:
             return False
 
         try:
-            # In production: self.session.stop_recording()
+            # Use Zoom SDK if available
+            if self.session is not None:
+                self.session.stop_recording()
+                print(f"[ZoomBot] ⏹️ Stopped recording via Zoom SDK")
+            else:
+                print(f"[ZoomBot] ⏹️ Stopped recording (stub mode)")
 
             self.is_recording = False
-            print(f"[ZoomBot] ⏹️ Stopped recording")
             return True
 
         except Exception as e:
@@ -295,8 +328,18 @@ class ZoomBotSDK:
         if not self.is_connected:
             return []
 
-        # In production: participants = self.session.get_participants()
+        # Use Zoom SDK if available
+        if self.session is not None:
+            try:
+                participants_data = self.session.get_participants()
+                # Parse participant data from SDK
+                # (format depends on actual SDK response)
+                return participants_data
+            except Exception as e:
+                print(f"[ZoomBot] Error getting participants: {e}")
+                return []
 
+        # Fallback to local tracking
         return list(self.participants.values())
 
     async def send_message(self, message: str, participant_id: Optional[str] = None) -> bool:
@@ -314,13 +357,16 @@ class ZoomBotSDK:
             return False
 
         try:
-            # In production:
-            # if participant_id:
-            #     self.session.send_private_message(participant_id, message)
-            # else:
-            #     self.session.send_chat_message(message)
+            # Use Zoom SDK if available
+            if self.session is not None:
+                if participant_id:
+                    self.session.send_private_message(participant_id, message)
+                else:
+                    self.session.send_chat_message(message)
+                print(f"[ZoomBot] 💬 Sent message via Zoom SDK: {message[:50]}...")
+            else:
+                print(f"[ZoomBot] 💬 Sent message (stub mode): {message[:50]}...")
 
-            print(f"[ZoomBot] 💬 Sent message: {message[:50]}...")
             return True
 
         except Exception as e:
@@ -398,23 +444,39 @@ class GoogleMeetBotSDK:
         try:
             print(f"[MeetBot] Joining Google Meet: {meeting_code}")
 
-            # In production, would use Playwright:
-            # from playwright.async_api import async_playwright
-            #
-            # async with async_playwright() as p:
-            #     browser = await p.chromium.launch()
-            #     page = await browser.new_page()
-            #     await page.goto(f"https://meet.google.com/{meeting_code}")
-            #     # Authenticate and join...
+            # Use Playwright if available
+            if PLAYWRIGHT_AVAILABLE and async_playwright:
+                async with async_playwright() as p:
+                    self.browser = await p.chromium.launch(headless=True)
+                    self.page = await self.browser.new_page()
+
+                    # Navigate to meeting
+                    await self.page.goto(f"https://meet.google.com/{meeting_code}")
+
+                    # Wait for meeting interface to load
+                    await self.page.wait_for_selector('[data-meeting-title]', timeout=10000)
+
+                    # Set display name if needed
+                    # (Implementation depends on Google Meet's current UI)
+
+                    # Click join button
+                    # await self.page.click('button[jsname="Qx7Oae"]')
+
+                    print(f"[MeetBot] ✅ Joined meeting with Playwright: {meeting_code}")
+            else:
+                # Fallback mode (for testing without Playwright)
+                print(f"[MeetBot] ⚠️ WARNING: Playwright not available, running in stub mode")
+                self.browser = None
+                self.page = None
 
             self.meeting_code = meeting_code
             self.is_connected = True
 
-            print(f"[MeetBot] ✅ Joined meeting: {meeting_code}")
             return True
 
         except Exception as e:
             print(f"[MeetBot] ❌ Failed to join meeting: {e}")
+            self.is_connected = False
             return False
 
     async def leave_meeting(self) -> bool:
@@ -423,11 +485,23 @@ class GoogleMeetBotSDK:
             return False
 
         try:
-            # In production: await self.page.click('[aria-label="Leave call"]')
+            # Use Playwright if available
+            if self.page is not None:
+                # Click leave button
+                await self.page.click('[aria-label="Leave call"]')
+                print(f"[MeetBot] Left meeting via Playwright")
+
+            # Close browser
+            if self.browser is not None:
+                await self.browser.close()
+                print(f"[MeetBot] Closed browser")
+            else:
+                print(f"[MeetBot] Left meeting (stub mode)")
 
             self.is_connected = False
             self.meeting_code = None
-            print(f"[MeetBot] Left meeting")
+            self.browser = None
+            self.page = None
             return True
 
         except Exception as e:

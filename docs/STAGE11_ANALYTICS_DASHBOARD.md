@@ -391,13 +391,13 @@ Per-model analytics breakdown.
 ```json
 [
   {
-    "model_name": "gpt-5",
+    "model_name": "gpt-4o",
     "total_tokens": 320000,
     "total_cost": 11.2,
     "usage_count": 42
   },
   {
-    "model_name": "gpt-5-mini",
+    "model_name": "gpt-4o-mini",
     "total_tokens": 180000,
     "total_cost": 3.6,
     "usage_count": 42
@@ -503,7 +503,7 @@ contafuel_marketing,15,2025-11-18T09:30:00.000Z,245000,7.21,223.5,...
 
 PER-MODEL SUMMARY
 Model,Total Tokens,Total Cost (USD),Usage Count
-gpt-5,320000,11.2,42
+gpt-4o,320000,11.2,42
 ...
 ```
 

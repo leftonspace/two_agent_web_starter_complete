@@ -341,14 +341,14 @@ All 7 sub-prompts (1.1 through 1.7) have been **fully implemented** with compreh
   - ✅ Hot-reload support
 
 - **Models in Registry**:
-  - **OpenAI**: gpt-5 (2025-08-07), gpt-5-mini (2025-08-07), o1 (2024-12-17), o1-mini (2024-09-12), gpt-4-turbo (deprecated)
+  - **OpenAI**: gpt-4o, gpt-4o-mini, o1 (2024-12-17), o1-mini (2024-09-12), gpt-4-turbo (deprecated)
   - **Anthropic**: claude-sonnet-4 (2025-05-15), claude-opus-4 (2025-05-15), claude-haiku-4 (2025-05-15)
 
 - **Aliases Defined**:
-  - `manager_default`: gpt-5-mini
-  - `high_complexity`: gpt-5
+  - `manager_default`: gpt-4o-mini
+  - `high_complexity`: gpt-4o
   - `reasoning`: o1
-  - `cost_optimized`: gpt-5-mini
+  - `cost_optimized`: gpt-4o-mini
   - `ultra_performance`: claude-opus-4
 
 - **Test Coverage**:

@@ -275,7 +275,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
     core_logging.log_llm_call(
         core_run_id,
         role="manager",
-        model="gpt-5",
+        model="gpt-4o",
         prompt_length=len(manager_plan_sys) + len(task),
         phase="planning"
     )
@@ -318,7 +318,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
     core_logging.log_llm_call(
         core_run_id,
         role="supervisor",
-        model="gpt-5",
+        model="gpt-4o",
         prompt_length=len(supervisor_sys) + len(json.dumps(sup_payload)),
         phase="supervisor_phasing"
     )
@@ -465,7 +465,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
 
 
             # Start fix cycle tracking
-            tracker.start_fix_cycle(next_stage.id, audit_cycle, employee_model="gpt-5")
+            tracker.start_fix_cycle(next_stage.id, audit_cycle, employee_model="gpt-4o")
             memory.increment_iterations(next_stage.id)
 
             # ────────────────────────────────────────────────────
@@ -491,7 +491,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
             core_logging.log_llm_call(
                 core_run_id,
                 role="employee",
-                model="gpt-5",
+                model="gpt-4o",
                 prompt_length=len(employee_sys_base) + len(json.dumps(employee_payload)),
                 iteration=audit_cycle,
                 phase_index=stages_processed,
@@ -502,7 +502,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
                 "employee",
                 employee_sys_base,
                 json.dumps(employee_payload, ensure_ascii=False),
-                model="gpt-5",
+                model="gpt-4o",
             )
 
             files_dict = emp.get("files", {})
@@ -558,7 +558,7 @@ def main_phase3(run_summary: Optional[RunSummary] = None):
             core_logging.log_llm_call(
                 core_run_id,
                 role="supervisor",
-                model="gpt-5",
+                model="gpt-4o",
                 prompt_length=len(supervisor_sys) + len(json.dumps(supervisor_audit_payload)),
                 iteration=audit_cycle,
                 phase="audit"

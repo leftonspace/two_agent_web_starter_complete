@@ -633,9 +633,9 @@ OPENAI_API_KEY=sk-your-openai-api-key-here
 # ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
 
 # OPTIONAL: Model overrides (defaults to config.py settings)
-# DEFAULT_MANAGER_MODEL=gpt-5-mini
-# DEFAULT_SUPERVISOR_MODEL=gpt-5-nano
-# DEFAULT_EMPLOYEE_MODEL=gpt-5
+# DEFAULT_MANAGER_MODEL=gpt-4o-mini
+# DEFAULT_SUPERVISOR_MODEL=gpt-4o-mini
+# DEFAULT_EMPLOYEE_MODEL=gpt-4o
 
 # OPTIONAL: Cost controls
 # MAX_COST_USD=10.0
@@ -751,26 +751,26 @@ Edit model routing in `agent/config.py` or override via environment variables:
 ```python
 # config.py
 class ModelDefaults:
-    manager: str = "gpt-5-mini-2025-08-07"      # Planning and review
-    supervisor: str = "gpt-5-nano"               # Task phasing
-    employee: str = "gpt-5-2025-08-07"          # Code generation
-    merge_manager: str = "gpt-5-mini"           # Conflict resolution
-    qa_reviewer: str = "gpt-5-mini"             # Quality checks
+    manager: str = "gpt-4o-mini"                # Planning and review
+    supervisor: str = "gpt-4o-mini"             # Task phasing
+    employee: str = "gpt-4o"                    # Code generation
+    merge_manager: str = "gpt-4o-mini"          # Conflict resolution
+    qa_reviewer: str = "gpt-4o-mini"            # Quality checks
 ```
 
 Or via `.env`:
 
 ```bash
-DEFAULT_MANAGER_MODEL=gpt-5
-DEFAULT_EMPLOYEE_MODEL=gpt-5-mini
+DEFAULT_MANAGER_MODEL=gpt-4o-mini
+DEFAULT_EMPLOYEE_MODEL=gpt-4o
 ```
 
 **Model Routing Constraints:**
 
 The system enforces intelligent model routing to control costs:
 
-- **GPT-5** is ONLY used on iterations 2-3 when complexity is "high" or task is flagged as important
-- First iteration ALWAYS uses cheaper models (gpt-5-mini or gpt-5-nano)
+- **GPT-4o** is ONLY used on iterations 2-3 when complexity is "high" or task is flagged as important
+- First iteration ALWAYS uses cheaper models (gpt-4o-mini)
 - Simple tasks use nano/mini models throughout
 
 #### **Customizing QA Rules**
@@ -1237,11 +1237,11 @@ Lookback Period: 30 days
 System-1.2 uses intelligent model routing to balance quality and cost:
 
 **Cost Control Algorithm:**
-1. First iteration: Always use cheap models (gpt-5-mini or gpt-5-nano)
+1. First iteration: Always use cheap models (gpt-4o-mini)
 2. Subsequent iterations:
-   - If complexity is LOW and not important: Use gpt-5-mini
-   - If complexity is HIGH or important: Use GPT-5 (only on iterations 2-3)
-   - Beyond iteration 3: Fall back to gpt-5-mini
+   - If complexity is LOW and not important: Use gpt-4o-mini
+   - If complexity is HIGH or important: Use gpt-4o (only on iterations 2-3)
+   - Beyond iteration 3: Fall back to gpt-4o-mini
 
 **Complexity Estimation:**
 - High if previous failures > 1
@@ -1250,9 +1250,8 @@ System-1.2 uses intelligent model routing to balance quality and cost:
 - High if marked as `very_important` in config
 
 **Cost Per Model** (approximate):
-- GPT-5: $0.02-0.10 per request
-- gpt-5-mini: $0.001-0.005 per request
-- gpt-5-nano: $0.0001-0.0005 per request
+- gpt-4o: $0.05-0.15 per request
+- gpt-4o-mini: $0.01-0.03 per request
 
 #### **Knowledge Graph Schema**
 
@@ -1501,7 +1500,7 @@ export OPENAI_API_KEY=sk-your-key-here
 # 1. Wait a few minutes
 # 2. Reduce max_rounds to decrease API call frequency
 # 3. Upgrade OpenAI account tier
-# 4. Use cheaper models (gpt-5-mini instead of GPT-5)
+# 4. Use cheaper models (gpt-4o-mini instead of gpt-4o)
 ```
 
 ---
@@ -1551,9 +1550,9 @@ python -c "from agent.webapp.app import app; print('OK')"
 **Q: How much does a typical run cost?**
 
 A: Depends on task complexity and model selection:
-- Simple task (2 rounds, gpt-5-mini): $0.10 - $0.50
+- Simple task (2 rounds, gpt-4o-mini): $0.10 - $0.50
 - Medium task (3 rounds, mixed models): $0.50 - $2.00
-- Complex task (3 rounds, GPT-5): $2.00 - $10.00
+- Complex task (3 rounds, gpt-4o): $2.00 - $10.00
 
 Use `cost_estimator.estimate_run_cost(task, mode, max_rounds)` for pre-flight estimates.
 
@@ -1805,7 +1804,7 @@ After mission completion, creates:
 
 **Key Functions:**
 
-- **`chat_json(messages: List[Dict], model: str = "gpt-5-mini", temperature: float = 0.0, max_tokens: int = 4096) -> Dict`**
+- **`chat_json(messages: List[Dict], model: str = "gpt-4o-mini", temperature: float = 0.0, max_tokens: int = 4096) -> Dict`**
   Sends chat completion request and expects JSON response.
 
   *Parameters:*
@@ -1825,7 +1824,7 @@ After mission completion, creates:
 
   *Side effects:* Calls `cost_tracker.track(model, prompt_tokens, completion_tokens)`
 
-- **`count_tokens(text: str, model: str = "gpt-5-mini") -> int`**
+- **`count_tokens(text: str, model: str = "gpt-4o-mini") -> int`**
   Counts tokens in text using tiktoken encoding.
 
   *Used for:* Cost estimation, prompt length validation
@@ -1890,17 +1889,17 @@ return {
   - `is_very_important`: Override flag for critical tasks
   - `config`: Project config for very_important_stages lookup
 
-  *Returns:* Model identifier (e.g., "gpt-5-2025-08-07", "gpt-5-mini-2025-08-07")
+  *Returns:* Model identifier (e.g., "gpt-4o", "gpt-4o-mini")
 
-  *Key Constraint:* GPT-5 ONLY allowed on iterations 2-3 when complexity is high OR is_very_important is True
+  *Key Constraint:* gpt-4o ONLY allowed on iterations 2-3 when complexity is high OR is_very_important is True
 
   *Cost Control Logic:*
   ```
-  if candidate_model == "gpt-5":
+  if candidate_model == "gpt-4o":
       if interaction_index not in [2, 3]:
-          downgrade to gpt-5-mini
+          downgrade to gpt-4o-mini
       elif complexity == "low" and not is_very_important:
-          downgrade to gpt-5-mini
+          downgrade to gpt-4o-mini
   ```
 
 - **`estimate_complexity(stage: Optional[Dict] = None, previous_failures: int = 0, files_count: int = 0, config: Optional[Dict] = None) -> str`**
@@ -1937,16 +1936,16 @@ return {
 **Routing Rules Table:**
 | Task Type | Complexity | Model Selected |
 |-----------|-----------|----------------|
-| planning | low | gpt-5-mini |
-| planning | high | gpt-5 (if iteration 2-3) |
-| code | low | gpt-5-mini |
-| code | high | gpt-5 (if iteration 2-3) |
-| docs | low | gpt-5-mini |
-| docs | high | gpt-5-mini (docs rarely need GPT-5) |
-| analysis | low | gpt-5-nano |
-| analysis | high | gpt-5-mini |
-| review | low | gpt-5-nano |
-| review | high | gpt-5-mini |
+| planning | low | gpt-4o-mini |
+| planning | high | gpt-4o (if iteration 2-3) |
+| code | low | gpt-4o-mini |
+| code | high | gpt-4o (if iteration 2-3) |
+| docs | low | gpt-4o-mini |
+| docs | high | gpt-4o-mini (docs rarely need gpt-4o) |
+| analysis | low | gpt-4o-mini |
+| analysis | high | gpt-4o-mini |
+| review | low | gpt-4o-mini |
+| review | high | gpt-4o-mini |
 
 ---
 
@@ -2866,14 +2865,14 @@ pip install pyyaml
 - **Set it:** `export ANTHROPIC_API_KEY=sk-ant-your-key-here`
 
 **Model Override Variables:**
-- **`DEFAULT_MANAGER_MODEL`** — Override manager model (default: gpt-5-mini)
-- **`DEFAULT_SUPERVISOR_MODEL`** — Override supervisor model (default: gpt-5-nano)
-- **`DEFAULT_EMPLOYEE_MODEL`** — Override employee model (default: gpt-5)
+- **`DEFAULT_MANAGER_MODEL`** — Override manager model (default: gpt-4o-mini)
+- **`DEFAULT_SUPERVISOR_MODEL`** — Override supervisor model (default: gpt-4o-mini)
+- **`DEFAULT_EMPLOYEE_MODEL`** — Override employee model (default: gpt-4o)
 
 **Example:**
 ```bash
-export DEFAULT_MANAGER_MODEL=gpt-5
-export DEFAULT_EMPLOYEE_MODEL=gpt-5-mini
+export DEFAULT_MANAGER_MODEL=gpt-4o-mini
+export DEFAULT_EMPLOYEE_MODEL=gpt-4o
 ```
 
 **Cost Control Variables:**
@@ -2889,9 +2888,9 @@ OPENAI_API_KEY=sk-your-openai-key-here
 # ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
 
 # Model overrides (optional)
-# DEFAULT_MANAGER_MODEL=gpt-5-mini
-# DEFAULT_SUPERVISOR_MODEL=gpt-5-nano
-# DEFAULT_EMPLOYEE_MODEL=gpt-5
+# DEFAULT_MANAGER_MODEL=gpt-4o-mini
+# DEFAULT_SUPERVISOR_MODEL=gpt-4o-mini
+# DEFAULT_EMPLOYEE_MODEL=gpt-4o
 
 # Cost controls (optional)
 # MAX_COST_USD=10.0

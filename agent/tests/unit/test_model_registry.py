@@ -65,18 +65,18 @@ def test_get_model_by_alias():
 def test_get_model_by_provider_slash_model():
     """Test retrieving model by provider/model format."""
     registry = ModelRegistry()
-    model = registry.get_model("openai/gpt-5-mini")
+    model = registry.get_model("openai/gpt-4o-mini")
 
     assert model is not None
     assert model.provider == "openai"
-    assert model.model_id == "gpt-5-mini"
-    assert "gpt-5-mini" in model.full_id.lower()
+    assert model.model_id == "gpt-4o-mini"
+    assert "gpt-4o-mini" in model.full_id.lower()
 
 
 def test_get_model_defaults_to_openai():
     """Test that model without provider defaults to OpenAI."""
     registry = ModelRegistry()
-    model = registry.get_model("gpt-5-mini")
+    model = registry.get_model("gpt-4o-mini")
 
     assert model is not None
     assert model.provider == "openai"
@@ -98,7 +98,7 @@ def test_get_model_invalid_reference_raises():
 def test_model_info_has_required_fields():
     """Test that ModelInfo has all required fields."""
     registry = ModelRegistry()
-    model = registry.get_model("openai/gpt-5")
+    model = registry.get_model("openai/gpt-4o")
 
     assert model.provider is not None
     assert model.model_id is not None
@@ -114,7 +114,7 @@ def test_model_info_has_required_fields():
 def test_model_info_calculate_cost():
     """Test ModelInfo.get_cost_for_tokens()."""
     registry = ModelRegistry()
-    model = registry.get_model("openai/gpt-5-mini")
+    model = registry.get_model("openai/gpt-4o-mini")
 
     # Calculate cost for 1000 prompt + 500 completion tokens
     cost = model.get_cost_for_tokens(1000, 500)

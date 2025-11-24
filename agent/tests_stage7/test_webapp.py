@@ -81,7 +81,7 @@ def mock_run_detail():
             "total_input_tokens": 1000,
             "total_output_tokens": 500,
             "by_model": {
-                "gpt-5-mini": {
+                "gpt-4o-mini": {
                     "input_tokens": 1000,
                     "output_tokens": 500,
                     "cost_usd": 0.25,

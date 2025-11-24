@@ -45,25 +45,25 @@ def sample_runs():
             "rounds_completed": 2,
             "final_status": "COMPLETED",
             "models_used": {
-                "manager": "gpt-5-mini",
-                "supervisor": "gpt-5-nano",
-                "employee": "gpt-5",
+                "manager": "gpt-4o-mini",
+                "supervisor": "gpt-4o-mini",
+                "employee": "gpt-4o",
             },
             "cost_summary": {
                 "total_cost_usd": 0.5 + i * 0.1,
                 "by_role": {
                     "manager": {
-                        "model": "gpt-5-mini",
+                        "model": "gpt-4o-mini",
                         "total_tokens": 1000 + i * 100,
                         "total_cost_usd": 0.1 + i * 0.01,
                     },
                     "supervisor": {
-                        "model": "gpt-5-nano",
+                        "model": "gpt-4o-mini",
                         "total_tokens": 500 + i * 50,
                         "total_cost_usd": 0.05 + i * 0.005,
                     },
                     "employee": {
-                        "model": "gpt-5",
+                        "model": "gpt-4o",
                         "total_tokens": 2000 + i * 200,
                         "total_cost_usd": 0.35 + i * 0.035,
                     },
@@ -164,9 +164,9 @@ def test_compute_model_summaries(sample_runs):
     assert len(model_summaries) == 3
 
     model_names = {s.model_name for s in model_summaries}
-    assert "gpt-5-mini" in model_names
-    assert "gpt-5-nano" in model_names
-    assert "gpt-5" in model_names
+    assert "gpt-4o-mini" in model_names
+    assert "gpt-4o-mini" in model_names
+    assert "gpt-4o" in model_names
 
     # Check structure
     for summary in model_summaries:
@@ -264,7 +264,7 @@ def test_export_analytics_csv(sample_runs, sample_jobs):
     # Should contain metric names
     assert "Total Runs" in csv_str
     assert "Total Cost" in csv_str
-    assert "gpt-5-mini" in csv_str or "gpt-5" in csv_str
+    assert "gpt-4o-mini" in csv_str or "gpt-4o" in csv_str
 
 
 def test_get_analytics(sample_runs, sample_jobs, monkeypatch):
@@ -329,13 +329,13 @@ def test_project_summary_dataclass():
 def test_model_summary_dataclass():
     """Test ModelSummary dataclass."""
     summary = analytics.ModelSummary(
-        model_name="gpt-5",
+        model_name="gpt-4o",
         total_tokens=100000,
         total_cost=12.34,
         usage_count=25,
     )
 
-    assert summary.model_name == "gpt-5"
+    assert summary.model_name == "gpt-4o"
     assert summary.total_tokens == 100000
     assert summary.total_cost == 12.34
     assert summary.usage_count == 25

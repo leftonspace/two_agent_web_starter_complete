@@ -177,7 +177,7 @@ class TestTimestampFormatting:
             "end_time": 1001.0,
             "duration_seconds": 1.0,
             "num_iterations": 1,
-            "models_used": ["gpt-5"],
+            "models_used": ["gpt-4o"],
             "safety_status": "passed",
             "final_status": "success"
         }

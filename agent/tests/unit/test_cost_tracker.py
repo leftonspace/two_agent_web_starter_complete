@@ -8,8 +8,8 @@ def test_register_and_summary_basic() -> None:
     cost_tracker.reset()
 
     # simulate a few calls
-    cost_tracker.register_call("manager", "gpt-5-mini", 1_000, 2_000)
-    cost_tracker.register_call("employee", "gpt-5", 500, 500)
+    cost_tracker.register_call("manager", "gpt-4o-mini", 1_000, 2_000)
+    cost_tracker.register_call("employee", "gpt-4o", 500, 500)
 
     summary = cost_tracker.get_summary()
 
@@ -25,8 +25,8 @@ def test_register_and_summary_basic() -> None:
     assert "employee" in summary["by_role"]
 
     # model breakdown present
-    assert "gpt-5-mini" in summary["by_model"]
-    assert "gpt-5" in summary["by_model"]
+    assert "gpt-4o-mini" in summary["by_model"]
+    assert "gpt-4o" in summary["by_model"]
 
     # total cost is > 0
     assert summary["total_usd"] > 0.0
@@ -34,7 +34,7 @@ def test_register_and_summary_basic() -> None:
 
 def test_get_total_cost_usd_matches_summary() -> None:
     cost_tracker.reset()
-    cost_tracker.register_call("manager", "gpt-5-mini", 10_000, 0)
+    cost_tracker.register_call("manager", "gpt-4o-mini", 10_000, 0)
 
     summary = cost_tracker.get_summary()
     total_from_summary = summary["total_usd"]
@@ -46,7 +46,7 @@ def test_get_total_cost_usd_matches_summary() -> None:
 
 def test_append_history_creates_file(tmp_path: Path) -> None:
     cost_tracker.reset()
-    cost_tracker.register_call("manager", "gpt-5-mini", 1_000, 1_000)
+    cost_tracker.register_call("manager", "gpt-4o-mini", 1_000, 1_000)
 
     log_file = tmp_path / "history.jsonl"
     cost_tracker.append_history(
@@ -71,7 +71,7 @@ def test_check_cost_cap_no_cap() -> None:
     would_exceed, current, message = cost_tracker.check_cost_cap(
         max_cost_usd=0.0,  # No cap
         estimated_tokens=5000,
-        model="gpt-5-mini",
+        model="gpt-4o-mini",
     )
 
     assert would_exceed is False
@@ -82,12 +82,12 @@ def test_check_cost_cap_within_budget() -> None:
     """STAGE 5.2: Test cost cap check when within budget."""
     cost_tracker.reset()
     # Add a small call
-    cost_tracker.register_call("manager", "gpt-5-mini", 100, 100)
+    cost_tracker.register_call("manager", "gpt-4o-mini", 100, 100)
 
     would_exceed, current, message = cost_tracker.check_cost_cap(
         max_cost_usd=1.0,  # High cap
         estimated_tokens=1000,
-        model="gpt-5-mini",
+        model="gpt-4o-mini",
     )
 
     assert would_exceed is False
@@ -100,12 +100,12 @@ def test_check_cost_cap_would_exceed() -> None:
     cost_tracker.reset()
     # Add enough calls to get close to a small cap
     for _ in range(5):
-        cost_tracker.register_call("manager", "gpt-5", 10_000, 10_000)
+        cost_tracker.register_call("manager", "gpt-4o", 10_000, 10_000)
 
     would_exceed, current, message = cost_tracker.check_cost_cap(
         max_cost_usd=0.01,  # Very small cap - already exceeded
         estimated_tokens=5000,
-        model="gpt-5",
+        model="gpt-4o",
     )
 
     assert would_exceed is True

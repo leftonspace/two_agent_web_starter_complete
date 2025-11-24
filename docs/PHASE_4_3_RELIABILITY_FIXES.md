@@ -88,7 +88,7 @@ kg_queue.stop()  # Waits for queue to drain
 - **Modified:** `agent/llm.py`
 - Explicit timeout detection (separate from other errors)
 - Automatic retry with cheaper model on timeout
-- Fallback chain: `gpt-5` → `gpt-5-mini` → `gpt-5-nano`
+- Fallback chain: `gpt-4o` → `gpt-4o-mini` (when available)
 - Configurable via `llm_fallback_model` in config
 
 **Implementation:**
@@ -100,13 +100,13 @@ except requests.exceptions.Timeout as exc:
 
 # In llm.chat_json():
 if data.get("timeout") and data.get("is_timeout"):
-    fallback_model = "gpt-5-mini-2025-08-07"  # Based on original model
+    fallback_model = "gpt-4o-mini"  # Based on original model
     data = _post(fallback_payload)  # Retry with fallback
 ```
 
 **Fallback Logic:**
-- `gpt-5-pro` / `gpt-5-2025` → `gpt-5-mini-2025-08-07`
-- `gpt-5-mini` → `gpt-5-nano`
+- `gpt-4o` → `gpt-4o-mini`
+- `gpt-4o-mini` → Return stub if still failing
 - Already cheapest model → No fallback (return stub)
 
 **Test Coverage:**
@@ -181,7 +181,7 @@ if checkpoint:
 tracker = CostTrackerInstance(run_id="abc123")
 
 # Register calls
-tracker.register_call("manager", "gpt-5-mini", 1000, 500)
+tracker.register_call("manager", "gpt-4o-mini", 1000, 500)
 
 # Get summary
 summary = tracker.get_summary()  # Isolated to this run
@@ -191,7 +191,7 @@ total_cost = tracker.get_total_cost_usd()
 would_exceed, current_cost, message = tracker.check_cost_cap(
     max_cost_usd=1.0,
     estimated_tokens=5000,
-    model="gpt-5-mini"
+    model="gpt-4o-mini"
 )
 
 # Save to file

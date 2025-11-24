@@ -31,7 +31,7 @@ def estimate_run_cost(
         mode: "2loop" or "3loop"
         max_rounds: Maximum number of iterations
         models_used: Dict mapping role -> model name
-            e.g., {"manager": "gpt-5-mini", "supervisor": "gpt-5-nano", "employee": "gpt-5"}
+            e.g., {"manager": "gpt-4o-mini", "supervisor": "gpt-4o-mini", "employee": "gpt-4o"}
         tokens_per_round_prompt: Estimated prompt tokens per round per role
         tokens_per_round_completion: Estimated completion tokens per round per role
 

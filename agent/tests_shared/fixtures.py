@@ -130,12 +130,12 @@ def sample_run_summary():
             "total_input_tokens": 5000,
             "total_output_tokens": 2000,
             "by_model": {
-                "gpt-5": {
+                "gpt-4o": {
                     "input_tokens": 3000,
                     "output_tokens": 1200,
                     "cost_usd": 0.28,
                 },
-                "gpt-5-mini": {
+                "gpt-4o-mini": {
                     "input_tokens": 2000,
                     "output_tokens": 800,
                     "cost_usd": 0.17,

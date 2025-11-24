@@ -16,7 +16,7 @@ Usage:
     tracker = CostTrackerInstance(run_id="abc123")
 
     # Register calls
-    tracker.register_call("manager", "gpt-5-mini", 1000, 500)
+    tracker.register_call("manager", "gpt-4o-mini", 1000, 500)
 
     # Get summary
     summary = tracker.get_summary()
@@ -218,7 +218,7 @@ class CostTrackerInstance:
         self,
         max_cost_usd: float,
         estimated_tokens: int = 5000,
-        model: str = "gpt-5-mini",
+        model: str = "gpt-4o-mini",
     ) -> tuple[bool, float, str]:
         """
         Check if making another LLM call would exceed the cost cap.

@@ -535,9 +535,9 @@ Add to project_config.json:
 
 ```bash
 # Override default models
-export MANAGER_MODEL=gpt-5
-export SUPERVISOR_MODEL=gpt-5-mini
-export EMPLOYEE_MODEL=gpt-5
+export MANAGER_MODEL=gpt-4o
+export SUPERVISOR_MODEL=gpt-4o-mini
+export EMPLOYEE_MODEL=gpt-4o
 
 # Set API keys
 export OPENAI_API_KEY=your-key-here

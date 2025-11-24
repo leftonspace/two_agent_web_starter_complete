@@ -144,7 +144,7 @@ Respond in JSON format ONLY:
             role="merge_manager",
             system_prompt=system_prompt,
             user_content=user_content,
-            model="gpt-5-mini",  # Use cheaper model for diff analysis
+            model="gpt-4o-mini",  # Use cheaper model for diff analysis
             temperature=0.1,
             expect_json=True,
             max_cost_usd=max_cost_usd,
@@ -256,7 +256,7 @@ Respond in JSON format ONLY:
             role="merge_manager",
             system_prompt=system_prompt,
             user_content=user_content,
-            model="gpt-5-mini",  # Use cheaper model for commit messages
+            model="gpt-4o-mini",  # Use cheaper model for commit messages
             temperature=0.2,
             expect_json=True,
             max_cost_usd=max_cost_usd,

@@ -12,7 +12,7 @@ Usage:
     >>> from model_registry import get_registry
     >>> registry = get_registry()
     >>> model = registry.get_model("manager_default")
-    >>> print(model.full_id)  # "gpt-5-mini-2025-08-07"
+    >>> print(model.full_id)  # "gpt-4o-mini-2024-11-20"
     >>> print(model.cost_per_1k_prompt)  # 0.003
 """
 
@@ -37,8 +37,8 @@ class ModelInfo:
 
     Attributes:
         provider: Provider name (e.g., "openai", "anthropic")
-        model_id: Short model identifier (e.g., "gpt-5", "claude-sonnet-4")
-        full_id: Complete model ID for API calls (e.g., "gpt-5-2025-08-07")
+        model_id: Short model identifier (e.g., "gpt-4o", "claude-sonnet-4")
+        full_id: Complete model ID for API calls (e.g., "gpt-4o-2024-11-20")
         display_name: Human-readable name
         context_window: Maximum context window size in tokens
         max_output_tokens: Maximum output tokens
@@ -126,7 +126,7 @@ class ModelRegistry:
         >>> registry = ModelRegistry()
         >>> model = registry.get_model("manager_default")
         >>> print(model.full_id)
-        "gpt-5-mini-2025-08-07"
+        "gpt-4o-mini-2024-11-20"
     """
 
     def __init__(self, registry_path: Optional[Path] = None):
@@ -173,8 +173,8 @@ class ModelRegistry:
         Args:
             model_ref: Model reference in one of these formats:
                        - Alias: "manager_default", "high_complexity"
-                       - Provider/model: "openai/gpt-5", "anthropic/claude-sonnet-4"
-                       - Model only: "gpt-5" (defaults to openai)
+                       - Provider/model: "openai/gpt-4o", "anthropic/claude-sonnet-4"
+                       - Model only: "gpt-4o" (defaults to openai)
 
         Returns:
             ModelInfo instance with model details
@@ -184,8 +184,8 @@ class ModelRegistry:
 
         Examples:
             >>> registry.get_model("manager_default")  # Alias
-            >>> registry.get_model("openai/gpt-5")     # Provider/model
-            >>> registry.get_model("gpt-5")            # Model (defaults to openai)
+            >>> registry.get_model("openai/gpt-4o")     # Provider/model
+            >>> registry.get_model("gpt-4o")            # Model (defaults to openai)
         """
         # Check cache first
         if model_ref in self._model_cache:

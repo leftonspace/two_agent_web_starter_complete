@@ -250,7 +250,7 @@ class TestLLMTimeoutFallback:
                 "manager",
                 "Test prompt",
                 "Test content",
-                model="gpt-5-2025-08-07",
+                model="gpt-4o-2024-11-20",
                 expect_json=True,
             )
 
@@ -259,7 +259,7 @@ class TestLLMTimeoutFallback:
 
             # Second call should use fallback model
             second_call_payload = mock_post_inner.call_args_list[1][0][0]
-            assert second_call_payload["model"] == "gpt-5-mini-2025-08-07"
+            assert second_call_payload["model"] == "gpt-4o-mini-2024-11-20"
 
     def test_timeout_flag_in_response(self):
         """Timeout response should include is_timeout flag."""
@@ -271,7 +271,7 @@ class TestLLMTimeoutFallback:
 
             mock_request.side_effect = requests.exceptions.Timeout("Connection timed out")
 
-            result = llm._post({"model": "gpt-5", "messages": []})
+            result = llm._post({"model": "gpt-4o", "messages": []})
 
             assert result.get("timeout") is True
             assert result.get("is_timeout") is True
@@ -383,8 +383,8 @@ class TestCostTrackerInstance:
         tracker2 = CostTrackerInstance("run_002")
 
         # Register calls for different runs
-        tracker1.register_call("manager", "gpt-5-mini", 1000, 500)
-        tracker2.register_call("employee", "gpt-5-mini", 2000, 1000)
+        tracker1.register_call("manager", "gpt-4o-mini", 1000, 500)
+        tracker2.register_call("employee", "gpt-4o-mini", 2000, 1000)
 
         # Verify isolation
         summary1 = tracker1.get_summary()
@@ -398,7 +398,7 @@ class TestCostTrackerInstance:
     def test_no_shared_state(self):
         """Instances should not share state (no singleton behavior)."""
         tracker1 = CostTrackerInstance("run_A")
-        tracker1.register_call("manager", "gpt-5-mini", 500, 250)
+        tracker1.register_call("manager", "gpt-4o-mini", 500, 250)
 
         tracker2 = CostTrackerInstance("run_B")
         summary2 = tracker2.get_summary()
@@ -412,11 +412,11 @@ class TestCostTrackerInstance:
         tracker = CostTrackerInstance("run_cap_test")
 
         # Register some costs
-        tracker.register_call("manager", "gpt-5-mini", 10000, 5000)
+        tracker.register_call("manager", "gpt-4o-mini", 10000, 5000)
 
         # Check cost cap
         would_exceed, current_cost, message = tracker.check_cost_cap(
-            max_cost_usd=0.01, estimated_tokens=1000, model="gpt-5-mini"
+            max_cost_usd=0.01, estimated_tokens=1000, model="gpt-4o-mini"
         )
 
         # Should detect that cap would be exceeded

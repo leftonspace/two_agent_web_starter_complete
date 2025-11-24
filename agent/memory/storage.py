@@ -645,6 +645,15 @@ class TaskStorage:
             )
         """)
 
+        # Storage metadata table (for storing learned patterns, etc.)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS storage_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
         self._conn.commit()
 
     def store_task(self, task: TaskResult) -> str:
@@ -741,6 +750,47 @@ class TaskStorage:
             (user_id,)
         )
         return {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
+
+    def get_metadata(self, key: str) -> Optional[Any]:
+        """
+        Get metadata value by key.
+
+        Used for storing learned patterns and other persistent data.
+
+        Args:
+            key: Metadata key to retrieve
+
+        Returns:
+            Metadata value (deserialized from JSON) or None if not found
+        """
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "SELECT value FROM storage_metadata WHERE key = ?",
+            (key,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return json.loads(row[0])
+        return None
+
+    def set_metadata(self, key: str, value: Any):
+        """
+        Set metadata value by key.
+
+        Used for storing learned patterns and other persistent data.
+
+        Args:
+            key: Metadata key
+            value: Value to store (will be serialized to JSON)
+        """
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """INSERT OR REPLACE INTO storage_metadata
+               (key, value, updated_at)
+               VALUES (?, ?, ?)""",
+            (key, json.dumps(value), datetime.now().isoformat())
+        )
+        self._conn.commit()
 
     def _row_to_task(self, row: tuple) -> TaskResult:
         return TaskResult(

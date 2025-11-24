@@ -80,7 +80,7 @@ def test_mock_cost_tracker():
     tracker.reset()
     assert tracker.get_total_cost_usd() == 0.0
 
-    tracker.register_call("manager", "gpt-5", 100, 50)
+    tracker.register_call("manager", "gpt-4o", 100, 50)
     assert tracker.get_total_cost_usd() > 0.0
 
 

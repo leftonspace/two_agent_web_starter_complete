@@ -21,9 +21,9 @@ def test_choose_model_gpt5_constraint_first_iteration():
         is_very_important=True,
     )
 
-    # Should NOT be GPT-5 on first iteration
-    assert "gpt-5-mini" in model or "gpt-5-nano" in model
-    assert "gpt-5-2025-08-07" not in model
+    # Should NOT be GPT-4o on first iteration
+    assert "gpt-4o-mini" in model
+    assert "gpt-4o-2024" not in model
 
 
 def test_choose_model_gpt5_allowed_second_iteration_high_complexity():
@@ -36,8 +36,8 @@ def test_choose_model_gpt5_allowed_second_iteration_high_complexity():
         is_very_important=False,
     )
 
-    # Should be GPT-5 on 2nd iteration with high complexity
-    assert "gpt-5-2025-08-07" in model
+    # Should be GPT-4o on 2nd iteration with high complexity
+    assert "gpt-4o-2024" in model
 
 
 def test_choose_model_gpt5_allowed_third_iteration_important():
@@ -50,8 +50,8 @@ def test_choose_model_gpt5_allowed_third_iteration_important():
         is_very_important=True,
     )
 
-    # Should be GPT-5 on 3rd iteration when very important
-    assert "gpt-5-2025-08-07" in model
+    # Should be GPT-4o on 3rd iteration when very important
+    assert "gpt-4o-2024" in model
 
 
 def test_choose_model_gpt5_not_allowed_second_iteration_low_complexity():
@@ -64,8 +64,8 @@ def test_choose_model_gpt5_not_allowed_second_iteration_low_complexity():
         is_very_important=False,
     )
 
-    # Should NOT be GPT-5 with low complexity and not important
-    assert "gpt-5-mini" in model or "gpt-5-nano" in model
+    # Should NOT be GPT-4o with low complexity and not important
+    assert "gpt-4o-mini" in model
 
 
 def test_choose_model_gpt5_not_allowed_fourth_iteration():
@@ -78,8 +78,8 @@ def test_choose_model_gpt5_not_allowed_fourth_iteration():
         is_very_important=True,
     )
 
-    # Should NOT be GPT-5 beyond 3rd iteration
-    assert "gpt-5-mini" in model or "gpt-5-nano" in model
+    # Should NOT be GPT-4o beyond 3rd iteration
+    assert "gpt-4o-mini" in model
 
 
 def test_choose_model_docs_task_type():
@@ -92,7 +92,7 @@ def test_choose_model_docs_task_type():
     )
 
     # Docs should always use mini, even with high complexity
-    assert "gpt-5-mini" in model
+    assert "gpt-4o-mini" in model
 
 
 def test_choose_model_analysis_task_type():
@@ -111,11 +111,11 @@ def test_choose_model_analysis_task_type():
         interaction_index=1,
     )
 
-    # Analysis with low complexity should use nano
-    assert "gpt-5-nano" in model_low
+    # Analysis with low complexity should use mini
+    assert "gpt-4o-mini" in model_low
 
     # Analysis with high complexity should use mini
-    assert "gpt-5-mini" in model_high
+    assert "gpt-4o-mini" in model_high
 
 
 def test_estimate_complexity_previous_failures():

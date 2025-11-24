@@ -225,8 +225,8 @@ def run_tests():
         tracker1 = CostTrackerInstance("run_001")
         tracker2 = CostTrackerInstance("run_002")
 
-        tracker1.register_call("manager", "gpt-5-mini", 1000, 500)
-        tracker2.register_call("employee", "gpt-5-mini", 2000, 1000)
+        tracker1.register_call("manager", "gpt-4o-mini", 1000, 500)
+        tracker2.register_call("employee", "gpt-4o-mini", 2000, 1000)
 
         summary1 = tracker1.get_summary()
         summary2 = tracker2.get_summary()
@@ -240,7 +240,7 @@ def run_tests():
 
     def test_r5_no_shared_state():
         tracker1 = CostTrackerInstance("run_A")
-        tracker1.register_call("manager", "gpt-5-mini", 500, 250)
+        tracker1.register_call("manager", "gpt-4o-mini", 500, 250)
 
         tracker2 = CostTrackerInstance("run_B")
         summary2 = tracker2.get_summary()

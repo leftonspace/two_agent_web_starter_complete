@@ -153,9 +153,9 @@ def run_project(config: Dict[str, Any]) -> RunSummary:
             DEFAULT_SUPERVISOR_MODEL,
         )
     except ImportError:
-        DEFAULT_MANAGER_MODEL = "gpt-5-mini"
-        DEFAULT_SUPERVISOR_MODEL = "gpt-5-nano"
-        DEFAULT_EMPLOYEE_MODEL = "gpt-5"
+        DEFAULT_MANAGER_MODEL = "gpt-4o-mini"
+        DEFAULT_SUPERVISOR_MODEL = "gpt-4o-mini"
+        DEFAULT_EMPLOYEE_MODEL = "gpt-4o"
 
     models_used = {
         "manager": DEFAULT_MANAGER_MODEL,

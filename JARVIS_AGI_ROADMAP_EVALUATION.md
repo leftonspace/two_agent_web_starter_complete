@@ -247,10 +247,12 @@ All 7 critical bugs fixed in previous session:
 ### ✅ P2.6 - Documentation Updates (COMPLETE)
 
 - ✅ POSTGRESQL_MIGRATION_GUIDE.md (comprehensive 400+ line guide)
-- ✅ TOOL_MIGRATION_REFERENCE.md (old → new tool name mapping)
+- ✅ TOOL_MIGRATION_REFERENCE.md (Claude Code tool name reference: file_read→Read, file_write→Write, execute_command→Bash)
 - ✅ ZOOM_MEET_SDK_INTEGRATION.md (meeting bot guide)
 - ✅ AST_CODE_TRANSFORMATION.md (code analysis guide)
 - ✅ All gpt-5 references replaced with real models
+
+**Note**: JARVIS internal names (file_read, git_operations in tool_registry.py/actions/) remain unchanged - they're current implementation, not outdated references.
 
 ---
 
@@ -749,17 +751,16 @@ This system implements a **self-evolving agent pool** with Darwinian selection. 
 2. **Legacy Orchestrators** - Confusion between orchestrator.py, orchestrator_3loop_legacy.py, orchestrator_phase3.py
    - Consolidate to single orchestrator with clear versioning
 
-3. **Old Tool Names in Documentation** - `file_read`, `file_write`, `code_execute`, `git_operations`
-   - Update to: `read`, `write`, `bash`
-
-4. **ModelDefaults Class** - Marked DEPRECATED in config.py but still used
+3. **ModelDefaults Class** - Marked DEPRECATED in config.py but still used
    - Complete migration or restore
 
-5. **Unused Imports** - 45+ dead imports across files (see audit report)
+4. **Unused Imports** - 45+ dead imports across files (see audit report)
    - Clean up for code quality
 
-6. **DictStorage Empty Alias** - memory/entity.py:433-435
+5. **DictStorage Empty Alias** - memory/entity.py:433-435
    - Remove if truly unused
+
+**Note**: The previous issue "Old Tool Names in Documentation" has been resolved. Names like `file_read`, `git_operations` are JARVIS internal names (tool_registry.py, actions/), not outdated Claude Code tool references. TOOL_MIGRATION_REFERENCE.md correctly documents Claude Code tools (Read, Write, Bash, etc.).
 
 ### REFACTOR/FIX 🔧
 

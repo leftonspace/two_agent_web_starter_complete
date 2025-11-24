@@ -1,6 +1,17 @@
 # JARVIS Agent Configuration
 # This file defines the agents available in the system.
 # Use {variable} syntax for variable substitution.
+#
+# Available Tools (from jarvis_tools.py):
+#   - read        : Read file contents
+#   - edit        : Edit files (find & replace)
+#   - write       : Write/create files
+#   - bash        : Execute shell commands (includes git)
+#   - grep        : Search file contents with regex
+#   - glob        : Find files by pattern
+#   - todo        : Manage task lists
+#   - web_search  : Search the web
+#   - web_fetch   : Fetch web page content
 
 researcher:
   role: >
@@ -17,8 +28,10 @@ researcher:
   max_iterations: 20
   tools:
     - web_search
-    - file_read
-    - api_call
+    - web_fetch
+    - read
+    - grep
+    - glob
   capabilities:
     - data_analysis
     - trend_identification
@@ -44,8 +57,9 @@ writer:
   temperature: 0.8
   max_iterations: 10
   tools:
-    - file_write
-    - file_read
+    - read
+    - write
+    - edit
   capabilities:
     - content_creation
     - editing
@@ -65,10 +79,12 @@ coder:
   temperature: 0.5
   max_iterations: 15
   tools:
-    - file_write
-    - file_read
-    - code_execute
-    - git_operations
+    - read
+    - write
+    - edit
+    - bash
+    - grep
+    - glob
   capabilities:
     - code_generation
     - debugging
@@ -98,8 +114,10 @@ reviewer:
   temperature: 0.3
   max_iterations: 10
   tools:
-    - file_read
-    - code_execute
+    - read
+    - bash
+    - grep
+    - glob
   capabilities:
     - code_review
     - quality_assurance

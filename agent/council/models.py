@@ -50,6 +50,7 @@ class VoteType(Enum):
     DECISION = "decision"           # General decision
     FIRE_COUNCILLOR = "fire"        # Vote to fire
     SPAWN_COUNCILLOR = "spawn"      # Vote to hire
+    BEST_ANSWER = "best_answer"     # Vote on whose answer is best (competitive)
 
 
 @dataclass
@@ -67,6 +68,13 @@ class PerformanceMetrics:
     consecutive_successes: int = 0
     last_task_at: Optional[datetime] = None
     joined_at: datetime = field(default_factory=datetime.now)
+
+    # Competitive council tracking
+    competitive_rounds: int = 0          # Total rounds participated in
+    competitive_wins: int = 0            # Times voted as "best answer"
+    competitive_losses: int = 0          # Times NOT voted as best
+    current_round_streak: int = 0        # Current win/loss streak (positive = wins)
+    round_history: List[Dict] = field(default_factory=list)  # Last N rounds
 
     @property
     def success_rate(self) -> float:
@@ -146,6 +154,67 @@ class PerformanceMetrics:
         else:
             self.votes_lost += 1
 
+    def record_competitive_round(self, won: bool, task_id: str = "", score: float = 0.0):
+        """Record a competitive round result (best answer voting)"""
+        self.competitive_rounds += 1
+
+        if won:
+            self.competitive_wins += 1
+            if self.current_round_streak >= 0:
+                self.current_round_streak += 1
+            else:
+                self.current_round_streak = 1
+        else:
+            self.competitive_losses += 1
+            if self.current_round_streak <= 0:
+                self.current_round_streak -= 1
+            else:
+                self.current_round_streak = -1
+
+        # Keep last 20 rounds of history
+        self.round_history.append({
+            "task_id": task_id,
+            "won": won,
+            "score": score,
+            "timestamp": datetime.now().isoformat()
+        })
+        if len(self.round_history) > 20:
+            self.round_history = self.round_history[-20:]
+
+    @property
+    def competitive_win_rate(self) -> float:
+        """Calculate competitive win rate"""
+        total = self.competitive_wins + self.competitive_losses
+        if total == 0:
+            return 0.5
+        return self.competitive_wins / total
+
+    @property
+    def competitive_score(self) -> float:
+        """
+        Calculate competitive score for graveyard evaluation.
+        Lower score = higher risk of termination.
+
+        Based on:
+        - Win rate (60%)
+        - Recent performance from round_history (30%)
+        - Streak bonus/penalty (10%)
+        """
+        win_rate_score = self.competitive_win_rate * 60
+
+        # Recent performance (last 10 rounds)
+        recent = self.round_history[-10:] if self.round_history else []
+        if recent:
+            recent_wins = sum(1 for r in recent if r.get("won", False))
+            recent_score = (recent_wins / len(recent)) * 30
+        else:
+            recent_score = 15  # Neutral for new councillors
+
+        # Streak bonus/penalty
+        streak_score = min(10, max(-10, self.current_round_streak)) + 10  # 0-20 range, normalized to 0-10
+
+        return win_rate_score + recent_score + (streak_score / 2)
+
 
 @dataclass
 class Councillor:
@@ -160,6 +229,7 @@ class Councillor:
     metrics: PerformanceMetrics = field(default_factory=PerformanceMetrics)
     base_vote_weight: float = 1.0
     metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=datetime.now)
 
     # Execution function (set externally)
     _execute_func: Optional[Callable] = field(default=None, repr=False)

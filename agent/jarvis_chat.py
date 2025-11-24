@@ -58,6 +58,16 @@ except ImportError as e:
     JarvisTools = None
     get_jarvis_tools = None
 
+# Import JARVIS Agent (autonomous tool-using agent)
+try:
+    from jarvis_agent import JarvisAgent, AgentEvent, EventType, get_agent
+    JARVIS_AGENT_AVAILABLE = True
+except ImportError as e:
+    print(f"[Jarvis] Agent module not available: {e}")
+    JARVIS_AGENT_AVAILABLE = False
+    JarvisAgent = None
+    get_agent = None
+
 # Import existing components
 try:
     from memory.session_manager import SessionManager
@@ -269,6 +279,17 @@ class JarvisChat:
                 self.tools = None
         else:
             self.tools = None
+
+        # Initialize JARVIS Agent (autonomous tool-using agent)
+        if JARVIS_AGENT_AVAILABLE and get_agent:
+            try:
+                self.agent = get_agent()
+                print("[Jarvis] Agent initialized - proactive tool usage enabled")
+            except Exception as e:
+                print(f"[Jarvis] Agent init failed: {e}")
+                self.agent = None
+        else:
+            self.agent = None
 
         # Conversation state
         self.current_session = None
@@ -2242,6 +2263,70 @@ Jarvis:"""
             }
 
         except Exception as e:
+            yield {
+                "type": "error",
+                "content": str(e),
+                "timestamp": time.time()
+            }
+
+    async def stream_agent_response(
+        self,
+        message: str,
+        context: Optional[Dict] = None
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Stream agent response with visible thinking and tool usage.
+
+        This uses the JarvisAgent for proactive tool usage, streaming
+        all events (thinking, tool calls, results) to the client.
+
+        Yields events in format:
+        - {"type": "thinking", "content": "...", "metadata": {...}}
+        - {"type": "tool_call", "content": "...", "metadata": {"tool": "...", "args": {...}}}
+        - {"type": "tool_result", "content": "...", "metadata": {"tool": "...", "success": true}}
+        - {"type": "response", "content": "...", "metadata": {...}}
+        - {"type": "complete", "metadata": {...}}
+        """
+        if not self.agent:
+            yield {
+                "type": "error",
+                "content": "Agent not available. Using standard response.",
+                "timestamp": time.time()
+            }
+            # Fall back to standard response
+            async for event in self.stream_response(message, context):
+                yield event
+            return
+
+        try:
+            # Build conversation history for agent
+            history = [
+                {"role": msg.role, "content": msg.content}
+                for msg in self.conversation_history[-10:]
+            ]
+
+            # Stream agent events
+            async for event in self.agent.run(message, context, history):
+                yield {
+                    "type": event.type.value,
+                    "content": event.content,
+                    "timestamp": event.timestamp,
+                    "metadata": event.metadata
+                }
+
+                # Store response in conversation history
+                if event.type == EventType.RESPONSE:
+                    assistant_msg = ChatMessage(
+                        role="assistant",
+                        content=event.content,
+                        timestamp=event.timestamp,
+                        metadata={"agent": True, **event.metadata}
+                    )
+                    self.conversation_history.append(assistant_msg)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             yield {
                 "type": "error",
                 "content": str(e),

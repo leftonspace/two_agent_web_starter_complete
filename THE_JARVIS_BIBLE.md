@@ -716,6 +716,19 @@ two_agent_web_starter_complete/
 
 # PART II: COMPLETE JARVIS FUNCTIONS
 
+Organized by category:
+
+Core AI Functions - NLP, intent classification, planning, orchestration
+Agent Management - Spawning, coordination, voting, happiness, lifecycle
+Tool Execution - File ops, code search, shell, web, database, git
+Memory Functions - Short/long-term, entities, vectors, profiles, sessions
+Meeting Intelligence - Zoom/Teams/Meet bots, transcription, diarization, action items
+Document Generation - PDF, Word, Excel, email templates
+Business Actions - Domain purchase, deployment, SMS, payments, calendar
+Security & Safety - Prompt injection, secrets, approvals, audit, rate limiting
+Vision & Voice - Image analysis, OCR, TTS, STT, voice chat
+Administration - Calendar, email, workflows, monitoring, analytics, self-optimization
+
 ## 2.1 Core AI Functions
 
 | Function | Description | Module Location |

@@ -10,22 +10,27 @@ Features:
 - Fire/spawn mechanics to maintain team quality
 - Bonus pool for rewarding excellent work
 - Automatic pattern selection based on task analysis
+- **Competitive Council**: Parallel execution with "best answer" voting
+- **Graveyard System**: Permanent deletion of underperformers
 
-Usage:
+Usage (Standard Council):
     from agent.council import CouncilOrchestrator, create_council
 
-    # Create and initialize council
     council = await create_council(
         llm_func=my_llm_function,
         templates=["coder", "reviewer", "tester"]
     )
-
-    # Process a task
     result = await council.process_task("Build a REST API")
 
-    # Get council status
-    status = council.get_council_status()
-    print(f"Team morale: {status['team_morale']['mood']}")
+Usage (Competitive Council):
+    from agent.council import CompetitiveCouncil, create_competitive_council
+
+    # 3 supervisor+employee sets work on SAME task in parallel
+    # All vote on whose answer is BEST
+    # Every 10 rounds: 3 lowest performers → Graveyard (deleted)
+    council = await create_competitive_council(llm_func=my_llm_function)
+    result = await council.process_task("Build a unicorn website")
+    print(f"Winner: {result.winner_set_id}")
 """
 
 # Core models
@@ -73,6 +78,21 @@ from .orchestrator import (
     create_council,
 )
 
+# Competitive Council (Parallel Execution)
+from .competitive_council import (
+    CompetitiveCouncil,
+    CompetitiveConfig,
+    CompetitiveResult,
+    AgentSet,
+    create_competitive_council,
+)
+
+# Graveyard (Permanent Deletion)
+from .graveyard import (
+    Graveyard,
+    GraveyardRecord,
+)
+
 
 __all__ = [
     # Models
@@ -109,6 +129,17 @@ __all__ = [
     'CouncilOrchestrator',
     'CouncilConfig',
     'create_council',
+
+    # Competitive Council
+    'CompetitiveCouncil',
+    'CompetitiveConfig',
+    'CompetitiveResult',
+    'AgentSet',
+    'create_competitive_council',
+
+    # Graveyard
+    'Graveyard',
+    'GraveyardRecord',
 ]
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'  # Added competitive council + graveyard

@@ -886,4 +886,195 @@ patterns:
 
 ---
 
-*Council System Tuning Guide - JARVIS 2.0*
+## Competitive Council System
+
+### Overview
+
+The **Competitive Council** is an advanced multi-agent architecture where multiple teams work on the **same task in parallel**, then vote on whose answer is **best**. This creates healthy competition and ensures quality through democratic selection.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     COMPETITIVE PARALLEL EXECUTION                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│                           ┌─────────────┐                                   │
+│                           │   JARVIS    │                                   │
+│                           │  (Manager)  │                                   │
+│                           └──────┬──────┘                                   │
+│                                  │ dispatches SAME task                     │
+│                    ┌─────────────┼─────────────┐                           │
+│                    │             │             │                            │
+│                    ▼             ▼             ▼                            │
+│             ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
+│             │  Set 1   │  │  Set 2   │  │  Set 3   │                       │
+│             │Sup A     │  │Sup B     │  │Sup C     │                       │
+│             │Emp A     │  │Emp B     │  │Emp C     │                       │
+│             └────┬─────┘  └────┬─────┘  └────┬─────┘                       │
+│                  │             │             │                              │
+│                  └─────────────┼─────────────┘                              │
+│                                ▼                                            │
+│                    ┌───────────────────────┐                               │
+│                    │ ALL VOTE: whose       │                               │
+│                    │ answer is BEST?       │                               │
+│                    └───────────┬───────────┘                               │
+│                                │                                            │
+│                                ▼ (every 10 rounds)                         │
+│                    ┌───────────────────────┐                               │
+│                    │ 3 lowest → 💀         │                               │
+│                    │ GRAVEYARD             │                               │
+│                    │ (SQL deleted)         │                               │
+│                    │ + Spawn 3 new AIs     │                               │
+│                    └───────────────────────┘                               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Usage
+
+```python
+from agent.council import CompetitiveCouncil, create_competitive_council
+
+# Create competitive council
+council = await create_competitive_council(llm_func=my_llm_function)
+
+# Process task - 3 teams work in parallel, vote on best answer
+result = await council.process_task("Build a unicorn website")
+
+# Winner's answer
+print(f"Winner: {result.winner_set_id}")
+print(f"Answer: {result.winner_answer}")
+
+# View leaderboard
+leaderboard = council.get_leaderboard()
+for entry in leaderboard:
+    print(f"{entry['rank']}. {entry['name']} - Score: {entry['competitive_score']:.1f}")
+```
+
+### Configuration
+
+```python
+from agent.council import CompetitiveCouncil, CompetitiveConfig
+
+config = CompetitiveConfig(
+    num_sets=3,                      # Number of parallel teams
+    rounds_before_evaluation=10,     # Rounds before graveyard
+    num_to_terminate=3,              # Lowest performers to terminate
+    supervisor_templates=["architect", "reviewer", "coder"],
+    employee_templates=["coder", "coder", "coder"],
+)
+
+council = CompetitiveCouncil(config)
+```
+
+### Competitive Score Formula
+
+Each councillor's competitive score determines their survival:
+
+```
+competitive_score = (win_rate × 60) + (recent_performance × 30) + (streak_bonus × 10)
+
+Where:
+- win_rate: competitive_wins / total_rounds
+- recent_performance: wins in last 10 rounds / 10
+- streak_bonus: normalized current streak (-10 to +10)
+```
+
+---
+
+## Graveyard System 💀
+
+### Overview
+
+The **Graveyard** is where underperforming AIs are **permanently deleted**. This is not a temporary suspension - the councillor ceases to exist, and all their SQL database records are purged.
+
+### How It Works
+
+1. **Evaluation Trigger**: After every N rounds (default: 10)
+2. **Ranking**: All councillors ranked by competitive score
+3. **Termination**: Bottom 3 performers sent to graveyard
+4. **Data Purge**: Complete SQL deletion of their records
+5. **Respawn**: Fresh AIs created with new SQL databases
+
+### Graveyard Record
+
+When terminated, a councillor's final state is recorded for historical analysis:
+
+```python
+@dataclass
+class GraveyardRecord:
+    councillor_id: str
+    councillor_name: str
+    reason: str                    # Why they were terminated
+    final_metrics: Dict[str, Any]  # Performance at death
+    vote_history: List[Dict]       # Last 20 rounds
+    total_votes: int
+    wins: int
+    losses: int
+    created_at: datetime
+    terminated_at: datetime
+```
+
+### Usage
+
+```python
+from agent.council import Graveyard
+
+graveyard = Graveyard("data/council/graveyard.db")
+graveyard.initialize()
+
+# View the fallen
+records = graveyard.get_records(limit=10)
+for record in records:
+    print(f"💀 {record.councillor_name}: {record.reason}")
+
+# Statistics
+stats = graveyard.get_statistics()
+print(f"Total deaths: {stats['total_deaths']}")
+print(f"Avg final performance: {stats['avg_final_performance']:.1f}")
+```
+
+### Key Behaviors
+
+| Event | Effect |
+|-------|--------|
+| AI terminated | Full SQL record deletion |
+| Remaining councillors | Receive COLLEAGUE_FIRED happiness event |
+| New spawn | Fresh SQL database, on probation |
+| Graveyard record | Kept for historical analysis |
+
+### Configuration
+
+```python
+config = CompetitiveConfig(
+    rounds_before_evaluation=10,  # How often graveyard evaluates
+    num_to_terminate=3,           # How many get terminated
+    graveyard_path="data/council/graveyard.db",
+)
+```
+
+---
+
+## Code Reference
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `agent/council/competitive_council.py` | Competitive parallel orchestrator |
+| `agent/council/graveyard.py` | Graveyard permanent deletion system |
+| `agent/council/models.py` | Updated with competitive tracking |
+| `agent/council/voting.py` | BEST_ANSWER vote type |
+
+### Key Classes
+
+- `CompetitiveCouncil`: Main orchestrator for parallel execution
+- `AgentSet`: Supervisor + Employee pair
+- `CompetitiveResult`: Result from a competitive round
+- `Graveyard`: Permanent deletion system
+- `GraveyardRecord`: Record of terminated councillor
+
+---
+
+*Council System Tuning Guide - JARVIS 2.0 + Competitive Council 1.1*

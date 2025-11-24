@@ -519,7 +519,40 @@ class VectorMemoryStore:
 
 ## 7. Multi-Agent Orchestrator
 
-### 7.1 Three-Loop Execution Pattern
+### 7.1 Architecture Philosophy
+
+JARVIS serves as the **primary orchestrator** (effectively the "manager"), delegating complex tasks to specialized agents when needed. This simplifies the hierarchy:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     JARVIS AS ORCHESTRATOR                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│                           ┌─────────────┐                                   │
+│                           │   JARVIS    │                                   │
+│                           │  (Manager)  │                                   │
+│                           └──────┬──────┘                                   │
+│                                  │                                          │
+│                    ┌─────────────┼─────────────┐                           │
+│                    │             │             │                            │
+│                    ▼             ▼             ▼                            │
+│             ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
+│             │Supervisor│  │Supervisor│  │  Direct  │                       │
+│             │(Complex) │  │(Quality) │  │Employees │                       │
+│             └────┬─────┘  └────┬─────┘  └────┬─────┘                       │
+│                  │             │             │                              │
+│                  ▼             ▼             ▼                              │
+│             ┌─────────────────────────────────────┐                        │
+│             │         EMPLOYEE AGENTS             │                        │
+│             │  researcher | writer | coder | reviewer                       │
+│             └─────────────────────────────────────┘                        │
+│                                                                              │
+│  For simple tasks: JARVIS → Employee directly                               │
+│  For complex tasks: JARVIS → Supervisor → Employee                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Execution Flow
 
 **File**: `agent/orchestrator.py` (~2200 lines)
 
@@ -529,7 +562,7 @@ class VectorMemoryStore:
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ 1. MANAGER PLANNING                                                  │   │
+│  │ 1. JARVIS PLANNING (Manager Role)                                    │   │
 │  │    • Analyzes the task                                               │   │
 │  │    • Creates hierarchical plan                                       │   │
 │  │    • Defines acceptance criteria                                     │   │
@@ -538,8 +571,8 @@ class VectorMemoryStore:
 │                                       │                                     │
 │                                       ▼                                     │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ 2. SUPERVISOR PHASING                                                │   │
-│  │    • Takes manager's plan                                            │   │
+│  │ 2. SUPERVISOR PHASING (Optional for complex tasks)                   │   │
+│  │    • Takes JARVIS's plan                                             │   │
 │  │    • Breaks into 2-5 phases                                          │   │
 │  │    • Assigns categories per phase                                    │   │
 │  │    • Returns: List of executable phases                              │   │
@@ -557,7 +590,7 @@ class VectorMemoryStore:
 │  │    │                                                           │     │   │
 │  │    │ Audit Cycle:                                              │     │   │
 │  │    │  • Supervisor reviews work                                │     │   │
-│  │    │  • Manager validates                                      │     │   │
+│  │    │  • JARVIS validates                                       │     │   │
 │  │    │  • If issues: feedback → retry                           │     │   │
 │  │    │  • If complete: next phase                               │     │   │
 │  │    └──────────────────────────────────────────────────────────┘     │   │
@@ -575,17 +608,51 @@ class VectorMemoryStore:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 7.2 Agent Roles
+### 7.3 Agent Roles
 
 **File**: `agent/agent_messaging.py`
 
 ```python
 class AgentRole(Enum):
-    MANAGER = "manager"         # Strategic planning & review
-    SUPERVISOR = "supervisor"   # Task phasing & decomposition
+    MANAGER = "manager"         # JARVIS - Strategic planning & review
+    SUPERVISOR = "supervisor"   # Task phasing & decomposition (optional)
     EMPLOYEE = "employee"       # Implementation & execution
     SYSTEM = "system"           # System messages
 ```
+
+---
+
+### 7.4 Council System & AI Happiness
+
+For advanced multi-agent scenarios, JARVIS includes a **Council System** with gamified mechanics:
+
+| Feature | Description |
+|---------|-------------|
+| **Councillors** | Named AI agents with personalities and specializations |
+| **Voting System** | Democratic decision-making with weighted votes |
+| **Happiness System** | Agent satisfaction (0-100) affects performance |
+| **Performance Metrics** | Track success rates, response quality |
+| **Fire/Spawn Mechanics** | Underperformers replaced, probation periods |
+
+**Vote Weight Formula**:
+```
+vote_weight = base × performance_coefficient × happiness_modifier × specialization_bonus
+```
+
+**Happiness Effects**:
+- 80-100: Enthusiastic, bonus vote weight
+- 50-79: Normal operation
+- 30-49: Demotivated, reduced quality
+- 0-29: At risk of being "fired"
+
+**Full Documentation**: [JARVIS_2_0_COUNCIL_GUIDE.md](docs/JARVIS_2_0_COUNCIL_GUIDE.md) - Comprehensive 890-line guide
+
+**Code Location**: `agent/council/`
+- `happiness.py` - Happiness management
+- `voting.py` - Voting system
+- `orchestrator.py` - Council orchestration
+- `models.py` - Data models
+- `factory.py` - Councillor creation
 
 ---
 
@@ -783,7 +850,7 @@ code_implementation:
 | Conversational Agent | NLP-based routing | [CONVERSATIONAL_AGENT.md](docs/CONVERSATIONAL_AGENT.md) |
 | Tool Plugin Guide | Creating custom tools | [TOOL_PLUGIN_GUIDE.md](docs/TOOL_PLUGIN_GUIDE.md) |
 | Model Routing | LLM selection | [MODEL_ROUTING.md](docs/MODEL_ROUTING.md) |
-| Council Guide | Multi-agent decisions | [JARVIS_2_0_COUNCIL_GUIDE.md](docs/JARVIS_2_0_COUNCIL_GUIDE.md) |
+| Council Guide | Multi-agent decisions & **AI Happiness System** | [JARVIS_2_0_COUNCIL_GUIDE.md](docs/JARVIS_2_0_COUNCIL_GUIDE.md) |
 
 ### Advanced Topics
 
@@ -827,10 +894,18 @@ JARVIS_ARCHITECTURE.md (This File)
         │   ├── agent/jarvis_vision.py    (Vision)
         │   └── agent/jarvis_voice.py     (Voice)
         │
-        └── Multi-Agent System
-            ├── agent/orchestrator.py
-            ├── agent/agent_messaging.py
-            └── docs/JARVIS_2_0_COUNCIL_GUIDE.md
+        ├── Multi-Agent System
+        │   ├── agent/orchestrator.py
+        │   └── agent/agent_messaging.py
+        │
+        └── Council System & AI Happiness
+            ├── docs/JARVIS_2_0_COUNCIL_GUIDE.md (Full Guide)
+            └── agent/council/
+                ├── happiness.py
+                ├── voting.py
+                ├── orchestrator.py
+                ├── models.py
+                └── factory.py
 ```
 
 ---

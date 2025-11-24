@@ -300,6 +300,12 @@ class JarvisChat:
         """Start a new conversation session"""
         self.current_user_id = user_id
 
+        # IMPORTANT: Clear conversation history for new chat session
+        # This ensures each chat is isolated and doesn't inherit previous chat's history
+        # User memory/profile is preserved separately via adaptive_memory
+        self.conversation_history = []
+        print(f"[Jarvis] New session started - conversation history cleared for fresh chat")
+
         # Initialize user profile for adaptive personalization
         if self.adaptive_memory:
             try:

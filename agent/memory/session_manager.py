@@ -225,6 +225,11 @@ class SessionManager:
         Returns:
             Session object
         """
+        # Clear conversation history for the new session
+        # This ensures each chat is isolated from previous chats
+        # Note: Projects and tasks are preserved across sessions
+        self.conversation_history = []
+
         session = Session(
             id=str(uuid.uuid4()),
             user_id=self.user_id,
@@ -234,7 +239,7 @@ class SessionManager:
         )
 
         self.current_session = session
-        print(f"[SessionManager] Started session {session.id}")
+        print(f"[SessionManager] Started session {session.id} (conversation history cleared)")
 
         return session
 

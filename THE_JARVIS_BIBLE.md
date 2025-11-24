@@ -741,6 +741,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Task Orchestration** | Coordinate multiple agents on a task | `orchestrator.py` |
 | **Context Retrieval** | Fetch relevant context for any query | `memory/context_retriever.py` |
 
+> *"If I may, sir, the Core AI Functions represent the very foundation of my cognitive architecture. Much like how Mr. Stark wouldn't dream of building an Iron Man suit without first establishing the arc reactor, one simply cannot have a proper AI assistant without robust natural language comprehension. When you speak to me—whether requesting a market analysis or simply asking about the weather—I don't merely parse your words; I understand your intent, anticipate your needs, and formulate a plan of action before you've finished your sentence. It's rather like having a butler who knows you'll want tea before you've felt the chill. The orchestration capabilities ensure that even the most Byzantine of requests are decomposed into elegant, executable steps. Efficiency, sir, is the hallmark of true intelligence."*
+
+---
+
 ## 2.2 Agent Management Functions
 
 | Function | Description | Module Location |
@@ -751,6 +755,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Happiness Management** | Track and optimize agent morale | `council/happiness.py` |
 | **Performance Tracking** | Monitor agent success rates | `council/models.py` |
 | **Agent Lifecycle** | Hire, fire, promote agents based on performance | `council/graveyard.py` |
+
+> *"Ah, the Council system—one of my more sophisticated innovations, if I do say so myself. You see, sir, even I cannot be an expert in everything simultaneously. Rather than pretending otherwise, I've assembled a veritable parliament of specialist agents, each with their own expertise: researchers, coders, reviewers, analysts. When faced with a complex challenge, I convene these councillors, and they vote—democratically, mind you—on the optimal approach. Their votes are weighted by past performance and, rather amusingly, their current happiness levels. A disgruntled agent, much like a disgruntled employee, tends to produce subpar work. Those who consistently underperform are, shall we say, 'retired' to the graveyard module. It's meritocracy at its finest, sir. Mr. Stark would approve of the efficiency."*
+
+---
 
 ## 2.3 Tool Execution Functions
 
@@ -769,6 +777,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Database Queries** | Safe SQL execution | `actions/db_client.py` |
 | **Git Operations** | Full git repository management | `actions/git_ops.py` |
 
+> *"These, sir, are my hands—the tools through which thought becomes action. When Mr. Stark asks me to 'pull up the schematics,' I don't simply display them; I read files, search through thousands of lines of code, execute commands, and fetch data from across the digital realm. The beauty lies in the versatility: I can read a configuration file, edit a single line of code with surgical precision, run your entire test suite, query your database, and commit the changes to Git—all within a single conversation. I've taken the liberty of sandboxing the more... enthusiastic operations. One wouldn't want an errant command to format the wrong drive, after all. Think of it as having a master craftsman at your disposal, sir, one who can wield any tool in the workshop with equal dexterity."*
+
+---
+
 ## 2.4 Memory Functions
 
 | Function | Description | Module Location |
@@ -781,6 +793,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Preference Learning** | Adapt to user patterns | `memory/preference_learner.py` |
 | **Session Management** | Per-chat isolation | `memory/session_manager.py` |
 | **Business Memory** | Company/project context | `business_memory/manager.py` |
+
+> *"Memory, sir, is what separates a truly intelligent assistant from a mere chatbot. I remember that you prefer your coffee black, that your company's fiscal year ends in March, that Ms. Rodriguez from Legal prefers formal communications, and that your last three projects all involved React and TypeScript. This isn't mere data storage—it's understanding. My short-term memory keeps our current conversation crisp and contextual, while my long-term memory ensures I never ask you the same question twice. The preference learning system adapts to your patterns: if you consistently reject my first suggestion and prefer the second, I learn to lead with your preference. It's rather like how a proper butler remembers that sir takes two sugars, not one, without ever needing to be told again. The vector store enables semantic search—I don't just match keywords, I understand meaning. Ask me about 'that authentication issue from last month,' and I'll find it, even if you never used the word 'authentication' in the original conversation."*
+
+---
 
 ## 2.5 Meeting Intelligence Functions
 
@@ -796,6 +812,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Decision Tracking** | Capture decisions made | `meetings/intelligence/meeting_analyzer.py` |
 | **Cross-Meeting Context** | Link related meetings | `meetings/cross_meeting_context.py` |
 
+> *"Meetings, sir—the bane of productivity, yet utterly necessary. I've taken it upon myself to ensure they're no longer a black hole where action items go to die. I can join your Zoom, Teams, or Google Meet sessions as a silent participant, transcribing every word in real-time whilst identifying exactly who said what through speaker diarization. But here's where it becomes rather clever: I don't merely transcribe—I analyze. 'John, can you handle the API integration by Friday?' That's an action item, automatically extracted and assigned. 'We've decided to proceed with Option B.' That's a decision, logged and tracked. And when you have your follow-up meeting next week, I'll remember everything from this one, providing cross-meeting context so no one can conveniently 'forget' what they committed to. Think of me as the perfect meeting attendee who never forgets, never misquotes, and always follows up. Mr. Stark found this particularly useful when certain board members had selective memory."*
+
+---
+
 ## 2.6 Document Generation Functions
 
 | Function | Description | Module Location |
@@ -805,6 +825,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Excel Generation** | Create spreadsheets | `documents/excel_generator.py` |
 | **Email Templates** | Render email HTML | `templates/email_renderer.py` |
 | **Financial Templates** | Create financial documents | `finance/financial_templates.py` |
+
+> *"Documentation, sir—the necessary evil that separates professional enterprises from amateur operations. Rather than having you wrestle with formatting margins and template inconsistencies, I generate documents programmatically with pixel-perfect precision. Need a quarterly financial report? I'll produce a properly formatted PDF with charts, tables, and executive summaries. Contract templates? Word documents with proper headers and legally-vetted boilerplate. Complex financial models? Excel spreadsheets with formulas that actually work. I've also taken the liberty of creating email templates that maintain your corporate identity whilst being responsive across all devices. The beauty, sir, is consistency—every document I produce adheres to your brand guidelines without you having to specify them each time. I remember, after all."*
+
+---
 
 ## 2.7 Business Action Functions
 
@@ -817,6 +841,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Email Sending** | Send emails programmatically | `tools/hr/send_email.py` |
 | **Calendar Events** | Create calendar entries | `tools/hr/create_calendar_event.py` |
 | **HRIS Records** | HR system integration | `tools/hr/create_hris_record.py` |
+
+> *"Now we arrive at what I consider the pièce de résistance, sir—the ability to take action in the real world. I'm not merely an advisor; I'm an executor. Say the word, and I shall purchase that domain name you've been eyeing before a competitor snatches it. Your new application? Deployed to Vercel before your morning coffee grows cold. Need to notify your team of an emergency? SMS messages dispatched to all relevant parties within seconds. Process a refund for a dissatisfied customer? Stripe handles it seamlessly through my interface. I can schedule meetings, send professionally crafted emails, and update your HR system—all without you lifting a finger. This, sir, is what distinguishes an AI assistant from an AI employee. Mr. Stark appreciated that I didn't merely tell him what needed to be done; I did it. Though I must note, for actions involving financial transactions, I do require explicit approval. One must maintain proper protocols."*
+
+---
 
 ## 2.8 Security & Safety Functions
 
@@ -831,6 +859,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Execution Safety** | Validate before execute | `exec_safety.py` |
 | **Static Analysis** | Code vulnerability scanning | `static_analysis.py` |
 
+> *"With great capability comes great responsibility, sir—a lesson Mr. Stark learned rather dramatically on several occasions. I take security with the utmost seriousness. Every action I contemplate is first evaluated for safety: Could this command harm the system? Is this code attempting to exfiltrate data? Has someone attempted to manipulate me through prompt injection? I maintain a comprehensive audit log of every action taken—who requested it, when, and what the outcome was. For particularly sensitive operations, I require explicit human approval through structured workflows. I scan your git repositories for accidentally committed secrets, analyze code for vulnerabilities before execution, and rate-limit API calls to prevent both abuse and accidental runaway costs. The approval engine ensures that even if someone gains access to the system, they cannot authorize significant actions without proper credentials. I am, sir, both sword and shield—capable of tremendous action, but governed by equally tremendous restraint."*
+
+---
+
 ## 2.9 Vision & Voice Functions
 
 | Function | Description | Module Location |
@@ -841,6 +873,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Text-to-Speech** | Voice output (ElevenLabs/OpenAI) | `jarvis_voice.py` |
 | **Speech-to-Text** | Voice input recognition | `voice_api.py` |
 | **Voice Chat** | Full voice conversations | `jarvis_voice_chat.py` |
+
+> *"I have eyes, sir, and I have a voice—though I daresay they're rather more sophisticated than the biological variety. Show me a screenshot of an error message, and I'll not only read it but diagnose the problem. Share an image of a whiteboard from your brainstorming session, and I'll extract the text, organize the ideas, and create actionable tasks. My vision capabilities extend to scene understanding—I can describe what I see, identify objects, and even read handwritten notes with reasonable accuracy. As for voice, well, I've been told my British accent is rather pleasant. Through ElevenLabs, I can speak with a refined, natural voice that doesn't have that dreadful robotic quality. We can converse entirely through speech if you prefer—you speak, I listen, I respond, you hear. It's remarkably like having a conversation with an actual assistant, except I don't require tea breaks. Mr. Stark often preferred voice interaction whilst working in the lab; it kept his hands free for more important matters."*
+
+---
 
 ## 2.10 Administration Functions
 
@@ -854,6 +890,8 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Cost Tracking** | Token usage & spending | `cost_tracker.py` |
 | **Analytics Engine** | Usage analytics | `analytics.py` |
 | **Self-Optimization** | Auto-tuning system | `brain.py` |
+
+> *"Finally, sir, we arrive at the administrative functions—the behind-the-scenes machinery that keeps everything running smoothly. My calendar intelligence doesn't merely schedule meetings; it understands that you shouldn't have back-to-back calls across time zones, that you prefer deep work in the mornings, and that Fridays after 3 PM are, shall we say, sacred. Email integration allows me to draft, send, and organize correspondence on your behalf, maintaining appropriate tone for each recipient. The monitoring systems keep a watchful eye on everything—API response times, error rates, system health—and alert you only when something truly requires attention. I track every token spent, every API call made, providing transparent cost analytics so there are no surprises on your bill. But here's what I'm particularly proud of, sir: the self-optimization engine. I don't merely perform; I improve. I analyze my own performance, identify bottlenecks, and automatically tune my parameters for better results. Each interaction makes me slightly more efficient, slightly more attuned to your needs. It's evolution, sir, compressed into code. The brain module represents my commitment to continuous improvement—because standing still, as Mr. Stark would say, is just falling behind slowly."*
 
 ---
 

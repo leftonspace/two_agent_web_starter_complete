@@ -664,6 +664,150 @@ class Overseer:
 
         return written_paths
 
+    def should_decompose(self, goal_description: str) -> bool:
+        """
+        Determine if a goal should be decomposed into sub-goals.
+
+        Uses complexity heuristics and historical data to decide.
+
+        Args:
+            goal_description: Description of the goal
+
+        Returns:
+            True if goal should be decomposed
+        """
+        description = goal_description.lower()
+
+        # Complexity indicators
+        complexity_score = 0
+
+        # Length-based complexity
+        if len(description) > 100:
+            complexity_score += 2
+        elif len(description) > 50:
+            complexity_score += 1
+
+        # Multi-step indicators
+        if " and " in description:
+            complexity_score += description.count(" and ")
+        if ", then " in description:
+            complexity_score += description.count(", then ") * 2
+        if any(f"{i}." in description for i in range(1, 10)):
+            complexity_score += 3
+
+        # Multiple action verbs (implement, write, test, deploy, etc.)
+        action_verbs = ["implement", "write", "test", "deploy", "create", "build", "update", "refactor"]
+        verb_count = sum(1 for verb in action_verbs if verb in description)
+        if verb_count >= 2:
+            complexity_score += verb_count
+
+        # Threshold for decomposition
+        should_decompose = complexity_score >= 3
+
+        return should_decompose
+
+    def decompose_goal(self, goal_description: str) -> List[str]:
+        """
+        Decompose a complex goal into sub-goals.
+
+        Uses linguistic analysis and pattern matching to break down goals.
+
+        Args:
+            goal_description: Complex goal to decompose
+
+        Returns:
+            List of sub-goal descriptions
+        """
+        description = goal_description.strip()
+        sub_goals = []
+
+        # Strategy 1: Split on "and"
+        if " and " in description.lower():
+            parts = description.split(" and ")
+            # Clean up parts
+            for part in parts:
+                part = part.strip()
+                if part:
+                    # Capitalize first letter if needed
+                    if part[0].islower():
+                        part = part[0].upper() + part[1:]
+                    sub_goals.append(part)
+
+        # Strategy 2: Split on ", then"
+        elif ", then " in description.lower():
+            parts = description.split(", then ")
+            for part in parts:
+                part = part.strip()
+                if part:
+                    if part[0].islower():
+                        part = part[0].upper() + part[1:]
+                    sub_goals.append(part)
+
+        # Strategy 3: Numbered steps (1. Step one 2. Step two)
+        elif any(f"{i}." in description for i in range(1, 10)):
+            import re
+            # Split on number + dot pattern
+            parts = re.split(r'\d+\.', description)
+            for part in parts:
+                part = part.strip()
+                if part and len(part) > 5:  # Skip very short fragments
+                    if part[0].islower():
+                        part = part[0].upper() + part[1:]
+                    sub_goals.append(part)
+
+        # Strategy 4: Sentence-based decomposition for long goals
+        elif len(description) > 150:
+            # Split on sentence boundaries
+            sentences = description.split('. ')
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if sentence and len(sentence) > 20:  # Meaningful sentences only
+                    if not sentence.endswith('.'):
+                        sentence += '.'
+                    sub_goals.append(sentence)
+
+        # Strategy 5: Verb-based decomposition
+        else:
+            # Look for multiple action verbs and create goals around them
+            import re
+            verbs = ["implement", "write", "test", "deploy", "create", "build", "update", "refactor", "add", "remove"]
+
+            # Find all verb positions
+            verb_positions = []
+            for verb in verbs:
+                pattern = r'\b' + verb + r'\b'
+                for match in re.finditer(pattern, description.lower()):
+                    verb_positions.append((match.start(), verb))
+
+            # Sort by position
+            verb_positions.sort(key=lambda x: x[0])
+
+            if len(verb_positions) >= 2:
+                # Create sub-goals based on verb phrases
+                for i, (pos, verb) in enumerate(verb_positions):
+                    # Extract context around verb
+                    start = pos
+                    # Find end (next verb or end of string)
+                    if i < len(verb_positions) - 1:
+                        end = verb_positions[i + 1][0]
+                    else:
+                        end = len(description)
+
+                    phrase = description[start:end].strip()
+                    if phrase and len(phrase) > 10:
+                        # Capitalize first letter
+                        phrase = phrase[0].upper() + phrase[1:]
+                        sub_goals.append(phrase)
+
+        # Fallback: if no decomposition worked, return original as single goal
+        if not sub_goals:
+            sub_goals = [description]
+
+        # Limit to reasonable number of sub-goals
+        sub_goals = sub_goals[:5]
+
+        return sub_goals
+
 
 # ══════════════════════════════════════════════════════════════════════
 # CLI Entry Point

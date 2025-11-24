@@ -675,24 +675,3 @@ two_agent_web_starter_complete/
 ├── test_integration.py                    # Integration test
 ├── TOOL_MIGRATION_REFERENCE.md            # Tool migration ref
 └── ZOOM_MEET_SDK_INTEGRATION.md           # Zoom/Meet SDK guide
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

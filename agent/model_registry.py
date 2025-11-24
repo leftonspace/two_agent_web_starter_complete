@@ -37,7 +37,7 @@ class ModelInfo:
 
     Attributes:
         provider: Provider name (e.g., "openai", "anthropic")
-        model_id: Short model identifier (e.g., "gpt-4o", "claude-sonnet-4")
+        model_id: Short model identifier (e.g., "gpt-4o", "claude-3-5-sonnet-20241022")
         full_id: Complete model ID for API calls (e.g., "gpt-4o-2024-11-20")
         display_name: Human-readable name
         context_window: Maximum context window size in tokens
@@ -173,7 +173,7 @@ class ModelRegistry:
         Args:
             model_ref: Model reference in one of these formats:
                        - Alias: "manager_default", "high_complexity"
-                       - Provider/model: "openai/gpt-4o", "anthropic/claude-sonnet-4"
+                       - Provider/model: "openai/gpt-4o", "anthropic/claude-3-5-sonnet-20241022"
                        - Model only: "gpt-4o" (defaults to openai)
 
         Returns:

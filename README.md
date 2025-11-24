@@ -356,7 +356,116 @@ cat run_logs/<run_id>/run_summary.json
 
 ```
 two_agent_web_starter_complete/
+├── .githooks/
+│   ├── pre-commit
+├── .github/
+│   ├── test.yml
+├── .vscode/
+│   ├── launch.json
+│   ├── tasks.json
 ├── agent/                      # Core orchestrator code
+│   ├── actions/
+│   │   ├── _init_.py
+│   │   └── api_client.py
+│   │   └── code_executor.py
+│   │   └── db_client.py
+│   │   └── file_ops.py
+│   │   └── git_ops.py
+│   │   └── rate_limiter.py
+│   │   └── sandbox.py
+│   ├── admin/
+│   │   ├── _init_.py
+│   │   └── calendar_intelligence.py
+│   │   └── email_integration.py
+│   │   └── workflow_automation.py
+│   ├── business_memory/
+│   │   ├── _init_.py
+│   │   └── extractor.py
+│   │   └── manager.py
+│   │   └── privacy.py
+│   │   └── schema.py
+│   ├── clarification/
+│   │   ├── _init_.py
+│   │   └── detector.py
+│   │   └── generator.py
+│   │   └── manager.py
+│   │   └── templates.py
+│   ├── code_analysis/
+│   │   ├── _init_.py
+│   │   └── ast_parser.py
+│   │   └── js_parser.py
+│   │   └── patterns.py
+│   │   └── refactoring.py
+│   ├── code_review/
+│   │   ├── _init_.py
+│   │   └── review_agent.py
+│   ├── config/
+│   │   ├── schemas/
+│   │   │   └── agent_schema.json
+│   │   │   └── task_schema.json
+│   │   └── agents.yaml
+│   │   └── tasks.yaml
+│   ├── core/
+│   │   ├── _init_.py
+│   │   └── circuit_breaker.py
+│   │   └── error_handler.py
+│   ├── cost_logs/
+│   │   ├── multi_section_landing_full_test.jsonl
+│   ├── council/
+│   │   ├── _init_.py
+│   │   └── competitive_council.py
+│   │   └── factory.py
+│   │   └── graveyard.py
+│   │   └── happiness.py
+│   │   └── models.py
+│   │   └── orchestrator.py
+│   │   └── voting.py
+│   ├── database/
+│   │   ├── _init_.py
+│   │   └── kg_backends.py
+│   │   └── pg_migration.py
+│   ├── deployment/
+│   ├── documents/
+│   ├── execution/
+│   ├── finance/
+│   ├── flow/
+│   ├── integrations/
+│   ├── llm/
+│   ├── meetings/
+│   ├── memory/
+│   ├── memory_store/test_run_002
+│   ├── migrations/
+│   ├── models/
+│   ├── monitoring/
+│   ├── optimization/
+│   ├── patterns/
+│   ├── performance/
+│   ├── prompts/
+│   ├── role_definitions/
+│   ├── run_logs/
+│   ├── run_workflows/
+│   ├── scheduler/
+│   ├── security/
+│   ├── stage_summaries/test_run_003
+│   ├── templates/
+│   ├── tests/
+│   ├── tests_config/
+│   ├── tests_e2e/
+│   ├── tests_sanity/
+│   ├── tests_shared/
+│   ├── tests_stage10/
+│   ├── tests_stage11/
+│   ├── tests_stage12/
+│   ├── tests_stage7/
+│   ├── tests_stage8/
+│   ├── tests_stage9/
+│   ├── tools/
+│   ├── validators/
+│   ├── webapp
+│   ├── webhooks
+│   ├── workers
+│   ├── workflow
+
 │   ├── orchestrator.py         # 3-loop orchestrator
 │   ├── orchestrator_2loop.py   # 2-loop orchestrator
 │   ├── run_mode.py            # Main CLI entry point

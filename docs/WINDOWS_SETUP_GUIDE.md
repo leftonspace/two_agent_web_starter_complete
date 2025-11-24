@@ -1,6 +1,6 @@
 # JARVIS 2.0 - Windows PowerShell Setup Guide
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Platform:** Windows 10/11
 **Prerequisites:** PowerShell 5.1+ (built into Windows)
 
@@ -19,7 +19,9 @@
 9. [Optional: Installing Ollama](#9-optional-installing-ollama-local-llms)
 10. [Running JARVIS](#10-running-jarvis)
 11. [Using JARVIS 2.0](#11-using-jarvis-20)
-12. [Troubleshooting](#12-troubleshooting)
+12. [Claude Code-like Tools System](#12-claude-code-like-tools-system)
+13. [Real-time Agent Streaming](#13-real-time-agent-streaming)
+14. [Troubleshooting](#14-troubleshooting)
 
 ---
 
@@ -194,7 +196,7 @@ python -m pip install --upgrade pip setuptools wheel
 
 ```powershell
 # Core Web Framework
-pip install fastapi uvicorn[standard] jinja2 python-multipart
+pip install fastapi uvicorn[standard] jinja2 python-multipart websockets
 
 # HTTP Client & Async
 pip install aiohttp httpx
@@ -220,6 +222,9 @@ pip install elevenlabs sounddevice numpy
 # Vision System
 pip install pillow
 
+# Claude Code-like Tools System (NEW in 2.1)
+pip install aiohttp beautifulsoup4
+
 # Utilities
 pip install requests python-dateutil networkx
 ```
@@ -229,6 +234,7 @@ pip install requests python-dateutil networkx
 ```powershell
 python -c "import fastapi, anthropic, openai; print('Core dependencies OK')"
 python -c "import chromadb; print('ChromaDB OK')"
+python -c "import aiohttp; from bs4 import BeautifulSoup; print('Tools System OK')"
 ```
 
 ---
@@ -601,7 +607,171 @@ Invoke-RestMethod -Uri http://localhost:8000/api/chat -Method Post -Body $body -
 
 ---
 
-## 12. Troubleshooting
+## 12. Claude Code-like Tools System
+
+JARVIS 2.1 includes a powerful tools system inspired by Claude Code, enabling autonomous code analysis, file operations, and shell command execution.
+
+### Available Tools
+
+| Tool | Description | Example Usage |
+|------|-------------|---------------|
+| **Read** | Read files with line numbers | "Read the config.py file" |
+| **Edit** | Find and replace in files | "Replace 'DEBUG=False' with 'DEBUG=True' in settings.py" |
+| **Write** | Create or overwrite files | "Create a new utils.py file" |
+| **Bash** | Execute shell commands | "Run git status", "npm install" |
+| **Grep** | Search for patterns in code | "Search for TODO in all Python files" |
+| **Glob** | Find files by pattern | "Find all *.py files in src/" |
+| **WebSearch** | Search the web | "Search the web for Python async patterns" |
+| **WebFetch** | Fetch and parse web pages | "Fetch the docs at https://..." |
+
+### Using Tools with JARVIS
+
+**Via Chat Interface:**
+```
+You: Run git status
+JARVIS: ✅ Tool executed successfully
+        On branch main
+        Your branch is up to date...
+        ⏱️ Execution time: 0.15s
+
+You: Search for TODO in all Python files
+JARVIS: ✅ Found 5 matches:
+        src/main.py:42: # TODO: Add error handling
+        ...
+```
+
+**Via API:**
+```powershell
+# Using REST API
+$body = @{message="git status"} | ConvertTo-Json
+Invoke-RestMethod -Uri http://localhost:8000/api/chat -Method Post -Body $body -ContentType "application/json"
+```
+
+### Tool Safety Features
+
+The tools system includes safety measures:
+- **Blocked Commands**: Dangerous commands like `rm -rf /` are blocked
+- **File Size Limits**: Maximum 10MB per file read
+- **Restricted Paths**: System directories (/etc, /usr, etc.) are protected
+- **Timeout Protection**: Commands timeout after 60 seconds by default
+- **Allowed Extensions**: Only safe file types can be read/edited
+
+### Configuring Tools
+
+Tools are automatically enabled when dependencies are installed. Verify with:
+
+```powershell
+python -c "from jarvis_tools import get_jarvis_tools; t = get_jarvis_tools(); print('Tools OK')"
+```
+
+---
+
+## 13. Real-time Agent Streaming
+
+JARVIS 2.1 introduces an autonomous agent that proactively uses tools while streaming its thought process in real-time.
+
+### Agent Features
+
+- **Visible Thinking**: See JARVIS's reasoning process as `<thinking>` blocks
+- **Tool Visibility**: Watch tool calls and results in real-time
+- **Task Cancellation**: Cancel running tasks at any time
+- **User Interrupts**: Add input while JARVIS is working
+
+### WebSocket Connection
+
+Connect to the agent via WebSocket for real-time streaming:
+
+```javascript
+// JavaScript Example
+const ws = new WebSocket('ws://localhost:8000/api/agent/ws/my-client-id');
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    switch(data.type) {
+        case 'thinking':
+            console.log('🧠 Thinking:', data.content);
+            break;
+        case 'tool_call':
+            console.log('🔧 Calling:', data.metadata.tool);
+            break;
+        case 'tool_result':
+            console.log('📋 Result:', data.content);
+            break;
+        case 'response':
+            console.log('💬 Response:', data.content);
+            break;
+    }
+};
+
+// Send a message
+ws.send(JSON.stringify({
+    type: 'run',
+    message: 'What files are in this project?'
+}));
+
+// Cancel current task
+ws.send(JSON.stringify({type: 'cancel'}));
+```
+
+### PowerShell WebSocket Example
+
+```powershell
+# Simple REST API call (synchronous)
+$body = @{
+    message = "Search for TODO comments in all Python files"
+    context = @{}
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Uri http://localhost:8000/api/agent/run -Method Post -Body $body -ContentType "application/json"
+$response.events | ForEach-Object { Write-Host "$($_.type): $($_.content)" }
+```
+
+### Agent API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/agent/ws/{client_id}` | WebSocket | Real-time streaming connection |
+| `/api/agent/run` | POST | Synchronous agent execution |
+| `/api/agent/cancel` | POST | Cancel a running task |
+| `/api/agent/tasks` | GET | List active tasks |
+| `/api/agent/status` | GET | Agent system status |
+
+### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `thinking` | Agent's reasoning/planning |
+| `tool_call` | Tool being invoked |
+| `tool_result` | Output from tool execution |
+| `response` | Final or partial response |
+| `status` | Progress updates |
+| `error` | Error occurred |
+| `cancelled` | Task was cancelled |
+| `complete` | Task finished |
+
+### Example: Watching JARVIS Work
+
+When you ask JARVIS to analyze code, you'll see:
+
+```
+[STATUS] Starting task abc123
+[THINKING] I need to find Python files first, then search for patterns...
+[TOOL_CALL] Calling glob with pattern **/*.py
+[TOOL_RESULT] Found 15 files: main.py, utils.py, ...
+[THINKING] Now I'll search for TODO comments in these files...
+[TOOL_CALL] Calling grep with pattern TODO
+[TOOL_RESULT] Found 8 matches in 4 files
+[RESPONSE] I found 8 TODO comments across 4 Python files:
+           1. main.py:42 - TODO: Add error handling
+           2. utils.py:15 - TODO: Optimize this function
+           ...
+[COMPLETE] Task completed (3 iterations)
+```
+
+---
+
+## 14. Troubleshooting
 
 ### Issue 1: "python: command not found"
 
@@ -679,6 +849,56 @@ pip install chromadb --no-build-isolation
 python -c "import yaml; yaml.safe_load(open('config/agents.yaml'))"
 ```
 
+### Issue 9: Tools system not working
+
+```powershell
+# Verify aiohttp and beautifulsoup4 are installed
+pip install aiohttp beautifulsoup4
+
+# Test tools import
+python -c "from jarvis_tools import get_jarvis_tools; print('Tools OK')"
+
+# Check if tools are initialized in logs
+# Look for: "[Jarvis] Tools system initialized"
+```
+
+### Issue 10: WebSocket connection fails
+
+```powershell
+# Ensure websockets package is installed
+pip install websockets
+
+# Test WebSocket endpoint
+python -c "import asyncio; import websockets; print('WebSockets OK')"
+
+# Check firewall isn't blocking WebSocket connections
+# WebSocket uses same port as HTTP (8000)
+```
+
+### Issue 11: Agent not responding
+
+```powershell
+# Verify agent module loads
+python -c "from jarvis_agent import get_agent; a = get_agent(); print('Agent OK')"
+
+# Check for startup messages:
+# "[Jarvis] Agent initialized - proactive tool usage enabled"
+
+# If missing, check LLM configuration (agent requires working LLM)
+```
+
+### Issue 12: Bash commands timeout
+
+```powershell
+# Default timeout is 60 seconds
+# For long-running commands, the timeout can be adjusted
+
+# Check if command works directly in PowerShell first
+git status  # Should complete quickly
+
+# If commands hang, check network connectivity for git/npm
+```
+
 ---
 
 ## Quick Reference Commands
@@ -714,10 +934,14 @@ pip install --upgrade -r requirements.txt
 
 ## JARVIS 2.0 Features
 
-### New in Version 2.0
+### New in Version 2.1
 
 | Feature | Description |
 |---------|-------------|
+| **Claude Code-like Tools** | Read, Edit, Write, Bash, Grep, Glob, WebSearch, WebFetch |
+| **Autonomous Agent** | Proactive tool usage with visible reasoning |
+| **Real-time Streaming** | WebSocket streaming of thoughts and actions |
+| **Task Cancellation** | Cancel running tasks, add interrupts |
 | **Voice System** | Talk to JARVIS using speech |
 | **Vision System** | Image analysis, OCR, camera capture |
 | **Agents Dashboard** | Real-time view of AI agents |
@@ -762,6 +986,8 @@ Just let me know your preferred format!
 | JARVIS Chat | http://localhost:8000/jarvis |
 | API Docs | http://localhost:8000/docs |
 | Health Check | http://localhost:8000/health |
+| Agent Status | http://localhost:8000/api/agent/status |
+| Agent WebSocket | ws://localhost:8000/api/agent/ws/{client_id} |
 
 ---
 

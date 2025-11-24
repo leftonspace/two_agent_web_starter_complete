@@ -1,0 +1,45 @@
+# JARVIS Celery Worker Dockerfile
+#
+# Multi-stage build for Celery workers and Temporal activities.
+
+FROM python:3.11-slim as base
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    build-essential \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install worker-specific dependencies
+RUN pip install --no-cache-dir \
+    psycopg2-binary \
+    redis \
+    celery \
+    temporalio \
+    flower
+
+# Copy application code
+COPY agent/ ./agent/
+COPY config/ ./config/
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV C_FORCE_ROOT=true
+
+# Default command (can be overridden)
+CMD ["celery", "-A", "agent.workers.celery_app", "worker", "--loglevel=info"]

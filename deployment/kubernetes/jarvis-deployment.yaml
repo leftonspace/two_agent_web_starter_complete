@@ -1,0 +1,486 @@
+# JARVIS Kubernetes Deployment
+#
+# Production-ready Kubernetes deployment with horizontal pod autoscaling.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jarvis
+
+---
+# =============================================================================
+# PostgreSQL StatefulSet
+# =============================================================================
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: jarvis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: jarvis
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:14-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: jarvis_kg
+        - name: POSTGRES_USER
+          value: jarvis
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: pg-password
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: jarvis
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres
+  clusterIP: None
+
+---
+# =============================================================================
+# Redis Deployment
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: jarvis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+        - redis-server
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        - --appendonly
+        - "yes"
+        ports:
+        - containerPort: 6379
+          name: redis
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: redis-password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: jarvis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: jarvis
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+
+---
+# =============================================================================
+# JARVIS Application Deployment
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jarvis-app
+  namespace: jarvis
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jarvis-app
+  template:
+    metadata:
+      labels:
+        app: jarvis-app
+    spec:
+      containers:
+      - name: jarvis
+        image: jarvis:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: KG_BACKEND
+          value: "postgres"
+        - name: PG_HOST
+          value: "postgres"
+        - name: PG_DATABASE
+          value: "jarvis_kg"
+        - name: PG_USER
+          value: "jarvis"
+        - name: PG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: pg-password
+        - name: PG_POOL_SIZE
+          value: "20"
+        - name: PG_MAX_OVERFLOW
+          value: "40"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: redis-password
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: openai-api-key
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: anthropic-api-key
+        - name: JARVIS_INSTANCE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jarvis-app
+  namespace: jarvis
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app: jarvis-app
+
+---
+# =============================================================================
+# Horizontal Pod Autoscaler
+# =============================================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: jarvis-app-hpa
+  namespace: jarvis
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: jarvis-app
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      selectPolicy: Min
+
+---
+# =============================================================================
+# Celery Worker Deployment
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker-default
+  namespace: jarvis
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: celery-worker
+      queue: default
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+        queue: default
+    spec:
+      containers:
+      - name: celery-worker
+        image: jarvis-worker:latest
+        command:
+        - celery
+        - -A
+        - agent.workers.celery_app
+        - worker
+        - --loglevel=info
+        - --queues=default
+        - --concurrency=4
+        env:
+        - name: CELERY_BROKER_URL
+          value: "redis://:$(REDIS_PASSWORD)@redis:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://:$(REDIS_PASSWORD)@redis:6379/1"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: redis-password
+        - name: PG_HOST
+          value: "postgres"
+        - name: PG_DATABASE
+          value: "jarvis_kg"
+        - name: PG_USER
+          value: "jarvis"
+        - name: PG_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: pg-password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker-model
+  namespace: jarvis
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: celery-worker
+      queue: model-inference
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+        queue: model-inference
+    spec:
+      containers:
+      - name: celery-worker
+        image: jarvis-worker:latest
+        command:
+        - celery
+        - -A
+        - agent.workers.celery_app
+        - worker
+        - --loglevel=info
+        - --queues=model_inference
+        - --concurrency=8
+        env:
+        - name: CELERY_BROKER_URL
+          value: "redis://:$(REDIS_PASSWORD)@redis:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://:$(REDIS_PASSWORD)@redis:6379/1"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: redis-password
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: openai-api-key
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jarvis-secrets
+              key: anthropic-api-key
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+---
+# =============================================================================
+# Celery Worker Autoscaler
+# =============================================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: celery-worker-model-hpa
+  namespace: jarvis
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: celery-worker-model
+  minReplicas: 5
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+
+---
+# =============================================================================
+# Secrets
+# =============================================================================
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jarvis-secrets
+  namespace: jarvis
+type: Opaque
+stringData:
+  pg-password: "REPLACE_WITH_SECURE_PASSWORD"
+  redis-password: "REPLACE_WITH_SECURE_PASSWORD"
+  openai-api-key: "REPLACE_WITH_API_KEY"
+  anthropic-api-key: "REPLACE_WITH_API_KEY"

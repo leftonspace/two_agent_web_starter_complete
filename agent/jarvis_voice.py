@@ -140,7 +140,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
 
-import core_logging
+try:
+    import core_logging
+except ImportError:
+    import logging as core_logging
 
 # =============================================================================
 # TTS Provider Imports

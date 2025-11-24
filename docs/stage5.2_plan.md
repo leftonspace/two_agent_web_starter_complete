@@ -42,7 +42,7 @@
 **Gap**: When LLM call times out or fails, should retry with cheaper model
 **Implementation**:
 - Add `_retry_with_fallback()` in `llm.py`
-- On timeout/error, downgrade from gpt-5 → gpt-5-mini → gpt-5-nano
+- On timeout/error, downgrade from gpt-4o → gpt-4o-mini
 - Log fallback attempts
 - Max 2 retries with cheaper models
 
@@ -103,7 +103,7 @@
 **Status**: Basic logging exists
 **Gap**: Should log routing decisions and cost checkpoints
 **Implementation**:
-- Log model selection reasoning (why gpt-5 vs gpt-5-mini)
+- Log model selection reasoning (why gpt-4o vs gpt-4o-mini)
 - Log cost at each iteration
 - Log when approaching warning threshold
 - Add "cost_checkpoint" event type to core_logging

@@ -15,7 +15,7 @@ Usage:
         --cost-completion 0.06
 
     # Update model pricing
-    python -m agent.tools.update_models --update openai/gpt-5-mini \\
+    python -m agent.tools.update_models --update openai/gpt-4o-mini \\
         --cost-prompt 0.002 \\
         --cost-completion 0.008
 

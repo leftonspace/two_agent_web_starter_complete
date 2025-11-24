@@ -23,9 +23,9 @@ try:
     )
 except ImportError:
     # Fallback labels if constants are not accessible for any reason.
-    DEFAULT_MANAGER_MODEL = "gpt-5-mini"
-    DEFAULT_SUPERVISOR_MODEL = "gpt-5-nano"
-    DEFAULT_EMPLOYEE_MODEL = "gpt-5"
+    DEFAULT_MANAGER_MODEL = "gpt-4o-mini"
+    DEFAULT_SUPERVISOR_MODEL = "gpt-4o-mini"
+    DEFAULT_EMPLOYEE_MODEL = "gpt-4o"
 
 # STAGE 2: Import run logging and cost tracking
 import cost_tracker

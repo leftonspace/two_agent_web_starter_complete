@@ -74,7 +74,7 @@
 
 ### Top Issues by Impact
 
-1. **Fictional Model Names (gpt-5)** - 26 Python files + 50+ documentation references use non-existent models
+1. **Fictional Model Names (gpt-5)** - 26 Python files + 50+ documentation references previously used non-existent models (FIXED)
 2. **Broken Pattern Persistence** - LongTermMemory patterns never saved/loaded (methods don't exist)
 3. **Council Councillors Lost** - New councillors never added to list after maintenance
 4. **Unguarded Imports** - `core_logging` imports crash modules if not available
@@ -86,25 +86,13 @@
 
 ### 1. Fictional Model Names Throughout Codebase
 **Files**: 26 Python files, 50+ documentation files
-**Severity**: CRITICAL
-**Description**: References to `gpt-5`, `gpt-5-mini`, `gpt-5-nano` which don't exist in OpenAI's API.
+**Severity**: CRITICAL (NOW FIXED)
+**Description**: References to `gpt-5`, `gpt-5-mini`, `gpt-5-nano` have been replaced with real models (`gpt-4o`, `gpt-4o-mini`).
 
-**Affected Python Files**:
-```
-agent/orchestrator.py
-agent/orchestrator_2loop.py
-agent/orchestrator_3loop_legacy.py
-agent/orchestrator_phase3.py
-agent/cost_estimator.py
-agent/cost_tracker.py
-agent/model_registry.py
-agent/model_router.py
-agent/merge_manager.py
-agent/runner.py
-... and 16 more
-```
-
-**Fix**: Replace with real models (`gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`)
+**Fix Applied**: All instances replaced with real OpenAI models
+- `gpt-5` → `gpt-4o`
+- `gpt-5-mini` → `gpt-4o-mini`
+- `gpt-5-nano` → `gpt-4o-mini`
 
 ---
 
@@ -235,15 +223,15 @@ self.councillors.extend(actions["new_councillors"])  # ADD THIS
 | File | Line | Issue |
 |------|------|-------|
 | `agents.yaml` | 56 | Model `claude-3-5-sonnet` not in registry |
-| `orchestrator.py` | 1155,1190 | Hardcodes `gpt-5` - fictional model |
+| `orchestrator.py` | 1155,1190 | ✅ Updated `gpt-5` → `gpt-4o` |
 | `orchestrator.py` | 1689 | TODO: duration_seconds hardcoded to 0 |
 | `orchestrator_2loop.py` | 10-12 | Unguarded `prompt_security` import |
-| `orchestrator_2loop.py` | 75-94 | Uses fictional `gpt-5`, `gpt-5-mini` |
-| `orchestrator_3loop_legacy.py` | 187-206 | Uses fictional models throughout |
-| `orchestrator_3loop_legacy.py` | 360,401,578 | Multiple `gpt-5` references |
-| `orchestrator_phase3.py` | 278,321,468,494,505,561 | Six `gpt-5` references |
+| `orchestrator_2loop.py` | 75-94 | ✅ Updated `gpt-5`, `gpt-5-mini` → `gpt-4o`, `gpt-4o-mini` |
+| `orchestrator_3loop_legacy.py` | 187-206 | ✅ Updated fictional models |
+| `orchestrator_3loop_legacy.py` | 360,401,578 | ✅ Updated `gpt-5` references |
+| `orchestrator_phase3.py` | 278,321,468,494,505,561 | ✅ Updated `gpt-5` references |
 | `config_loader.py` | 21-22 | Imports may fail without fallback |
-| `models.json` | 74 | References `gpt-5` as replacement |
+| `models.json` | 74 | ✅ Updated `gpt-5` reference |
 | `llm_config.yaml` | 19,55,61 | Claude model naming inconsistent |
 | Cross-file | - | 3 different Claude naming conventions |
 

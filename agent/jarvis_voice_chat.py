@@ -21,7 +21,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
-import core_logging
+try:
+    import core_logging
+except ImportError:
+    import logging as core_logging
 from jarvis_voice import (
     JarvisVoice,
     VoiceConfig,
@@ -220,6 +223,13 @@ class JarvisVoiceChat:
 
         try:
             # Transcribe user audio
+            if self.voice.stt_engine is None:
+                return {
+                    "user_text": "",
+                    "jarvis_text": "Speech recognition is not available.",
+                    "jarvis_audio_base64": None,
+                    "processing_time_ms": 0
+                }
             user_text = await self.voice.stt_engine.transcribe(audio_bytes)
 
             if not user_text or user_text.strip() == "":

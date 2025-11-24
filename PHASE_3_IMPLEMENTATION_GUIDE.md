@@ -302,7 +302,7 @@ tracker.add_issue(
 )
 
 # Track fix cycles
-tracker.start_fix_cycle(stage_id, cycle_number=1, employee_model="gpt-5")
+tracker.start_fix_cycle(stage_id, cycle_number=1, employee_model="gpt-4o")
 tracker.complete_fix_cycle(
     stage_id=stage_id,
     cycle_number=1,
@@ -487,7 +487,7 @@ def main_phase3(run_summary=None):
             print(f"\n--- Audit Cycle {audit_num} ---")
 
             # Track fix cycle
-            tracker.start_fix_cycle(next_stage.id, audit_num, employee_model="gpt-5")
+            tracker.start_fix_cycle(next_stage.id, audit_num, employee_model="gpt-4o")
 
             # Employee builds
             employee_payload = {

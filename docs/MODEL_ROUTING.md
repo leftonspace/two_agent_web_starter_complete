@@ -6,7 +6,7 @@ This document describes the intelligent model routing and cost control features 
 
 1. [Overview](#overview)
 2. [Model Routing](#model-routing)
-3. [GPT-5 Gating Rules](#gpt-5-gating-rules)
+3. [GPT-4o Gating Rules](#gpt-4o-gating-rules)
 4. [Cost Tracking](#cost-tracking)
 5. [Cost Caps](#cost-caps)
 6. [Configuration](#configuration)
@@ -20,7 +20,7 @@ This document describes the intelligent model routing and cost control features 
 Stage 5.2 introduces **centralized, intelligent model selection** and **hard cost controls** to the multi-agent orchestrator. Instead of using fixed models for each role, the system now:
 
 - **Dynamically selects models** based on task complexity, role, and iteration
-- **Enforces GPT-5 gating** to prevent expensive model usage on simple tasks
+- **Enforces intelligent gating** to prevent expensive model usage on simple tasks
 - **Tracks costs** in real-time with detailed breakdowns
 - **Enforces cost caps** to prevent budget overruns
 - **Logs cost checkpoints** at key stages of execution
@@ -52,7 +52,7 @@ model = choose_model(
     is_very_important=False,
     config=cfg,
 )
-# Returns: "gpt-5-2025-08-07" (GPT-5 allowed on 2nd iteration with high complexity)
+# Returns: "gpt-4o" (gpt-4o allowed on 2nd iteration with high complexity)
 ```
 
 ### Complexity Estimation
@@ -68,16 +68,16 @@ See `model_router.estimate_complexity()` for implementation details.
 
 ---
 
-## GPT-5 Gating Rules
+## GPT-4o Gating Rules
 
-**GPT-5 is expensive** and should only be used when necessary. The system enforces strict gating:
+**GPT-4o is expensive** and should only be used when necessary. The system enforces strict gating:
 
 ### Rule 1: Interaction Index Restriction
 
-**GPT-5 can ONLY be used on the 2nd or 3rd interaction**
+**GPT-4o can ONLY be used on the 2nd or 3rd interaction**
 
-- ❌ First iteration: Always uses cheaper models (`gpt-5-mini` or `gpt-5-nano`)
-- ✅ Second iteration: GPT-5 allowed if complexity is high OR stage is very important
+- ❌ First iteration: Always uses cheaper models (`gpt-4o-mini`)
+- ✅ Second iteration: gpt-4o allowed if complexity is high OR stage is very important
 - ✅ Third iteration: Same as second
 - ❌ Fourth+ iterations: Falls back to cheaper models
 
@@ -85,7 +85,7 @@ See `model_router.estimate_complexity()` for implementation details.
 
 ### Rule 2: Complexity/Importance Requirement
 
-**GPT-5 requires high complexity OR very important flag**
+**GPT-4o requires high complexity OR very important flag**
 
 - **High Complexity**: Tasks with many files, complex keywords, or previous failures
 - **Very Important**: Stages explicitly marked in `llm_very_important_stages` config
@@ -94,11 +94,11 @@ See `model_router.estimate_complexity()` for implementation details.
 
 | Iteration | Complexity | Important | Model Used |
 |-----------|------------|-----------|------------|
-| 1 | high | ✅ | `gpt-5-mini` (first iteration rule) |
-| 2 | high | ❌ | `gpt-5` ✅ |
-| 2 | low | ✅ | `gpt-5` ✅ |
-| 2 | low | ❌ | `gpt-5-mini` (no justification) |
-| 4 | high | ✅ | `gpt-5-mini` (past 3rd iteration) |
+| 1 | high | ✅ | `gpt-4o-mini` (first iteration rule) |
+| 2 | high | ❌ | `gpt-4o` ✅ |
+| 2 | low | ✅ | `gpt-4o` ✅ |
+| 2 | low | ❌ | `gpt-4o-mini` (no justification) |
+| 4 | high | ✅ | `gpt-4o-mini` (past 3rd iteration) |
 
 ---
 
@@ -229,19 +229,19 @@ When cost exceeds 8.0 USD, a warning is printed (once):
 | `cost_warning_usd` | float | 0.0 | Warning threshold in USD. 0 = no warning. |
 | `interactive_cost_mode` | string | `"off"` | `"off"`, `"once"`, or `"always"`. Prompts user before continuing. |
 | `llm_default_complexity` | string | `"low"` | Default complexity if estimation fails. |
-| `llm_very_important_stages` | list | `[]` | Stage names that justify GPT-5 usage. |
+| `llm_very_important_stages` | list | `[]` | Stage names that justify gpt-4o usage. |
 | `manager_model` | string\|null | `null` | Override model for manager (bypasses router if set). |
 | `supervisor_model` | string\|null | `null` | Override model for supervisor (bypasses router if set). |
 | `employee_model` | string\|null | `null` | Override model for employee (bypasses router if set). |
 
-**⚠️ Warning**: Setting explicit model overrides (`manager_model`, etc.) bypasses the intelligent router and GPT-5 gating. Only use for debugging.
+**⚠️ Warning**: Setting explicit model overrides (`manager_model`, etc.) bypasses the intelligent router. Only use for debugging.
 
 ### Environment Variables
 
 ```bash
-export DEFAULT_MANAGER_MODEL="gpt-5-mini-2025-08-07"
-export DEFAULT_SUPERVISOR_MODEL="gpt-5-nano"
-export DEFAULT_EMPLOYEE_MODEL="gpt-5-2025-08-07"
+export DEFAULT_MANAGER_MODEL="gpt-4o-mini"
+export DEFAULT_SUPERVISOR_MODEL="gpt-4o-mini"
+export DEFAULT_EMPLOYEE_MODEL="gpt-4o"
 ```
 
 These are fallback defaults used by legacy code paths. **Recommended**: Leave unset and let the router decide.

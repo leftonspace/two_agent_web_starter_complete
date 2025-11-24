@@ -21,7 +21,7 @@ def test_cost_cap_blocks_expensive_call() -> None:
 
     # Simulate previous expensive calls that nearly exhaust budget
     for _ in range(3):
-        cost_tracker.register_call("manager", "gpt-5", 10_000, 10_000)
+        cost_tracker.register_call("manager", "gpt-4o", 10_000, 10_000)
 
     # Try to make another call with a tiny cap
     # This should return error stub instead of making the call
@@ -74,8 +74,8 @@ def test_cost_checkpoints_logged() -> None:
     cost_tracker.reset()
 
     # Register some calls
-    cost_tracker.register_call("manager", "gpt-5-mini", 1000, 500)
-    cost_tracker.register_call("employee", "gpt-5", 2000, 1000)
+    cost_tracker.register_call("manager", "gpt-4o-mini", 1000, 500)
+    cost_tracker.register_call("employee", "gpt-4o", 2000, 1000)
 
     run_id = core_logging.new_run_id()
     max_cost = 1.0
@@ -171,8 +171,8 @@ def test_model_routing_enforces_gpt5_gating() -> None:
     )
 
     # Should not be GPT-5
-    assert "gpt-5-2025" not in model, f"Expected no GPT-5 on first iteration, got: {model}"
-    assert "gpt-5-mini" in model or "gpt-5-nano" in model, f"Expected cheaper model, got: {model}"
+    assert "gpt-4o-2024" not in model, f"Expected no GPT-4o full version on first iteration, got: {model}"
+    assert "gpt-4o-mini" in model, f"Expected cheaper model, got: {model}"
 
 
 def test_model_routing_allows_gpt5_on_second_iteration() -> None:
@@ -191,7 +191,7 @@ def test_model_routing_allows_gpt5_on_second_iteration() -> None:
     )
 
     # Should use GPT-5 now
-    assert "gpt-5-2025" in model, f"Expected GPT-5 on 2nd iteration with high complexity, got: {model}"
+    assert "gpt-4o-2024" in model, f"Expected GPT-4o on 2nd iteration with high complexity, got: {model}"
 
 
 def test_run_summary_includes_cost_data() -> None:
@@ -201,9 +201,9 @@ def test_run_summary_includes_cost_data() -> None:
     cost_tracker.reset()
 
     # Simulate a run with multiple calls
-    cost_tracker.register_call("manager", "gpt-5-mini", 1000, 500)
-    cost_tracker.register_call("supervisor", "gpt-5-nano", 800, 400)
-    cost_tracker.register_call("employee", "gpt-5", 3000, 2000)
+    cost_tracker.register_call("manager", "gpt-4o-mini", 1000, 500)
+    cost_tracker.register_call("supervisor", "gpt-4o-mini", 800, 400)
+    cost_tracker.register_call("employee", "gpt-4o", 3000, 2000)
 
     # Get summary
     summary = cost_tracker.get_summary()
@@ -221,9 +221,9 @@ def test_run_summary_includes_cost_data() -> None:
     assert "employee" in summary["by_role"]
 
     assert "by_model" in summary
-    assert "gpt-5-mini" in summary["by_model"]
-    assert "gpt-5-nano" in summary["by_model"]
-    assert "gpt-5" in summary["by_model"]
+    assert "gpt-4o-mini" in summary["by_model"]
+    assert "gpt-4o-mini" in summary["by_model"]
+    assert "gpt-4o" in summary["by_model"]
 
     # Verify role breakdown
     manager_stats = summary["by_role"]["manager"]
@@ -232,7 +232,7 @@ def test_run_summary_includes_cost_data() -> None:
     assert manager_stats["completion_tokens"] == 500
 
     # Verify model breakdown
-    gpt5_stats = summary["by_model"]["gpt-5"]
+    gpt5_stats = summary["by_model"]["gpt-4o"]
     assert gpt5_stats["num_calls"] == 1
     assert gpt5_stats["total_usd"] > 0
 

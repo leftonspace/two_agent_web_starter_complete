@@ -534,8 +534,7 @@ This system implements a **self-evolving agent pool** with Darwinian selection. 
 
 ### REMOVE/DEPRECATE ⚠️
 
-1. **Fictional Model References** - All `gpt-5`, `gpt-5-mini`, `gpt-5-nano` references (26+ files)
-   - Replace with real models: `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`
+1. **Fictional Model References** - All `gpt-5`, `gpt-5-mini`, `gpt-5-nano` references have been replaced with real models (`gpt-4o`, `gpt-4o-mini`)
 
 2. **Legacy Orchestrators** - Confusion between orchestrator.py, orchestrator_3loop_legacy.py, orchestrator_phase3.py
    - Consolidate to single orchestrator with clear versioning
@@ -691,7 +690,7 @@ This system implements a **self-evolving agent pool** with Darwinian selection. 
 
 6. **Update Documentation** (Code Quality)
    - Replace old tool names (file_read → read, etc.) in 50+ docs
-   - Update model references (gpt-5 → gpt-4o)
+   - Update model references (gpt-5 → gpt-4o) ✅ COMPLETE
    - Refresh architecture diagrams
    - **Estimated effort**: 2-3 days
 

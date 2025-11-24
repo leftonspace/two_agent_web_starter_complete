@@ -50,9 +50,9 @@ def test_cost_estimation():
         from cost_estimator import estimate_run_cost
 
         models = {
-            "manager": "gpt-5-mini",
-            "supervisor": "gpt-5-nano",
-            "employee": "gpt-5",
+            "manager": "gpt-4o-mini",
+            "supervisor": "gpt-4o-mini",
+            "employee": "gpt-4o",
         }
 
         estimate = estimate_run_cost(
@@ -156,7 +156,7 @@ def test_run_logger():
             project_dir="/tmp/test",
             task="Test task",
             max_rounds=3,
-            models_used={"manager": "gpt-5-mini", "supervisor": "gpt-5-nano", "employee": "gpt-5"},
+            models_used={"manager": "gpt-4o-mini", "supervisor": "gpt-4o-mini", "employee": "gpt-4o"},
             config={},
         )
 

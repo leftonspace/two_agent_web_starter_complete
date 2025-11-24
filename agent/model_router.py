@@ -16,11 +16,11 @@ PHASE 1.7: Integrated with ModelRegistry for externalized model configuration.
 Model names now resolved from agent/models.json instead of hard-coded.
 
 KEY CONSTRAINT:
-High-end models (gpt-5, etc.) are ONLY allowed on 2nd or 3rd interactions AND only when:
+High-end models (gpt-4o, etc.) are ONLY allowed on 2nd or 3rd interactions AND only when:
 - Complexity is "high" OR
 - is_very_important is True
 
-First interactions ALWAYS use cheaper models (gpt-5-mini or similar).
+First interactions ALWAYS use cheaper models (gpt-4o-mini or similar).
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ class ModelConfig:
 
     Attributes:
         provider: Model provider (OpenAI, Anthropic, Local)
-        model_name: Model identifier (e.g., "gpt-5-2025-08-07", "claude-3-5-sonnet-20241022")
+        model_name: Model identifier (e.g., "gpt-4o-2024-11-20", "claude-3-5-sonnet-20241022")
         max_tokens: Maximum tokens for response (default: 4096)
         temperature: Sampling temperature (default: 0.0 for deterministic)
         cost_per_1k_tokens: Estimated cost per 1K tokens for budgeting
@@ -171,10 +171,10 @@ def choose_model(
         config: Optional project config for very_important_stages lookup
 
     Returns:
-        Model identifier string (e.g., "gpt-5-2025-08-07")
+        Model identifier string (e.g., "gpt-4o-2024-11-20")
 
     High-End Model Constraint Rules:
-    1. High-end models (gpt-5, etc.) are ONLY allowed on interaction indices 2 or 3
+    1. High-end models (gpt-4o, etc.) are ONLY allowed on interaction indices 2 or 3
     2. Even on those interactions, high-end models are only used if:
        - complexity == "high" OR is_very_important == True
     3. First iteration (index=1) ALWAYS uses cheaper models

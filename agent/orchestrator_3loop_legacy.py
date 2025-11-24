@@ -184,14 +184,14 @@ def _choose_employee_model(
     Decide which model the Employee should use.
 
     Constraint:
-    - Iteration 1: always gpt-5-mini (cheap first pass).
+    - Iteration 1: always gpt-4o-mini (cheap first pass).
     - Iteration 2 or 3:
-        * If previous status was 'needs_changes' OR tests failed → gpt-5.
-        * Otherwise → gpt-5-mini.
-    - Iteration > 3: default to gpt-5-mini.
+        * If previous status was 'needs_changes' OR tests failed → gpt-4o.
+        * Otherwise → gpt-4o-mini.
+    - Iteration > 3: default to gpt-4o-mini.
     """
     if iteration <= 1:
-        return "gpt-5-mini"
+        return "gpt-4o-mini"
 
     if iteration in (2, 3):
         tests_failed = False
@@ -199,11 +199,11 @@ def _choose_employee_model(
             tests_failed = not bool(last_tests.get("all_passed"))
 
         if (last_status == "needs_changes") or tests_failed:
-            return "gpt-5"
+            return "gpt-4o"
         else:
-            return "gpt-5-mini"
+            return "gpt-4o-mini"
 
-    return "gpt-5-mini"
+    return "gpt-4o-mini"
 
 
 def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:
@@ -357,7 +357,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     core_logging.log_llm_call(
         core_run_id,
         role="manager",
-        model="gpt-5",  # Default model for planning
+        model="gpt-4o",  # Default model for planning
         prompt_length=len(manager_plan_sys) + len(task),
         phase="planning"
     )
@@ -398,7 +398,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
     core_logging.log_llm_call(
         core_run_id,
         role="supervisor",
-        model="gpt-5",  # Default model
+        model="gpt-4o",  # Default model
         prompt_length=len(supervisor_sys) + len(json.dumps(sup_payload)),
         phase="supervisor_phasing"
     )
@@ -575,7 +575,7 @@ def main(run_summary: Optional[RunSummary] = None) -> None:
         core_logging.log_llm_call(
             core_run_id,
             role="manager",
-            model="gpt-5",  # Default model for review
+            model="gpt-4o",  # Default model for review
             prompt_length=len(manager_review_sys) + len(json.dumps(mgr_payload)),
             iteration=iteration,
             phase="review"

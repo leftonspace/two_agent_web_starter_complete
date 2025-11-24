@@ -1152,7 +1152,7 @@ def main(
             print(f"\n--- Audit Cycle {audit_cycle}/{max_audits_per_stage} ---")
 
             # Start fix cycle tracking
-            tracker.start_fix_cycle(stage_id, audit_cycle, employee_model="gpt-5")
+            tracker.start_fix_cycle(stage_id, audit_cycle, employee_model="gpt-4o")
             memory.increment_iterations(stage_id)
 
             # ────────────────────────────────────────────────────
@@ -1187,7 +1187,7 @@ def main(
             context.logger.log_llm_call(
                 core_run_id,
                 role="employee",
-                model="gpt-5",
+                model="gpt-4o",
                 prompt_length=len(employee_sys_base) + len(json.dumps(employee_payload)),
                 iteration=audit_cycle,
                 phase_index=stages_processed,

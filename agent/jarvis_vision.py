@@ -33,7 +33,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import core_logging
+try:
+    import core_logging
+except ImportError:
+    import logging as core_logging
 
 # Vision provider imports
 try:

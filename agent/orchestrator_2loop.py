@@ -72,14 +72,14 @@ def _choose_employee_model(
     Decide which model the Employee should use.
 
     Constraint (your requirement):
-    - Iteration 1: never use gpt-5 → use cheaper model (gpt-5-mini).
+    - Iteration 1: never use gpt-4o → use cheaper model (gpt-4o-mini).
     - Iteration 2 or 3:
-        * If previous status was 'needs_changes' OR tests failed → use gpt-5.
-        * Otherwise → stay on gpt-5-mini.
-    - Any iteration > 3: stay on gpt-5-mini (safety default).
+        * If previous status was 'needs_changes' OR tests failed → use gpt-4o.
+        * Otherwise → stay on gpt-4o-mini.
+    - Any iteration > 3: stay on gpt-4o-mini (safety default).
     """
     if iteration <= 1:
-        return "gpt-5-mini"
+        return "gpt-4o-mini"
 
     if iteration in (2, 3):
         tests_failed = False
@@ -87,11 +87,11 @@ def _choose_employee_model(
             tests_failed = not bool(last_tests.get("all_passed"))
 
         if (last_status == "needs_changes") or tests_failed:
-            return "gpt-5"
+            return "gpt-4o"
         else:
-            return "gpt-5-mini"
+            return "gpt-4o-mini"
 
-    return "gpt-5-mini"
+    return "gpt-4o-mini"
 
 
 def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:

@@ -146,6 +146,9 @@ Provide a focused response based on your specialization. Be concise and practica
             metadata=context or {}
         )
 
+        # Initialize assigned list in case of early exception
+        assigned = []
+
         try:
             # Step 1: Analysis Vote
             task.complexity = await self._conduct_analysis_vote(task)
@@ -175,7 +178,7 @@ Provide a focused response based on your specialization. Be concise and practica
         except Exception as e:
             task.status = "failed"
             task.metadata["error"] = str(e)
-            await self._finalize_task(task, assigned if 'assigned' in dir() else [], success=False)
+            await self._finalize_task(task, assigned, success=False)
 
         # Record task
         self.task_history.append(task)
@@ -390,6 +393,10 @@ Provide a focused response based on your specialization. Be concise and practica
                 self.councillors,
                 HappinessEvent.NEW_COLLEAGUE
             )
+
+        # Add new councillors to the team (fix council shrinkage bug)
+        if actions["new_councillors"]:
+            self.councillors.extend(actions["new_councillors"])
 
         # Apply happiness decay
         self.happiness_manager.apply_decay(self.councillors)

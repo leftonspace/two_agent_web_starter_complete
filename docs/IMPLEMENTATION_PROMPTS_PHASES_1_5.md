@@ -693,7 +693,7 @@ Deprecate `run_logger.py`, migrate all logging to `core_logging.py`, and provide
 ### Prompt 1.7: Externalize Model Configuration
 
 **Context:**
-Current state: `agent/config.py` has hard-coded model names like `"gpt-5-mini-2025-08-07"` in ModelDefaults (line 754-759). When OpenAI deprecates models, this requires code changes (vulnerability A3).
+Current state: `agent/config.py` has hard-coded model names like `"gpt-4o-mini"` in ModelDefaults (line 754-759). When OpenAI deprecates models, this requires code changes (vulnerability A3).
 
 **Task:**
 Move model configuration to external JSON file with versioning support, enabling model updates without code changes.
@@ -710,22 +710,22 @@ Move model configuration to external JSON file with versioning support, enabling
          "openai": {
            "base_url": "https://api.openai.com/v1",
            "models": {
-             "gpt-5": {
-               "id": "gpt-5-2025-08-07",
+             "gpt-4o": {
+               "id": "gpt-4o",
                "context_window": 128000,
                "max_output_tokens": 16384,
-               "cost_per_1k_prompt": 0.01,
-               "cost_per_1k_completion": 0.03,
+               "cost_per_1k_prompt": 0.005,
+               "cost_per_1k_completion": 0.015,
                "capabilities": ["chat", "json", "vision"],
                "deprecated": false,
                "deprecation_date": null
              },
-             "gpt-5-mini": {
-               "id": "gpt-5-mini-2025-08-07",
+             "gpt-4o-mini": {
+               "id": "gpt-4o-mini",
                "context_window": 128000,
                "max_output_tokens": 16384,
-               "cost_per_1k_prompt": 0.003,
-               "cost_per_1k_completion": 0.009,
+               "cost_per_1k_prompt": 0.00015,
+               "cost_per_1k_completion": 0.0006,
                "capabilities": ["chat", "json"],
                "deprecated": false
              },
@@ -756,11 +756,11 @@ Move model configuration to external JSON file with versioning support, enabling
          }
        },
        "aliases": {
-         "manager_default": "openai/gpt-5",
-         "supervisor_default": "openai/gpt-5-mini",
-         "employee_default": "openai/gpt-5-mini",
-         "specialist_default": "openai/gpt-5-mini",
-         "high_complexity": "openai/gpt-5",
+         "manager_default": "openai/gpt-4o-mini",
+         "supervisor_default": "openai/gpt-4o-mini",
+         "employee_default": "openai/gpt-4o-mini",
+         "specialist_default": "openai/gpt-4o-mini",
+         "high_complexity": "openai/gpt-4o",
          "reasoning": "openai/o1"
        }
      }
@@ -778,7 +778,7 @@ Move model configuration to external JSON file with versioning support, enabling
      class ModelInfo:
          provider: str
          model_id: str
-         full_id: str  # e.g., "gpt-5-2025-08-07"
+         full_id: str  # e.g., "gpt-4o"
          context_window: int
          max_output_tokens: int
          cost_per_1k_prompt: float
@@ -796,7 +796,7 @@ Move model configuration to external JSON file with versioning support, enabling
          def get_model(self, model_ref: str) -> ModelInfo:
              """
              Get model by reference (alias or provider/model format).
-             Examples: "manager_default", "openai/gpt-5", "gpt-5"
+             Examples: "manager_default", "openai/gpt-4o", "gpt-4o"
              """
              # Resolve alias
              if model_ref in self.registry['aliases']:

@@ -28,25 +28,17 @@ HISTORY_FILE = Path("cost_history.json")
 # These are kept as fallback only. ModelRegistry provides current pricing.
 # USD per token (prices are per 1M tokens, so we divide by 1_000_000)
 PRICES_USD_PER_TOKEN: Dict[str, Dict[str, float]] = {
-    "gpt-5": {
+    "gpt-4o": {
         "input": 1.250 / 1_000_000,
         "output": 10.000 / 1_000_000,
     },
-    "gpt-5-mini": {
+    "gpt-4o-mini": {
         "input": 0.250 / 1_000_000,
         "output": 2.000 / 1_000_000,
     },
-    "gpt-5-nano": {
-        "input": 0.050 / 1_000_000,
-        "output": 0.400 / 1_000_000,
-    },
-    "gpt-5-pro": {
-        "input": 15.00 / 1_000_000,
-        "output": 120.00 / 1_000_000,
-    },
 }
 
-FALLBACK_MODEL = "gpt-5-mini"  # if we don't know a model name, use this as a safe-ish default
+FALLBACK_MODEL = "gpt-4o-mini"  # if we don't know a model name, use this as a safe-ish default
 
 
 def _get_pricing_from_registry(model_id: str) -> Optional[Dict[str, float]]:
@@ -54,7 +46,7 @@ def _get_pricing_from_registry(model_id: str) -> Optional[Dict[str, float]]:
     Get pricing from ModelRegistry for a given model ID.
 
     Args:
-        model_id: Full model ID (e.g., "gpt-5-2025-08-07")
+        model_id: Full model ID (e.g., "gpt-4o-2024-11-20")
 
     Returns:
         Dict with 'input' and 'output' keys (cost per token), or None if not found
@@ -102,8 +94,8 @@ def _get_pricing_fallback(model_key: str) -> Dict[str, float]:
     if model_key in PRICES_USD_PER_TOKEN:
         return PRICES_USD_PER_TOKEN[model_key]
 
-    # Try partial match (e.g., "gpt-5-2025-08-07" -> "gpt-5")
-    for key_prefix in ["gpt-5-pro", "gpt-5-mini", "gpt-5-nano", "gpt-5"]:
+    # Try partial match (e.g., "gpt-4o-2024-11-20" -> "gpt-4o")
+    for key_prefix in ["gpt-4o-mini", "gpt-4o"]:
         if key_prefix in model_key:
             return PRICES_USD_PER_TOKEN.get(key_prefix, PRICES_USD_PER_TOKEN[FALLBACK_MODEL])
 
@@ -246,7 +238,7 @@ def get_total_cost_usd() -> float:
 def check_cost_cap(
     max_cost_usd: float,
     estimated_tokens: int = 5000,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-4o-mini",
 ) -> tuple[bool, float, str]:
     """
     STAGE 5.2: Check if making another LLM call would exceed the cost cap.

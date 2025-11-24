@@ -518,7 +518,7 @@ class MockModelRouterProvider:
         config: Optional[Dict] = None,
     ) -> str:
         """Choose appropriate model for task."""
-        return "gpt-5-mini"
+        return "gpt-4o-mini"
 
 
 @dataclass

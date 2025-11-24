@@ -52,6 +52,7 @@ from .voting import (
     VotingManager,
     VotingConfig,
     conduct_vote,
+    InsufficientQuorumError,
 )
 
 # Happiness system
@@ -111,6 +112,7 @@ __all__ = [
     'VotingManager',
     'VotingConfig',
     'conduct_vote',
+    'InsufficientQuorumError',
 
     # Happiness
     'HappinessManager',

@@ -32,6 +32,8 @@ JARVIS operates on these principles:
 5. **Transparent Operations** - All actions are logged and auditable
 6. **Self-Improvement** - Continuously optimizes based on performance data
 
+## 1.3 Project Structure
+
 ---
 
 # PART II: COMPLETE JARVIS FUNCTIONS

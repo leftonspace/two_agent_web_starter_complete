@@ -1,0 +1,341 @@
+# JARVIS Distributed Deployment - Docker Compose
+#
+# Multi-container setup for horizontally scaled JARVIS deployment.
+# Includes: PostgreSQL, Redis, Celery workers, Temporal.io, and JARVIS instances.
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Database Layer
+  # =============================================================================
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: jarvis-postgres
+    environment:
+      POSTGRES_DB: jarvis_kg
+      POSTGRES_USER: jarvis
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jarvis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jarvis-network
+
+  # =============================================================================
+  # Message Broker & Cache
+  # =============================================================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: jarvis-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - jarvis-network
+
+  # =============================================================================
+  # Temporal.io Workflow Engine
+  # =============================================================================
+
+  temporal:
+    image: temporalio/auto-setup:1.22.0
+    container_name: jarvis-temporal
+    depends_on:
+      - postgres
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=jarvis
+      - POSTGRES_PWD=${PG_PASSWORD:-changeme}
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"
+    volumes:
+      - ./deployment/temporal:/etc/temporal/config/dynamicconfig
+    networks:
+      - jarvis-network
+
+  temporal-ui:
+    image: temporalio/ui:2.21.0
+    container_name: jarvis-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8233:8080"
+    networks:
+      - jarvis-network
+
+  # =============================================================================
+  # Celery Workers
+  # =============================================================================
+
+  celery-worker-default:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.worker
+    container_name: jarvis-celery-default
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/1
+      - PG_HOST=postgres
+      - PG_DATABASE=jarvis_kg
+      - PG_USER=jarvis
+      - PG_PASSWORD=${PG_PASSWORD:-changeme}
+    command: celery -A agent.workers.celery_app worker --loglevel=info --queues=default --concurrency=4
+    volumes:
+      - ./agent:/app/agent
+    networks:
+      - jarvis-network
+    deploy:
+      replicas: 2
+
+  celery-worker-high-priority:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.worker
+    container_name: jarvis-celery-high-priority
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/1
+      - PG_HOST=postgres
+      - PG_DATABASE=jarvis_kg
+      - PG_USER=jarvis
+      - PG_PASSWORD=${PG_PASSWORD:-changeme}
+    command: celery -A agent.workers.celery_app worker --loglevel=info --queues=high_priority --concurrency=2
+    volumes:
+      - ./agent:/app/agent
+    networks:
+      - jarvis-network
+
+  celery-worker-model:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.worker
+    container_name: jarvis-celery-model
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/1
+      - PG_HOST=postgres
+      - PG_DATABASE=jarvis_kg
+      - PG_USER=jarvis
+      - PG_PASSWORD=${PG_PASSWORD:-changeme}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    command: celery -A agent.workers.celery_app worker --loglevel=info --queues=model_inference --concurrency=8
+    volumes:
+      - ./agent:/app/agent
+    networks:
+      - jarvis-network
+    deploy:
+      replicas: 3
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.worker
+    container_name: jarvis-celery-beat
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/1
+    command: celery -A agent.workers.celery_app beat --loglevel=info
+    volumes:
+      - ./agent:/app/agent
+    networks:
+      - jarvis-network
+
+  # =============================================================================
+  # JARVIS Application Instances
+  # =============================================================================
+
+  jarvis-app-1:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.app
+    container_name: jarvis-app-1
+    depends_on:
+      - postgres
+      - redis
+      - temporal
+    environment:
+      - KG_BACKEND=postgres
+      - PG_HOST=postgres
+      - PG_DATABASE=jarvis_kg
+      - PG_USER=jarvis
+      - PG_PASSWORD=${PG_PASSWORD:-changeme}
+      - PG_POOL_SIZE=20
+      - PG_MAX_OVERFLOW=40
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - TEMPORAL_HOST=temporal
+      - TEMPORAL_PORT=7233
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - JARVIS_INSTANCE_ID=jarvis-app-1
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./agent:/app/agent
+      - jarvis_data_1:/app/data
+    networks:
+      - jarvis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  jarvis-app-2:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.app
+    container_name: jarvis-app-2
+    depends_on:
+      - postgres
+      - redis
+      - temporal
+    environment:
+      - KG_BACKEND=postgres
+      - PG_HOST=postgres
+      - PG_DATABASE=jarvis_kg
+      - PG_USER=jarvis
+      - PG_PASSWORD=${PG_PASSWORD:-changeme}
+      - PG_POOL_SIZE=20
+      - PG_MAX_OVERFLOW=40
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - TEMPORAL_HOST=temporal
+      - TEMPORAL_PORT=7233
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - JARVIS_INSTANCE_ID=jarvis-app-2
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./agent:/app/agent
+      - jarvis_data_2:/app/data
+    networks:
+      - jarvis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  jarvis-app-3:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.app
+    container_name: jarvis-app-3
+    depends_on:
+      - postgres
+      - redis
+      - temporal
+    environment:
+      - KG_BACKEND=postgres
+      - PG_HOST=postgres
+      - PG_DATABASE=jarvis_kg
+      - PG_USER=jarvis
+      - PG_PASSWORD=${PG_PASSWORD:-changeme}
+      - PG_POOL_SIZE=20
+      - PG_MAX_OVERFLOW=40
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - TEMPORAL_HOST=temporal
+      - TEMPORAL_PORT=7233
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - JARVIS_INSTANCE_ID=jarvis-app-3
+    ports:
+      - "8003:8000"
+    volumes:
+      - ./agent:/app/agent
+      - jarvis_data_3:/app/data
+    networks:
+      - jarvis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # Load Balancer
+  # =============================================================================
+
+  nginx:
+    image: nginx:alpine
+    container_name: jarvis-nginx
+    depends_on:
+      - jarvis-app-1
+      - jarvis-app-2
+      - jarvis-app-3
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deployment/ssl:/etc/nginx/ssl:ro
+    networks:
+      - jarvis-network
+
+  # =============================================================================
+  # Monitoring & Observability
+  # =============================================================================
+
+  flower:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.worker
+    container_name: jarvis-flower
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+    command: celery -A agent.workers.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    networks:
+      - jarvis-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  jarvis_data_1:
+  jarvis_data_2:
+  jarvis_data_3:
+
+networks:
+  jarvis-network:
+    driver: bridge

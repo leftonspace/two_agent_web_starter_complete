@@ -1,6 +1,26 @@
 # JARVIS Task Configuration
 # This file defines the tasks to be executed by agents.
 # Use {variable} syntax for variable substitution.
+#
+# Available Agents (from agents.yaml):
+#   - researcher : Web research, data analysis (tools: web_search, web_fetch, read, grep, glob)
+#   - writer     : Content creation, documentation (tools: read, write, edit)
+#   - coder      : Code implementation, debugging (tools: read, write, edit, bash, grep, glob)
+#   - reviewer   : Quality assurance, code review (tools: read, bash, grep, glob)
+#
+# Task Fields:
+#   - name           : Display name for the task
+#   - description    : What the agent should do
+#   - expected_output: What deliverable is expected
+#   - agent          : Primary agent to execute task
+#   - backup_agents  : Fallback agents if primary unavailable
+#   - depends_on     : Tasks that must complete first
+#   - priority       : low|medium|high|critical
+#   - output_format  : markdown|html|json|file
+#   - output_file    : Where to save the output
+#   - timeout_seconds: Max execution time
+#   - success_criteria: Conditions for task success
+#   - variables      : Task-specific variable overrides
 
 research_task:
   name: "Market Research"

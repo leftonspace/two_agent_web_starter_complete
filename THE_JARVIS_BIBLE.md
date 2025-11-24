@@ -716,6 +716,7 @@ two_agent_web_starter_complete/
 
 # PART II: COMPLETE JARVIS FUNCTIONS
 
+```
 Organized by category:
 
 Core AI Functions - NLP, intent classification, planning, orchestration
@@ -728,6 +729,7 @@ Business Actions - Domain purchase, deployment, SMS, payments, calendar
 Security & Safety - Prompt injection, secrets, approvals, audit, rate limiting
 Vision & Voice - Image analysis, OCR, TTS, STT, voice chat
 Administration - Calendar, email, workflows, monitoring, analytics, self-optimization
+```
 
 ## 2.1 Core AI Functions
 

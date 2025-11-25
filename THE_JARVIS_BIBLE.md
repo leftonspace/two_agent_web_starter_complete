@@ -2925,8 +2925,177 @@ User Message
                     │
                     ▼
            ┌─────────────────┐
-           │ vector_store.py │ ◄── Semantic search
+           │ vector_store.py │ ◄── Semantic search + TTL
            └─────────────────┘
+```
+
+## 4.3 Security Flow (Phases 1, 2, 3)
+
+```
+User Request / Tool Call
+         │
+         ▼
+┌─────────────────────┐
+│  sandbox.py         │ ◄── Phase 1: Execution isolation
+│  (file/network)     │     - Restrict paths
+└────────┬────────────┘     - Block dangerous syscalls
+         │
+         ▼
+┌─────────────────────┐
+│  tool_validator.py  │ ◄── Phase 1: Input validation
+│  (schemas)          │     - Validate arguments
+└────────┬────────────┘     - Sanitize inputs
+         │
+         ▼
+┌─────────────────────┐
+│  audit_logger.py    │ ◄── Phase 3: Compliance logging
+│  (SOC2/HIPAA)       │     - Tamper-evident logs
+└────────┬────────────┘     - Structured events
+         │
+         ├──────────────────────────┐
+         ▼                          ▼
+┌─────────────────────┐    ┌─────────────────────┐
+│  financial_         │    │  pii_detector.py    │
+│  guardrails.py      │    │  (Phase 3)          │
+│  (Phase 2)          │    │                     │
+│  - Amount limits    │    │  - Detect PII       │
+│  - Daily caps       │    │  - Mask/redact      │
+│  - Approval flows   │    │  - Audit events     │
+└─────────────────────┘    └─────────────────────┘
+```
+
+## 4.4 Secrets Management Flow (Phase 4.1)
+
+```
+Application Start
+         │
+         ▼
+┌─────────────────────┐
+│  secrets.py         │ ◄── Phase 4.1: Multi-backend
+│  SecretManager      │
+└────────┬────────────┘
+         │
+    ┌────┴────┬────────────┬──────────────┐
+    ▼         ▼            ▼              ▼
+┌───────┐ ┌───────┐  ┌───────────┐  ┌───────────┐
+│ Vault │ │  AWS  │  │   Azure   │  │   Env     │
+│ (KV2) │ │Secrets│  │  KeyVault │  │ Variables │
+└───────┘ │Manager│  └───────────┘  │ (fallback)│
+          └───────┘                 └───────────┘
+         │
+         ▼
+┌─────────────────────┐
+│  Local Cache        │ ◄── TTL-based refresh
+│  (in-memory)        │     - Reduce API calls
+└─────────────────────┘     - Auto-rotate
+```
+
+## 4.5 Memory TTL Flow (Phase 4.2)
+
+```
+Memory Entry Created
+         │
+         ▼
+┌─────────────────────┐
+│  vector_store.py    │ ◄── Phase 4.2: TTL support
+│  store_with_ttl()   │
+└────────┬────────────┘
+         │
+         ▼
+┌─────────────────────┐
+│  Metadata Storage   │ ◄── expires_at timestamp
+│  {ttl, created_at}  │     category-based defaults
+└────────┬────────────┘
+         │
+         ▼
+┌─────────────────────┐
+│  Background Cleanup │ ◄── Periodic sweep
+│  cleanup_expired()  │     - Default: 1 hour
+└────────┬────────────┘     - Configurable interval
+         │
+         ▼
+┌─────────────────────┐
+│  Query Filtering    │ ◄── Automatic exclusion
+│  (exclude expired)  │     of expired entries
+└─────────────────────┘
+```
+
+## 4.6 Plan Confirmation Flow (Phase 6.1)
+
+```
+Complex User Request
+         │
+         ▼
+┌─────────────────────┐
+│  orchestrator.py    │ ◄── Manager creates plan
+│  _create_plan()     │
+└────────┬────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│  _present_plan_for_confirmation()       │ ◄── Phase 6.1
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ Execution Plan                  │    │
+│  │ ================================│    │
+│  │ Goal: [user's objective]        │    │
+│  │                                 │    │
+│  │ Steps:                          │    │
+│  │ 1. [action] - [description]     │    │
+│  │ 2. [action] - [description]     │    │
+│  │                                 │    │
+│  │ Phases: [phase list]            │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  Proceed? (y/n/details):                │
+└────────┬────────────────────────────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+ Approved   Rejected
+    │         │
+    ▼         ▼
+ Execute   Return to
+ Phases    User
+```
+
+## 4.7 Optimistic Voice UI Flow (Phase 6.2)
+
+```
+Voice Input (WebSocket)
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│  jarvis_voice_chat.py                   │
+│  VoiceWebSocketHandler                  │
+└────────┬────────────────────────────────┘
+         │
+         ├──► Immediate: "Received your message, sir"
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│  Transcription (if audio)               │
+└────────┬────────────────────────────────┘
+         │
+         ├──► "Transcribing your audio..."
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│  LLM Processing                         │
+└────────┬────────────────────────────────┘
+         │
+         ├──► "One moment, sir..." / "Thinking..."
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│  voice_api.py /chat/stream (SSE)        │ ◄── Phase 6.2
+│  ────────────────────────────────────── │
+│  event: acknowledgment                  │
+│  event: transcription                   │
+│  event: thinking                        │
+│  event: response (streaming)            │
+│  event: complete                        │
+└─────────────────────────────────────────┘
 ```
 
 ---
@@ -2941,6 +3110,7 @@ User Message
 | CLI Chat | `agent/cli_chat.py` |
 | Single Run | `dev/run_once.py` |
 | Auto-Pilot | `dev/run_autopilot.py` |
+| Lock Dependencies | `scripts/lock_dependencies.py` |
 
 ## 5.2 Configuration Files
 
@@ -2950,6 +3120,8 @@ User Message
 | Tasks | `agent/config/tasks.yaml` |
 | LLM | `config/llm_config.yaml` |
 | Project | `agent/project_config.json` |
+| Dependencies (dev) | `requirements.txt` |
+| Dependencies (prod) | `requirements.lock` |
 
 ## 5.3 Main APIs
 
@@ -2958,7 +3130,53 @@ User Message
 | Chat | `/api/chat/*` |
 | Agent | `/api/agent/*` |
 | Vision | `/api/vision/*` |
+| Voice | `/api/voice/*` |
+| Voice Stream (SSE) | `/api/voice/chat/stream` |
 | Admin | `/api/admin/*` |
+
+## 5.4 Security Configuration Options (Phases 1-3)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `sandbox_enabled` | `true` | Enable file/network sandboxing |
+| `allowed_paths` | `["/tmp", "./output"]` | Permitted filesystem paths |
+| `blocked_syscalls` | `[os.system, subprocess.Popen]` | Restricted operations |
+| `max_transaction_amount` | `1000.0` | Single transaction limit (Phase 2) |
+| `daily_spending_limit` | `5000.0` | Daily cumulative limit (Phase 2) |
+| `require_approval_above` | `500.0` | Threshold for human approval |
+| `audit_log_enabled` | `true` | Enable compliance logging (Phase 3) |
+| `pii_detection_enabled` | `true` | Enable PII scanning (Phase 3) |
+
+## 5.5 Secrets Configuration (Phase 4.1)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `SECRETS_BACKEND` | `"env"` | Backend: `vault`, `aws`, `azure`, `env` |
+| `VAULT_ADDR` | - | HashiCorp Vault URL |
+| `VAULT_TOKEN` | - | Vault authentication token |
+| `AWS_REGION` | `"us-east-1"` | AWS Secrets Manager region |
+| `AZURE_VAULT_URL` | - | Azure Key Vault URL |
+| `secrets_cache_ttl` | `300` | Cache TTL in seconds |
+
+## 5.6 Memory TTL Configuration (Phase 4.2)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `memory_default_ttl` | `2592000` | Default TTL (30 days in seconds) |
+| `session_memory_ttl` | `86400` | Session memory TTL (24 hours) |
+| `entity_memory_ttl` | `7776000` | Entity memory TTL (90 days) |
+| `preference_memory_ttl` | `15552000` | Preference TTL (180 days) |
+| `cleanup_interval` | `3600` | Cleanup frequency (1 hour) |
+
+## 5.7 UX Configuration (Phase 6)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `require_plan_confirmation` | `true` | Show plan before execution |
+| `auto_approve_plan` | `false` | Skip confirmation prompt |
+| `plan_detail_level` | `"summary"` | Detail: `minimal`, `summary`, `full` |
+| `optimistic_ui_enabled` | `true` | Enable voice acknowledgments |
+| `acknowledgment_style` | `"jarvis"` | Style: `jarvis`, `formal`, `minimal` |
 
 ---
 
@@ -2992,9 +3210,17 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 ### Step 3: Install Dependencies
 
+**For Development** (flexible versions):
 ```bash
 pip install -r requirements.txt
 ```
+
+**For Production** (locked/reproducible builds - Phase 5.2):
+```bash
+pip install -r requirements.lock
+```
+
+> *"I recommend the lockfile approach for production deployments, sir. Reproducibility is rather important when one's systems must be reliable."*
 
 ### Step 4: Configure Environment
 
@@ -3006,6 +3232,30 @@ Edit `.env` with your API keys:
 ```
 OPENAI_API_KEY=sk-your-key-here
 ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+### Step 4b: Configure Security (Optional)
+
+For production deployments, configure security settings in `.env`:
+
+```bash
+# Secrets Backend (Phase 4.1)
+SECRETS_BACKEND=vault           # Options: vault, aws, azure, env
+VAULT_ADDR=https://vault.example.com:8200
+VAULT_TOKEN=hvs.your-token
+
+# Financial Guardrails (Phase 2)
+MAX_TRANSACTION_AMOUNT=1000.0
+DAILY_SPENDING_LIMIT=5000.0
+REQUIRE_APPROVAL_ABOVE=500.0
+
+# Audit Logging (Phase 3)
+AUDIT_LOG_ENABLED=true
+PII_DETECTION_ENABLED=true
+
+# UX Configuration (Phase 6)
+REQUIRE_PLAN_CONFIRMATION=true
+AUTO_APPROVE_PLAN=false
 ```
 
 ### Step 5: Verify Installation
@@ -3101,6 +3351,110 @@ Navigate to `http://localhost:8000` in your browser.
 - **Projects**: Manage your projects
 - **Analytics**: View usage and performance metrics
 - **Approvals**: Handle pending approval requests
+
+---
+
+## 6.6 Voice Chat with Optimistic UI (Phase 6.2)
+
+> *"Voice interaction was always Mr. Stark's preferred method—something about keeping his hands free for more... explosive endeavors. The optimistic UI ensures you never feel like you're speaking into the void."*
+
+### Starting Voice Chat
+
+```bash
+python agent/jarvis_voice_chat.py
+```
+
+Or via the web dashboard, click the microphone icon in the chat interface.
+
+### How Optimistic UI Works
+
+When you speak to JARVIS, you'll receive immediate feedback at each stage:
+
+```
+You: [Speaking] "JARVIS, what's on my calendar today?"
+
+JARVIS: "Received your message, sir."      ◄── Immediate (< 100ms)
+JARVIS: "Transcribing your audio..."       ◄── During transcription
+JARVIS: "One moment, sir..."               ◄── During LLM processing
+JARVIS: "You have three meetings today..." ◄── Final response
+```
+
+### Voice Streaming API
+
+For developers integrating voice chat:
+
+```python
+import httpx
+import json
+
+async def voice_chat_stream(message: str):
+    """Stream voice chat with optimistic acknowledgments."""
+    async with httpx.AsyncClient() as client:
+        async with client.stream(
+            "POST",
+            "http://localhost:8000/api/voice/chat/stream",
+            json={"message": message, "session_id": "demo"},
+        ) as response:
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    event = json.loads(line[6:])
+                    print(f"[{event['type']}] {event.get('content', '')}")
+```
+
+### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `acknowledgment` | Immediate receipt confirmation |
+| `transcription` | Audio transcription result |
+| `thinking` | LLM processing indicator |
+| `response` | Streaming response chunks |
+| `complete` | Final completion signal |
+
+---
+
+## 6.7 Understanding Plan Confirmation (Phase 6.1)
+
+> *"Before I embark on any significant undertaking, I find it prudent to ensure we're aligned on the approach. Mr. Stark appreciated this... eventually."*
+
+For complex multi-agent tasks, JARVIS will present an execution plan:
+
+```
+You: Refactor the authentication module to use JWT tokens.
+
+JARVIS: I've prepared an execution plan for your review:
+
+╔══════════════════════════════════════════════════════════════╗
+║                      EXECUTION PLAN                          ║
+╠══════════════════════════════════════════════════════════════╣
+║ Goal: Refactor authentication to JWT-based system            ║
+║                                                              ║
+║ Acceptance Criteria:                                         ║
+║ • All auth endpoints use JWT tokens                          ║
+║ • Existing sessions gracefully migrated                      ║
+║ • All tests pass                                             ║
+║                                                              ║
+║ Planned Steps:                                               ║
+║ 1. Analyze current auth implementation                       ║
+║ 2. Design JWT token structure and flow                       ║
+║ 3. Implement JWT generation and validation                   ║
+║ 4. Update API endpoints                                      ║
+║ 5. Add migration for existing sessions                       ║
+║ 6. Update and run tests                                      ║
+║                                                              ║
+║ Phases: [Research] → [Design] → [Implement] → [Test]         ║
+╚══════════════════════════════════════════════════════════════╝
+
+Proceed? (y/n/details): _
+```
+
+### Configuration Options
+
+| Setting | Effect |
+|---------|--------|
+| `require_plan_confirmation=true` | Always show plan (default) |
+| `require_plan_confirmation=false` | Skip plan, execute immediately |
+| `auto_approve_plan=true` | Show plan but proceed automatically |
 
 ---
 

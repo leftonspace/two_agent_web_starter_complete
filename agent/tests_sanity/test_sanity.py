@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import warnings
 from pathlib import Path
+
+import pytest
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -29,7 +32,8 @@ def test_imports():
         import exec_safety  # noqa: F401
         import llm  # noqa: F401
         import orchestrator  # noqa: F401
-        import run_logger  # noqa: F401
+        import core_logging  # noqa: F401  # New logging system (replaces run_logger)
+        import run_logger  # noqa: F401  # Deprecated - will be removed in v2.0
         import run_mode  # noqa: F401
         import self_eval  # noqa: F401
         import site_tools  # noqa: F401
@@ -141,30 +145,40 @@ def test_safety_checks():
         return False
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_run_logger():
-    """Test run logger dataclass creation."""
-    print("[TEST] Testing run logger...")
+    """
+    Test run logger dataclass creation.
+
+    ⚠️  DEPRECATED TEST (Phase 1.6): This tests the deprecated run_logger module.
+    This test will be removed when run_logger.py is removed in v2.0.
+    New code should use core_logging.py instead.
+    """
+    print("[TEST] Testing run logger (deprecated)...")
 
     try:
         from dataclasses import asdict
 
-        from run_logger import finalize_run, log_iteration, start_run
+        # Suppress deprecation warnings for this test
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from run_logger import finalize_run, log_iteration, start_run
 
-        # Create a run
-        run = start_run(
-            mode="3loop",
-            project_dir="/tmp/test",
-            task="Test task",
-            max_rounds=3,
-            models_used={"manager": "gpt-4o-mini", "supervisor": "gpt-4o-mini", "employee": "gpt-4o"},
-            config={},
-        )
+            # Create a run
+            run = start_run(
+                mode="3loop",
+                project_dir="/tmp/test",
+                task="Test task",
+                max_rounds=3,
+                models_used={"manager": "gpt-4o-mini", "supervisor": "gpt-4o-mini", "employee": "gpt-4o"},
+                config={},
+            )
 
-        # Log an iteration
-        log_iteration(run, index=1, role="manager", status="ok", notes="Test iteration")
+            # Log an iteration
+            log_iteration(run, index=1, role="manager", status="ok", notes="Test iteration")
 
-        # Finalize
-        run = finalize_run(run, final_status="completed", cost_summary={"total_usd": 0.1})
+            # Finalize
+            run = finalize_run(run, final_status="completed", cost_summary={"total_usd": 0.1})
 
         # Convert to dict
         run_dict = asdict(run)
@@ -174,7 +188,7 @@ def test_run_logger():
         assert run_dict["rounds_completed"] == 1
         assert run_dict["final_status"] == "completed"
 
-        print(f"  ✓ Run logger works (run_id={run.run_id})")
+        print(f"  ✓ Run logger works (run_id={run.run_id}) [DEPRECATED]")
         return True
     except Exception as e:
         print(f"  ✗ Run logger failed: {e}")

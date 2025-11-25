@@ -273,8 +273,14 @@ def test_manager_receives_feedback_on_second_iteration(test_config, tmp_path):
     assert "feedback" in employee_calls[1]["user_content"]
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_run_logger_tracks_iterations(test_config, mock_llm_responses, tmp_path):
-    """Test 10: Run logger correctly tracks iteration data."""
+    """
+    Test 10: Run logger correctly tracks iteration data.
+
+    ⚠️  DEPRECATED TEST (Phase 1.6): This tests run_logger integration which is deprecated.
+    The orchestrator will migrate to core_logging in v2.0.
+    """
     # Arrange
     test_config["project_subdir"] = str(tmp_path / "test_project")
     from tests.mocks import MockRunLoggerProvider

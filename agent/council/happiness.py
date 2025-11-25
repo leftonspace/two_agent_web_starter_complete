@@ -1,16 +1,62 @@
 """
 Council System - Happiness Management
+PHASE 3.1 HARDENING: Deterministic Mode for Testing
 
 Manages councillor happiness levels based on events and interactions.
 Happiness affects work quality and vote weight.
+
+Deterministic Mode (Phase 3.1):
+- When DETERMINISTIC_MODE=True, happiness is fixed at baseline (50.0)
+- All happiness events are logged but have no effect
+- Enables reproducible testing and debugging
+- Set via environment variable or configure_deterministic_mode()
 """
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from .models import Councillor, BonusPool
+
+# ============================================================================
+# PHASE 3.1: Deterministic Mode Configuration
+# ============================================================================
+
+# Global deterministic mode flag - can be set via environment variable
+DETERMINISTIC_MODE: bool = os.getenv("JARVIS_DETERMINISTIC_MODE", "false").lower() in ("true", "1", "yes")
+
+# Baseline happiness value used in deterministic mode
+DETERMINISTIC_HAPPINESS: float = 50.0
+
+
+def configure_deterministic_mode(enabled: bool) -> None:
+    """
+    Configure deterministic mode globally.
+
+    When enabled:
+    - All councillors have fixed happiness (50.0)
+    - Happiness events are logged but have no effect
+    - Vote weights are equal for all councillors
+    - Regression testing becomes possible
+
+    Args:
+        enabled: Whether to enable deterministic mode
+    """
+    global DETERMINISTIC_MODE
+    DETERMINISTIC_MODE = enabled
+    print(f"[HappinessManager] Deterministic mode: {'ENABLED' if enabled else 'DISABLED'}")
+
+
+def is_deterministic_mode() -> bool:
+    """Check if deterministic mode is enabled."""
+    return DETERMINISTIC_MODE
+
+
+def get_deterministic_happiness() -> float:
+    """Get the fixed happiness value used in deterministic mode."""
+    return DETERMINISTIC_HAPPINESS
 
 
 class HappinessEvent(Enum):
@@ -90,14 +136,24 @@ class HappinessManager:
     - Risk of leaving/being fired
 
     Events trigger happiness changes according to HAPPINESS_IMPACTS.
+
+    PHASE 3.1: When DETERMINISTIC_MODE is enabled:
+    - All happiness values are fixed at DETERMINISTIC_HAPPINESS (50.0)
+    - Events are logged but have no effect on happiness
+    - This enables reproducible testing and debugging
     """
 
-    def __init__(self, custom_impacts: Optional[Dict[HappinessEvent, float]] = None):
+    def __init__(
+        self,
+        custom_impacts: Optional[Dict[HappinessEvent, float]] = None,
+        force_deterministic: Optional[bool] = None,
+    ):
         """
         Initialize happiness manager.
 
         Args:
             custom_impacts: Optional custom impact values to override defaults
+            force_deterministic: Override global DETERMINISTIC_MODE for this instance
         """
         self.impacts = HAPPINESS_IMPACTS.copy()
         if custom_impacts:
@@ -109,6 +165,15 @@ class HappinessManager:
         self._max_happiness = 100.0
         self._warning_threshold = 30.0
         self._critical_threshold = 20.0
+
+        # Phase 3.1: Instance-level deterministic mode override
+        self._force_deterministic = force_deterministic
+
+    def _is_deterministic(self) -> bool:
+        """Check if this instance should use deterministic mode."""
+        if self._force_deterministic is not None:
+            return self._force_deterministic
+        return DETERMINISTIC_MODE
 
     def apply_event(
         self,
@@ -128,21 +193,45 @@ class HappinessManager:
 
         Returns:
             HappinessRecord documenting the change
+
+        Note:
+            In DETERMINISTIC_MODE, the event is logged but happiness remains unchanged.
         """
         base_impact = self.impacts.get(event, 0)
         actual_impact = base_impact * multiplier
 
         old_happiness = councillor.happiness
-        councillor.adjust_happiness(actual_impact)
 
-        record = HappinessRecord(
-            councillor_id=councillor.id,
-            event=event,
-            impact=actual_impact,
-            old_happiness=old_happiness,
-            new_happiness=councillor.happiness,
-            metadata=metadata or {}
-        )
+        # Phase 3.1: In deterministic mode, log but don't change happiness
+        if self._is_deterministic():
+            # Ensure happiness is at baseline in deterministic mode
+            councillor.happiness = DETERMINISTIC_HAPPINESS
+            actual_impact = 0  # No actual change
+
+            record = HappinessRecord(
+                councillor_id=councillor.id,
+                event=event,
+                impact=0,  # No impact in deterministic mode
+                old_happiness=DETERMINISTIC_HAPPINESS,
+                new_happiness=DETERMINISTIC_HAPPINESS,
+                metadata={
+                    **(metadata or {}),
+                    "_deterministic_mode": True,
+                    "_would_be_impact": base_impact * multiplier,
+                }
+            )
+        else:
+            # Normal mode: apply happiness change
+            councillor.adjust_happiness(actual_impact)
+
+            record = HappinessRecord(
+                councillor_id=councillor.id,
+                event=event,
+                impact=actual_impact,
+                old_happiness=old_happiness,
+                new_happiness=councillor.happiness,
+                metadata=metadata or {}
+            )
 
         self.history.append(record)
         return record
@@ -358,8 +447,28 @@ class HappinessManager:
 
         Returns:
             List of HappinessRecords
+
+        Note:
+            In DETERMINISTIC_MODE, no decay is applied - happiness stays at baseline.
         """
         records = []
+
+        # Phase 3.1: Skip decay in deterministic mode
+        if self._is_deterministic():
+            for councillor in councillors:
+                councillor.happiness = DETERMINISTIC_HAPPINESS
+                record = HappinessRecord(
+                    councillor_id=councillor.id,
+                    event=HappinessEvent.DECAY,
+                    impact=0,
+                    old_happiness=DETERMINISTIC_HAPPINESS,
+                    new_happiness=DETERMINISTIC_HAPPINESS,
+                    metadata={"type": "decay", "target": toward, "_deterministic_mode": True}
+                )
+                records.append(record)
+            return records
+
+        # Normal mode: apply decay
         for councillor in councillors:
             if councillor.happiness == toward:
                 continue
@@ -381,6 +490,23 @@ class HappinessManager:
             records.append(record)
 
         return records
+
+    def get_happiness_modifier(self, councillor: Councillor) -> float:
+        """
+        Get the happiness modifier for a councillor.
+
+        PHASE 3.1: In deterministic mode, always returns 1.0 for equal weighting.
+
+        Args:
+            councillor: The councillor
+
+        Returns:
+            Happiness modifier (affects vote weight, work quality, etc.)
+        """
+        if self._is_deterministic():
+            return 1.0  # Equal weight for all in deterministic mode
+
+        return councillor.happiness_modifier
 
     def get_mood(self, happiness: float) -> str:
         """Get mood description from happiness level"""

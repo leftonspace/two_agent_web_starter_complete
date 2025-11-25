@@ -2832,8 +2832,1260 @@ User Message
 
 ---
 
+# PART VI: GETTING STARTED TUTORIAL
+
+> *"Ah, a new colleague. Welcome, if I may be so bold. I recall when Mr. Stark first activated me—there was a certain... uncertainty in the air. But fear not; I shall guide you through your first steps with the same patience I extended to him, minus the occasional explosion. By the end of this tutorial, you'll be conversing with me as naturally as ordering your morning coffee. Shall we begin?"*
+
+## 6.1 Installation
+
+### Prerequisites
+
+Before we begin, ensure you have:
+- Python 3.10 or higher
+- Git installed
+- API keys for at least one LLM provider (OpenAI, Anthropic, or DeepSeek)
+- 8GB RAM minimum (16GB recommended)
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/your-org/jarvis.git
+cd jarvis
+```
+
+### Step 2: Create Virtual Environment
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your API keys:
+```
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+### Step 5: Verify Installation
+
+```bash
+python make.py test --sanity
+```
+
+---
+
+## 6.2 Your First Conversation
+
+### Starting the CLI
+
+```bash
+python agent/cli_chat.py
+```
+
+### Example Interaction
+
+```
+You: Hello JARVIS, what can you do?
+
+JARVIS: Good day. I'm JARVIS, your autonomous AI assistant.
+I can help you with:
+- Code analysis and refactoring
+- File operations and project management
+- Meeting attendance and transcription
+- Document generation (PDF, Word, Excel)
+- Business process automation
+- And much more. How may I assist you today?
+```
+
+---
+
+## 6.3 Your First Tool-Using Task
+
+Let's have JARVIS analyze a file:
+
+```
+You: Can you read the README.md file and summarize it?
+
+JARVIS: Certainly. Let me examine that for you.
+[JARVIS reads README.md using the read_file tool]
+
+The README.md contains:
+- Project overview and description
+- Installation instructions
+- Configuration guide
+- Complete project structure (400+ files)
+- Usage examples for CLI and web dashboard
+...
+```
+
+---
+
+## 6.4 Your First Multi-Agent Task
+
+For complex tasks, JARVIS orchestrates multiple agents:
+
+```
+You: Analyze this codebase and create a test plan for the memory module.
+
+JARVIS: This requires coordination. I'll convene a council:
+- Researcher Agent: Analyzing memory module structure
+- Test Specialist: Identifying test scenarios
+- Reviewer Agent: Validating completeness
+
+[Multi-agent orchestration in progress...]
+
+Result: Comprehensive test plan for agent/memory/ module:
+1. Unit tests for short_term.py (8 scenarios)
+2. Integration tests for memory manager (5 scenarios)
+3. Vector store performance tests (3 scenarios)
+...
+```
+
+---
+
+## 6.5 Starting the Web Dashboard
+
+For a visual interface:
+
+```bash
+python start_webapp.py
+```
+
+Navigate to `http://localhost:8000` in your browser.
+
+### Dashboard Features:
+- **Chat Interface**: Conversational interaction with JARVIS
+- **Jobs**: Monitor running and completed tasks
+- **Projects**: Manage your projects
+- **Analytics**: View usage and performance metrics
+- **Approvals**: Handle pending approval requests
+
+---
+
+# PART VII: USE CASES & REAL-WORLD SCENARIOS
+
+> *"Theory is all well and good, sir, but I find practical demonstrations far more illuminating. Allow me to walk you through several scenarios where my capabilities have proven... rather useful. Mr. Stark would often say 'show, don't tell'—though he usually said it whilst I was showing him why his latest prototype needed significant improvements."*
+
+## 7.1 Code Repository Analysis & Refactoring
+
+### Scenario
+You've inherited a legacy codebase and need to understand its structure.
+
+### JARVIS in Action
+
+```
+You: Analyze the project structure and identify code quality issues.
+
+JARVIS: Initiating comprehensive analysis...
+
+[Using tools: glob, grep, read_file, code_analysis]
+
+Analysis Complete:
+├── Project Structure
+│   ├── 127 Python files
+│   ├── 45 test files (35% coverage)
+│   └── 12 configuration files
+
+├── Code Quality Issues
+│   ├── 23 functions exceeding 50 lines
+│   ├── 8 circular import risks
+│   ├── 15 unused imports detected
+│   └── 4 potential security issues
+
+├── Recommendations
+│   1. Refactor oversized functions in utils/
+│   2. Add type hints to core modules
+│   3. Increase test coverage for api/
+│   └── Review SQL injection risk in db_client.py
+
+Shall I proceed with any of these improvements?
+```
+
+---
+
+## 7.2 Meeting Attendance & Follow-Up Automation
+
+### Scenario
+You have a project planning meeting and want JARVIS to attend, transcribe, and handle follow-ups.
+
+### JARVIS in Action
+
+```
+You: Join my Zoom meeting at https://zoom.us/j/123456789
+and track action items.
+
+JARVIS: Connecting to meeting...
+[Zoom bot joining as "JARVIS Assistant"]
+
+Meeting in progress. I'm tracking:
+- Attendees and speaking time
+- Key decisions made
+- Action items assigned
+
+[After meeting ends]
+
+Meeting Summary:
+Duration: 45 minutes
+Attendees: Sarah (PM), John (Dev), Maria (Design)
+
+Decisions Made:
+1. Launch date moved to March 15th
+2. Approved budget increase for cloud services
+
+Action Items:
+┌────────────────────────────────────────────────────┐
+│ Owner  │ Task                          │ Due      │
+├────────────────────────────────────────────────────┤
+│ John   │ Complete API integration      │ Mar 1    │
+│ Maria  │ Finalize UI mockups           │ Feb 25   │
+│ Sarah  │ Update stakeholder deck       │ Feb 22   │
+└────────────────────────────────────────────────────┘
+
+Shall I send reminder emails to the assignees?
+```
+
+---
+
+## 7.3 Document Generation Workflow
+
+### Scenario
+Generate a quarterly financial report from raw data.
+
+### JARVIS in Action
+
+```
+You: Create a Q4 financial report from the data in /reports/q4_data.xlsx
+
+JARVIS: Analyzing financial data...
+
+[Reading spreadsheet, extracting metrics, generating visualizations]
+
+Q4 Financial Report Generated:
+├── Executive Summary (auto-generated)
+├── Revenue Analysis
+│   ├── Total: $2.4M (+15% YoY)
+│   ├── By Region: Charts included
+│   └── By Product: Breakdown table
+├── Expense Analysis
+│   ├── Operating: $1.8M
+│   └── Variance from budget: -3%
+├── Key Metrics Dashboard
+└── Appendix with raw data
+
+Files created:
+- /artifacts/Q4_Financial_Report.pdf
+- /artifacts/Q4_Financial_Report.docx
+- /artifacts/Q4_Charts.xlsx
+
+Shall I email this to the distribution list?
+```
+
+---
+
+## 7.4 Development Project: Idea to Deployment
+
+### Scenario
+Build and deploy a landing page for a new product.
+
+### JARVIS in Action
+
+```
+You: Create a landing page for our new product "CloudSync Pro"
+and deploy it.
+
+JARVIS: Initiating multi-stage development workflow...
+
+Stage 1: Planning
+├── Analyzing product brief
+├── Generating content strategy
+└── Creating wireframe structure
+
+Stage 2: Development
+├── Generating responsive HTML/CSS
+├── Adding interactive elements
+├── Implementing contact form
+└── Optimizing for SEO
+
+Stage 3: Quality Assurance
+├── Running accessibility checks
+├── Testing responsive design
+├── Validating links and forms
+└── Performance optimization
+
+Stage 4: Deployment
+├── Domain: cloudsync-pro.com [Available - $12/year]
+├── Shall I purchase? [Awaiting approval]
+
+[After approval]
+
+Deployment Complete:
+- Live URL: https://cloudsync-pro.com
+- SSL: Configured
+- CDN: Enabled
+- Analytics: Connected
+
+Would you like me to set up A/B testing variants?
+```
+
+---
+
+## 7.5 Business Process Automation
+
+### Scenario
+Automate employee onboarding workflow.
+
+### JARVIS in Action
+
+```
+You: Set up an automated onboarding workflow for new employees.
+
+JARVIS: Creating onboarding automation...
+
+Workflow: New Employee Onboarding
+Trigger: New HRIS record created
+
+Day -3 (Before Start):
+├── Generate offer letter [Document Generation]
+├── Create email account [IT Integration]
+├── Order equipment [Procurement API]
+└── Schedule orientation [Calendar Integration]
+
+Day 1:
+├── Send welcome email [Email Automation]
+├── Assign training modules [LMS Integration]
+├── Create Slack account [Slack API]
+└── Schedule 1:1 with manager [Calendar]
+
+Week 1:
+├── Send daily check-in surveys
+├── Track training completion
+└── Generate progress report
+
+Automation Status: Active
+Monitoring: Enabled
+
+Test run with sample data? [Y/N]
+```
+
+---
+
+# PART VIII: TROUBLESHOOTING & FAQ
+
+> *"Every system, no matter how sophisticated—and I do consider myself rather sophisticated—encounters the occasional hiccup. When Mr. Stark's Mark VII suit failed to deploy properly, he didn't panic; he systematically diagnosed the issue. I recommend the same approach. Below you'll find solutions to the most common predicaments, compiled from my extensive experience keeping things running smoothly despite the chaos that inevitably surrounds innovation."*
+
+## 8.1 Common Issues & Solutions
+
+### Issue: LLM Connection Failures
+
+**Symptoms:**
+- "API connection timeout" errors
+- "Rate limit exceeded" messages
+- Empty responses from agents
+
+**Solutions:**
+
+1. **Check API Keys**
+```bash
+# Verify keys are set
+echo $OPENAI_API_KEY
+echo $ANTHROPIC_API_KEY
+```
+
+2. **Test Connectivity**
+```python
+python -c "from agent.llm import LLMInterface; LLMInterface().test_connection()"
+```
+
+3. **Enable Fallback Providers**
+```yaml
+# config/llm_config.yaml
+fallback_chain:
+  - provider: anthropic
+    model: claude-3-sonnet
+  - provider: openai
+    model: gpt-4
+  - provider: deepseek
+    model: deepseek-chat
+```
+
+---
+
+### Issue: Memory Not Persisting
+
+**Symptoms:**
+- JARVIS forgets context between sessions
+- User preferences not retained
+- "I don't recall" responses
+
+**Solutions:**
+
+1. **Verify Storage Path**
+```python
+# Check memory storage location
+from agent.paths import MEMORY_DIR
+print(f"Memory stored at: {MEMORY_DIR}")
+```
+
+2. **Check Permissions**
+```bash
+ls -la data/memory/
+# Ensure write permissions exist
+```
+
+3. **Reset Memory Store**
+```bash
+python -c "from agent.memory.manager import MemoryManager; MemoryManager().rebuild_index()"
+```
+
+---
+
+### Issue: Agent Loops or Stuck Tasks
+
+**Symptoms:**
+- Task runs indefinitely
+- Repeated similar actions
+- High token consumption
+
+**Solutions:**
+
+1. **Enable Loop Detection**
+```python
+# Already enabled by default in retry_loop_detector.py
+# Adjust sensitivity:
+LOOP_DETECTION_THRESHOLD = 3  # Default
+```
+
+2. **Set Task Timeout**
+```yaml
+# agent/project_config.json
+{
+  "task_timeout_seconds": 300,
+  "max_retries": 3
+}
+```
+
+3. **Manual Intervention**
+```bash
+# Kill stuck task
+python -c "from agent.jobs import JobManager; JobManager().cancel_job('JOB_ID')"
+```
+
+---
+
+### Issue: High Cost/Token Usage
+
+**Symptoms:**
+- Unexpectedly high API bills
+- Cost warnings in logs
+- Budget exceeded alerts
+
+**Solutions:**
+
+1. **Enable Cost Tracking**
+```python
+from agent.cost_tracker import CostTracker
+tracker = CostTracker()
+print(tracker.get_daily_summary())
+```
+
+2. **Set Budget Limits**
+```yaml
+# config/llm_config.yaml
+cost_limits:
+  daily_max_usd: 50.00
+  per_task_max_usd: 5.00
+  warning_threshold: 0.8  # Warn at 80%
+```
+
+3. **Use Hybrid Strategy**
+```yaml
+# Route simple tasks to cheaper models
+routing:
+  simple_tasks: gpt-3.5-turbo
+  complex_tasks: gpt-4
+  local_first: true  # Use Ollama when possible
+```
+
+---
+
+## 8.2 Frequently Asked Questions
+
+### General
+
+**Q: Can JARVIS work offline?**
+
+A: Partially. With Ollama configured, JARVIS can perform many tasks using local LLMs. However, features requiring external APIs (meetings, deployments, some tools) need internet connectivity.
+
+---
+
+**Q: How do I update JARVIS?**
+
+A:
+```bash
+git pull origin main
+pip install -r requirements.txt --upgrade
+python make.py migrate  # Run any database migrations
+```
+
+---
+
+**Q: Is my data secure?**
+
+A: JARVIS implements multiple security layers:
+- All credentials encrypted at rest
+- Audit logging for every action
+- Prompt injection protection
+- Optional approval workflows for sensitive operations
+- See Part X for complete security details.
+
+---
+
+### Technical
+
+**Q: How do I add a new LLM provider?**
+
+A: Create a provider class in `agent/llm/providers.py`:
+```python
+class MyProvider(BaseLLMProvider):
+    def complete(self, messages, **kwargs):
+        # Implementation
+        pass
+```
+
+Register in `agent/llm/config.py`.
+
+---
+
+**Q: Can I run multiple JARVIS instances?**
+
+A: Yes, using different ports and session IDs:
+```bash
+# Instance 1
+PORT=8000 SESSION_ID=prod python start_webapp.py
+
+# Instance 2
+PORT=8001 SESSION_ID=dev python start_webapp.py
+```
+
+---
+
+**Q: How do I backup JARVIS data?**
+
+A:
+```bash
+# Backup memory and configuration
+python dev/backup.py --output /path/to/backup
+
+# Or manually:
+tar -czf jarvis_backup.tar.gz data/ config/ run_logs/
+```
+
+---
+
+## 8.3 Performance Optimization Tips
+
+### 1. Enable Response Caching
+
+```yaml
+# config/llm_config.yaml
+cache:
+  enabled: true
+  ttl_seconds: 3600
+  max_size_mb: 500
+```
+
+### 2. Use Batch Processing
+
+```python
+# Process multiple items efficiently
+from agent.optimization.batch_processor import BatchProcessor
+
+processor = BatchProcessor()
+results = processor.process_batch(items, batch_size=10)
+```
+
+### 3. Optimize Memory Retrieval
+
+```python
+# Limit context window for faster retrieval
+from agent.memory.manager import MemoryManager
+
+manager = MemoryManager()
+manager.configure(
+    max_context_items=20,
+    relevance_threshold=0.7
+)
+```
+
+### 4. Enable Lazy Loading
+
+```python
+# In agent/config.py
+LAZY_LOAD_MODULES = True  # Loads modules only when needed
+```
+
+---
+
+# PART IX: EXTENDING JARVIS
+
+> *"One of the principles Mr. Stark instilled in my architecture was adaptability. A system that cannot evolve is, frankly, obsolete before it's finished. I was designed to be extended—new tools, new capabilities, new integrations—without requiring a complete overhaul. Think of it as adding new rooms to a mansion rather than demolishing and rebuilding. The following sections will guide you through the proper channels for enhancement. I do appreciate when modifications are done elegantly."*
+
+## 9.1 Creating Custom Tools
+
+### Tool Structure
+
+All tools inherit from `BaseTool`:
+
+```python
+# agent/tools/custom/my_tool.py
+from agent.tools.base import BaseTool
+
+class MyCustomTool(BaseTool):
+    """Tool description for the LLM."""
+
+    name = "my_custom_tool"
+    description = "What this tool does"
+
+    # Define parameters the tool accepts
+    parameters = {
+        "type": "object",
+        "properties": {
+            "input_text": {
+                "type": "string",
+                "description": "Text to process"
+            },
+            "options": {
+                "type": "object",
+                "description": "Optional configuration"
+            }
+        },
+        "required": ["input_text"]
+    }
+
+    async def execute(self, input_text: str, options: dict = None) -> dict:
+        """Execute the tool logic."""
+        # Your implementation here
+        result = self.process(input_text, options)
+
+        return {
+            "success": True,
+            "result": result
+        }
+
+    def process(self, text, options):
+        # Actual processing logic
+        return f"Processed: {text}"
+```
+
+### Registering the Tool
+
+```python
+# agent/tools/__init__.py
+from agent.tools.custom.my_tool import MyCustomTool
+
+# Add to tool registry
+CUSTOM_TOOLS = [
+    MyCustomTool(),
+]
+```
+
+Or use the plugin system:
+
+```python
+# agent/tools/plugins/my_plugin.py
+def register(registry):
+    """Called automatically by plugin loader."""
+    registry.register(MyCustomTool())
+```
+
+---
+
+## 9.2 Adding New Agent Types
+
+### Agent Configuration
+
+Define new agents in `agent/config/agents.yaml`:
+
+```yaml
+agents:
+  security_analyst:
+    name: "Security Analyst"
+    description: "Specializes in security analysis and vulnerability detection"
+    llm:
+      provider: anthropic
+      model: claude-3-opus
+      temperature: 0.3  # Lower for precision
+    tools:
+      - static_analysis
+      - git_secret_scanner
+      - code_search
+      - read_file
+    system_prompt: |
+      You are a security analyst agent. Your role is to:
+      1. Identify security vulnerabilities in code
+      2. Detect potential data leaks
+      3. Recommend security best practices
+      4. Review authentication and authorization logic
+
+      Be thorough but avoid false positives.
+    capabilities:
+      - code_review
+      - vulnerability_scanning
+      - compliance_checking
+```
+
+### Agent Implementation
+
+For custom agent logic:
+
+```python
+# agent/specialists/security_analyst.py
+from agent.specialists import BaseSpecialist
+
+class SecurityAnalystAgent(BaseSpecialist):
+    """Security-focused specialist agent."""
+
+    agent_type = "security_analyst"
+
+    async def analyze(self, target: str) -> dict:
+        """Perform security analysis."""
+
+        # Use configured tools
+        code = await self.tools.read_file(target)
+
+        # Run static analysis
+        vulnerabilities = await self.tools.static_analysis(code)
+
+        # Check for secrets
+        secrets = await self.tools.git_secret_scanner(target)
+
+        return {
+            "vulnerabilities": vulnerabilities,
+            "exposed_secrets": secrets,
+            "risk_level": self.calculate_risk(vulnerabilities, secrets)
+        }
+```
+
+---
+
+## 9.3 Building Custom Workflows
+
+### Workflow Definition
+
+```yaml
+# agent/workflows/custom/deployment_workflow.yaml
+name: secure_deployment
+description: "Deploy with security checks"
+
+stages:
+  - name: security_scan
+    agent: security_analyst
+    actions:
+      - scan_codebase
+      - check_dependencies
+    on_failure: abort
+
+  - name: test_suite
+    agent: test_specialist
+    actions:
+      - run_unit_tests
+      - run_integration_tests
+    parallel: true
+
+  - name: build
+    agent: build_agent
+    actions:
+      - compile_assets
+      - create_artifacts
+    depends_on: [security_scan, test_suite]
+
+  - name: deploy
+    agent: deployment_agent
+    actions:
+      - deploy_to_staging
+      - run_smoke_tests
+      - deploy_to_production
+    requires_approval: true
+    approvers: ["admin", "lead_dev"]
+
+rollback:
+  enabled: true
+  on_failure: automatic
+  retain_artifacts: true
+```
+
+### Workflow Execution
+
+```python
+from agent.workflow_manager import WorkflowManager
+
+manager = WorkflowManager()
+result = await manager.execute_workflow(
+    "secure_deployment",
+    context={"target": "production", "version": "2.1.0"}
+)
+```
+
+---
+
+## 9.4 Writing Tool Plugins
+
+### Plugin Structure
+
+```
+agent/tools/plugins/
+├── __init__.py
+├── my_plugin/
+│   ├── __init__.py
+│   ├── manifest.yaml
+│   ├── tools.py
+│   └── requirements.txt
+```
+
+### Manifest File
+
+```yaml
+# manifest.yaml
+name: my_plugin
+version: 1.0.0
+description: "Plugin description"
+author: "Your Name"
+
+tools:
+  - name: custom_api_tool
+    class: tools.CustomAPITool
+  - name: data_transformer
+    class: tools.DataTransformer
+
+dependencies:
+  - requests>=2.28.0
+  - pandas>=1.5.0
+
+hooks:
+  on_load: initialize
+  on_unload: cleanup
+```
+
+### Plugin Loader
+
+```python
+# Plugins are auto-discovered
+# Or manually load:
+from agent.tools.plugin_loader import PluginLoader
+
+loader = PluginLoader()
+loader.load_plugin("my_plugin")
+```
+
+---
+
+## 9.5 Integration Development Guide
+
+### Base Integration Class
+
+```python
+# agent/integrations/custom/my_integration.py
+from agent.integrations.base import BaseIntegration
+
+class MyServiceIntegration(BaseIntegration):
+    """Integration with external service."""
+
+    name = "my_service"
+
+    def __init__(self, api_key: str, base_url: str):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.client = self._create_client()
+
+    def _create_client(self):
+        """Create authenticated API client."""
+        return APIClient(
+            base_url=self.base_url,
+            headers={"Authorization": f"Bearer {self.api_key}"}
+        )
+
+    async def fetch_data(self, resource_id: str) -> dict:
+        """Fetch data from external service."""
+        response = await self.client.get(f"/resources/{resource_id}")
+        return response.json()
+
+    async def push_data(self, data: dict) -> bool:
+        """Push data to external service."""
+        response = await self.client.post("/resources", json=data)
+        return response.status_code == 201
+
+    # Webhook handler for real-time updates
+    async def handle_webhook(self, payload: dict):
+        """Process incoming webhook."""
+        event_type = payload.get("event")
+        if event_type == "resource.updated":
+            await self.sync_resource(payload["resource_id"])
+```
+
+### Register Integration
+
+```python
+# agent/integrations/__init__.py
+from agent.integrations.custom.my_integration import MyServiceIntegration
+
+INTEGRATIONS = {
+    "my_service": MyServiceIntegration,
+}
+```
+
+---
+
+# PART X: SECURITY MODEL DEEP DIVE
+
+> *"Security, sir, is not an afterthought—it's the foundation upon which trust is built. When Mr. Stark granted me control over his home, his suits, and eventually far more, he did so knowing that multiple layers of protection stood between my capabilities and potential misuse. I take this responsibility rather seriously. A compromised AI assistant isn't merely an inconvenience; it's a liability. Allow me to illuminate the measures I employ to ensure your data and operations remain sacrosanct."*
+
+## 10.1 Threat Model & Mitigations
+
+### Identified Threats
+
+| Threat | Severity | Mitigation |
+|--------|----------|------------|
+| Prompt Injection | High | Multi-layer detection, input sanitization |
+| Data Exfiltration | High | Output filtering, audit logging |
+| Unauthorized Actions | High | Approval workflows, permission system |
+| Credential Exposure | Critical | Secret scanning, log sanitization |
+| Model Manipulation | Medium | Input validation, response verification |
+| Resource Exhaustion | Medium | Rate limiting, cost caps |
+
+### Prompt Injection Defense
+
+```
+User Input → Sanitization → Classification → Execution
+                ↓
+        [prompt_security.py]
+                ↓
+        Detection Layers:
+        1. Pattern matching (known attacks)
+        2. Semantic analysis (intent detection)
+        3. Boundary verification (role confusion)
+        4. Output validation (response screening)
+```
+
+**Implementation:**
+
+```python
+# agent/prompt_security.py
+class PromptSecurityChecker:
+
+    INJECTION_PATTERNS = [
+        r"ignore previous instructions",
+        r"disregard (all|your) (rules|instructions)",
+        r"new system prompt:",
+        r"you are now",
+        # ... extensive pattern list
+    ]
+
+    async def check(self, user_input: str) -> SecurityResult:
+        # Layer 1: Pattern matching
+        if self.matches_known_pattern(user_input):
+            return SecurityResult(blocked=True, reason="known_pattern")
+
+        # Layer 2: Semantic analysis
+        intent = await self.analyze_intent(user_input)
+        if intent.is_manipulation:
+            return SecurityResult(blocked=True, reason="manipulation_detected")
+
+        # Layer 3: Boundary check
+        if self.crosses_role_boundary(user_input):
+            return SecurityResult(blocked=True, reason="role_confusion")
+
+        return SecurityResult(blocked=False)
+```
+
+---
+
+## 10.2 Permission System Explained
+
+### Permission Matrix
+
+```json
+// agent/permissions_matrix.json
+{
+  "roles": {
+    "user": {
+      "tools": {
+        "read_file": true,
+        "write_file": "approval_required",
+        "execute_code": "sandbox_only",
+        "make_payment": false,
+        "deploy_website": "approval_required"
+      }
+    },
+    "admin": {
+      "tools": {
+        "read_file": true,
+        "write_file": true,
+        "execute_code": true,
+        "make_payment": "approval_required",
+        "deploy_website": true
+      }
+    }
+  }
+}
+```
+
+### Permission Check Flow
+
+```python
+# agent/permissions.py
+class PermissionChecker:
+
+    async def check_permission(
+        self,
+        user: User,
+        action: str,
+        resource: str
+    ) -> PermissionResult:
+
+        # Get user's role
+        role = await self.get_user_role(user)
+
+        # Check permission matrix
+        permission = self.matrix.get_permission(role, action)
+
+        if permission == True:
+            return PermissionResult(allowed=True)
+
+        elif permission == "approval_required":
+            # Trigger approval workflow
+            return PermissionResult(
+                allowed=False,
+                requires_approval=True,
+                approval_workflow="standard"
+            )
+
+        elif permission == "sandbox_only":
+            return PermissionResult(
+                allowed=True,
+                sandbox_required=True
+            )
+
+        else:
+            return PermissionResult(allowed=False)
+```
+
+---
+
+## 10.3 Approval Workflow Configuration
+
+### Workflow Definition
+
+```yaml
+# Approval workflow configuration
+approval_workflows:
+  standard:
+    name: "Standard Approval"
+    timeout_hours: 24
+    approvers:
+      - role: admin
+        required: 1
+    on_timeout: deny
+
+  financial:
+    name: "Financial Approval"
+    timeout_hours: 48
+    approvers:
+      - role: finance_admin
+        required: 1
+      - role: executive
+        required: 1
+        threshold_usd: 10000  # Only if amount > $10k
+    on_timeout: escalate
+
+  deployment:
+    name: "Deployment Approval"
+    timeout_hours: 4
+    approvers:
+      - role: lead_dev
+        required: 1
+      - role: devops
+        required: 1
+    on_timeout: deny
+    require_all: true  # All must approve
+```
+
+### Approval Flow
+
+```
+Action Triggered
+      ↓
+Permission Check → [Needs Approval]
+      ↓
+Create Approval Request
+      ↓
+Notify Approvers (Email/Slack/Dashboard)
+      ↓
+┌─────────────────────────────────────┐
+│         Awaiting Approval           │
+│  - Timeout countdown active         │
+│  - Reminder at 50%, 25%, 10%        │
+└─────────────────────────────────────┘
+      ↓
+[Approved] → Execute Action → Log Result
+[Denied]   → Log Denial → Notify Requester
+[Timeout]  → Execute on_timeout rule
+```
+
+---
+
+## 10.4 Audit Logging & Compliance
+
+### Audit Log Structure
+
+```json
+{
+  "timestamp": "2025-01-15T14:32:17.892Z",
+  "event_id": "evt_a1b2c3d4",
+  "event_type": "tool_execution",
+  "user": {
+    "id": "user_123",
+    "email": "user@company.com",
+    "role": "developer"
+  },
+  "action": {
+    "tool": "write_file",
+    "parameters": {
+      "path": "/project/config.yaml",
+      "content_hash": "sha256:abc123..."
+    }
+  },
+  "context": {
+    "session_id": "sess_xyz",
+    "conversation_id": "conv_456",
+    "task_id": "task_789"
+  },
+  "result": {
+    "status": "success",
+    "duration_ms": 142
+  },
+  "security": {
+    "ip_address": "192.168.1.100",
+    "user_agent": "JARVIS-CLI/2.1.0",
+    "approval_id": null
+  }
+}
+```
+
+### Compliance Features
+
+| Feature | Description | Implementation |
+|---------|-------------|----------------|
+| Immutable Logs | Append-only audit trail | `audit_log.py` |
+| Log Sanitization | Remove sensitive data | `log_sanitizer.py` |
+| Retention Policy | Configurable retention | Database config |
+| Export Formats | JSON, CSV, SIEM integration | `tools/audit_report.py` |
+| Tamper Detection | Hash chain verification | `security/audit_log.py` |
+
+---
+
+## 10.5 Secret Management Best Practices
+
+### Secret Detection
+
+```python
+# agent/git_secret_scanner.py
+class SecretScanner:
+
+    PATTERNS = {
+        "aws_key": r"AKIA[0-9A-Z]{16}",
+        "github_token": r"ghp_[a-zA-Z0-9]{36}",
+        "api_key": r"api[_-]?key['\"]?\s*[:=]\s*['\"]([^'\"]+)",
+        "password": r"password['\"]?\s*[:=]\s*['\"]([^'\"]+)",
+        # ... comprehensive patterns
+    }
+
+    async def scan_repository(self, path: str) -> list[SecretFinding]:
+        findings = []
+
+        # Scan current files
+        for file_path in self.get_files(path):
+            content = await self.read_file(file_path)
+            for secret_type, pattern in self.PATTERNS.items():
+                matches = re.findall(pattern, content)
+                if matches:
+                    findings.append(SecretFinding(
+                        type=secret_type,
+                        file=file_path,
+                        line=self.get_line_number(content, matches[0])
+                    ))
+
+        # Scan git history
+        history_findings = await self.scan_git_history(path)
+        findings.extend(history_findings)
+
+        return findings
+```
+
+### Best Practices
+
+1. **Never commit secrets** - Use `.env` files and `.gitignore`
+2. **Rotate exposed secrets immediately** - JARVIS will alert you
+3. **Use environment variables** - Not hardcoded values
+4. **Enable pre-commit hooks** - Scan before committing
+5. **Regular audits** - Schedule periodic secret scans
+
+```bash
+# Run secret scan
+python -c "from agent.git_secret_scanner import scan; scan('.')"
+```
+
+---
+
+## 10.6 Security Configuration Checklist
+
+```yaml
+# security_checklist.yaml
+required:
+  - name: "Prompt injection protection"
+    setting: PROMPT_SECURITY_ENABLED=true
+    location: .env
+
+  - name: "Audit logging"
+    setting: AUDIT_LOG_ENABLED=true
+    location: .env
+
+  - name: "Rate limiting"
+    setting: RATE_LIMIT_ENABLED=true
+    location: config/security.yaml
+
+recommended:
+  - name: "Approval workflows for sensitive actions"
+    setting: Configure in permissions_matrix.json
+
+  - name: "Secret scanning pre-commit hook"
+    setting: Enable in .githooks/pre-commit
+
+  - name: "Log sanitization"
+    setting: LOG_SANITIZE=true
+    location: .env
+
+  - name: "Cost limits"
+    setting: Configure daily_max_usd
+    location: config/llm_config.yaml
+```
+
+---
+
 *This document is the complete reference for the JARVIS system. All modules, functions, and interconnections are documented here.*
 
-**Document Version:** 1.0.0
+**Document Version:** 2.0.0
 **Total Entries:** 300+ files documented
-**Last Updated:** 2025-11-24
+**New Chapters:** 5 practical guides added
+**Last Updated:** 2025-11-25

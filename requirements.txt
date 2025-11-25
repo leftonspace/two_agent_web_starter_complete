@@ -1,5 +1,23 @@
 # Core dependencies for the multi-agent orchestrator
 # Updated: 2025-11-25 (Phase 8 audit)
+#
+# ============================================================================
+# PHASE 5.2: Dependency Management
+# ============================================================================
+#
+# For DEVELOPMENT (flexible versions):
+#   pip install -r requirements.txt
+#
+# For PRODUCTION (locked/reproducible builds):
+#   pip install -r requirements.lock
+#
+# To regenerate lockfile after updating this file:
+#   python scripts/lock_dependencies.py
+#
+# To verify lockfile is current:
+#   python scripts/lock_dependencies.py --check
+#
+# ============================================================================
 
 # Core HTTP & Async
 httpx>=0.25.0                      # Universal HTTP client

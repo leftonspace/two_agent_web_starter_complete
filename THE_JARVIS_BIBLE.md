@@ -3665,6 +3665,174 @@ Test run with sample data? [Y/N]
 
 ---
 
+## 7.6 Secure Financial Operations (Phase 2 Guardrails)
+
+> *"When dealing with financial matters, sir, I exercise particular caution. Mr. Stark learned early that unlimited spending authority, while convenient, can lead to... interesting conversations with the accounting department."*
+
+### Scenario
+Process vendor payments with built-in financial guardrails.
+
+### JARVIS in Action
+
+```
+You: Pay the invoice from CloudHost Inc for $2,500.
+
+JARVIS: Processing payment request...
+
+┌─────────────────────────────────────────────────────────────┐
+│  FINANCIAL GUARDRAIL CHECK                                  │
+├─────────────────────────────────────────────────────────────┤
+│  Amount: $2,500.00                                          │
+│  Vendor: CloudHost Inc                                      │
+│  Invoice: INV-2025-1234                                     │
+│                                                             │
+│  ⚠ Amount exceeds approval threshold ($500.00)              │
+│                                                             │
+│  Daily Spending:                                            │
+│  ├── Used: $1,200.00                                        │
+│  ├── This payment: $2,500.00                                │
+│  ├── New total: $3,700.00                                   │
+│  └── Limit: $5,000.00 ✓                                     │
+│                                                             │
+│  Status: REQUIRES APPROVAL                                  │
+└─────────────────────────────────────────────────────────────┘
+
+Approval request sent to: finance@company.com
+
+[After approval received]
+
+JARVIS: Payment approved by Sarah (Finance Admin).
+Executing payment via Stripe API...
+
+Payment Complete:
+├── Transaction ID: txn_abc123xyz
+├── Amount: $2,500.00
+├── Status: Succeeded
+└── Audit Log: FIN-2025-0892
+
+Receipt sent to vendor. Shall I update the expense report?
+```
+
+---
+
+## 7.7 Voice-First Workflow with Optimistic UI (Phase 6.2)
+
+> *"Voice interaction allows for a more natural dialogue, sir. The immediate acknowledgments ensure you're never left wondering if I've heard you—a courtesy Mr. Stark particularly appreciated during his more... animated brainstorming sessions."*
+
+### Scenario
+Hands-free task management while working on other activities.
+
+### JARVIS in Action (Voice Session)
+
+```
+[Voice input detected]
+
+You: "JARVIS, check my calendar and summarize today's priorities."
+
+JARVIS: "Received your message, sir."           [< 100ms]
+JARVIS: "Processing your request..."            [during LLM]
+JARVIS: "One moment while I check..."           [calendar API]
+
+JARVIS: "You have four items on today's agenda:
+
+First, a design review at 10 AM with the UI team—
+I note this was rescheduled from yesterday.
+
+Second, your one-on-one with Sarah at 2 PM.
+
+Third, the deployment window opens at 4 PM for the
+v2.1 release. I've prepared the checklist.
+
+Fourth, you blocked 5 to 6 PM for documentation,
+though I observe this slot is frequently sacrificed.
+
+Shall I set reminders for any of these?"
+
+You: "Set a reminder 15 minutes before the deployment."
+
+JARVIS: "Received, sir."                        [< 100ms]
+JARVIS: "Setting reminder..."
+
+JARVIS: "Done. You'll receive a reminder at 3:45 PM
+with the deployment checklist. Is there anything else?"
+```
+
+---
+
+## 7.8 Complex Refactoring with Plan Confirmation (Phase 6.1)
+
+> *"For tasks of significant scope, I find it prudent to present my intended approach before proceeding. This habit developed after an incident where Mr. Stark asked me to 'clean up the garage' and I interpreted that rather more comprehensively than he intended."*
+
+### Scenario
+Refactor a legacy module with multi-agent coordination and plan confirmation.
+
+### JARVIS in Action
+
+```
+You: Refactor the payment processing module to use the new
+transaction framework and ensure it passes all compliance checks.
+
+JARVIS: This is a substantial undertaking. Allow me to present
+my execution plan for your review.
+
+╔══════════════════════════════════════════════════════════════╗
+║                      EXECUTION PLAN                          ║
+╠══════════════════════════════════════════════════════════════╣
+║ Goal: Refactor payment module to new transaction framework   ║
+║                                                              ║
+║ Acceptance Criteria:                                         ║
+║ • All payment flows use TransactionFramework                 ║
+║ • PCI-DSS compliance maintained                              ║
+║ • Existing tests pass + new coverage added                   ║
+║ • No regression in payment success rates                     ║
+║                                                              ║
+║ Planned Steps:                                               ║
+║ 1. Analyze current payment module (15 files)                 ║
+║ 2. Map dependencies and integration points                   ║
+║ 3. Create TransactionFramework adapters                      ║
+║ 4. Migrate PaymentProcessor class                            ║
+║ 5. Update API endpoints                                      ║
+║ 6. Run compliance scanner                                    ║
+║ 7. Execute test suite                                        ║
+║                                                              ║
+║ Agents Involved:                                             ║
+║ • Researcher: Code analysis                                  ║
+║ • Architect: Design review                                   ║
+║ • Developer: Implementation                                  ║
+║ • Security Analyst: Compliance verification                  ║
+║ • Test Specialist: Test execution                            ║
+║                                                              ║
+║ Estimated Scope: 15 files, ~2000 lines                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+Proceed? (y/n/details): details
+
+JARVIS: Expanding step details...
+
+Step 1 - Analyze Current Payment Module:
+├── Files: payment_processor.py, stripe_client.py,
+│          paypal_handler.py, refund_manager.py, ...
+├── Agent: Researcher
+└── Output: Dependency graph, API surface analysis
+
+Step 4 - Migrate PaymentProcessor Class:
+├── Current: Direct API calls, manual retry logic
+├── Target: TransactionFramework with built-in resilience
+├── Breaking Changes: None (adapter pattern)
+└── Risk: Medium (core payment path)
+
+Proceed with full plan? (y/n): y
+
+JARVIS: Initiating multi-agent orchestration...
+
+[Phase 1: Research] Agent analyzing codebase...
+[Phase 2: Design] Creating migration architecture...
+[Phase 3: Implementation] Refactoring in progress...
+...
+```
+
+---
+
 # PART VIII: TROUBLESHOOTING & FAQ
 
 > *"Every system, no matter how sophisticated—and I do consider myself rather sophisticated—encounters the occasional hiccup. When Mr. Stark's Mark VII suit failed to deploy properly, he didn't panic; he systematically diagnosed the issue. I recommend the same approach. Below you'll find solutions to the most common predicaments, compiled from my extensive experience keeping things running smoothly despite the chaos that inevitably surrounds innovation."*
@@ -3918,6 +4086,272 @@ manager.configure(
 ```python
 # In agent/config.py
 LAZY_LOAD_MODULES = True  # Loads modules only when needed
+```
+
+---
+
+## 8.4 Hardening Feature Troubleshooting
+
+### Issue: Secrets Not Loading (Phase 4.1)
+
+**Symptoms:**
+- "Secret not found" errors
+- Empty API keys despite configuration
+- "Backend unavailable" messages
+
+**Solutions:**
+
+1. **Verify Backend Configuration**
+```bash
+# Check which backend is configured
+echo $SECRETS_BACKEND
+
+# Test connectivity
+python -c "from agent.security.secrets import SecretManager; \
+  sm = SecretManager(); print(sm.health_check())"
+```
+
+2. **Vault-Specific Issues**
+```bash
+# Verify Vault is unsealed
+curl -s $VAULT_ADDR/v1/sys/health | jq
+
+# Check token validity
+vault token lookup
+
+# Verify secret path
+vault kv get secret/jarvis/api_keys
+```
+
+3. **AWS Secrets Manager Issues**
+```python
+# Test AWS credentials
+import boto3
+client = boto3.client('secretsmanager', region_name='us-east-1')
+client.list_secrets()
+```
+
+4. **Fallback to Environment Variables**
+```bash
+# Temporarily use env backend
+export SECRETS_BACKEND=env
+export OPENAI_API_KEY=sk-your-key
+```
+
+---
+
+### Issue: Memory Entries Disappearing (Phase 4.2)
+
+**Symptoms:**
+- Recent memories not retrievable
+- "No matching memories" for recent events
+- Memories expire faster than expected
+
+**Solutions:**
+
+1. **Check TTL Configuration**
+```python
+from agent.memory.vector_store import VectorStore
+
+vs = VectorStore()
+print(f"Default TTL: {vs.default_ttl}")
+print(f"Session TTL: {vs.category_ttls.get('session')}")
+```
+
+2. **Verify Cleanup Schedule**
+```python
+# Check when last cleanup ran
+from agent.memory.vector_store import VectorStore
+vs = VectorStore()
+print(f"Last cleanup: {vs.last_cleanup_time}")
+print(f"Cleanup interval: {vs.cleanup_interval}")
+```
+
+3. **Query Including Expired Entries (Debug)**
+```python
+# Temporarily include expired for debugging
+results = vs.query(
+    "your search query",
+    include_expired=True  # Debug flag
+)
+for r in results:
+    print(f"{r.id}: expires={r.metadata.get('expires_at')}")
+```
+
+4. **Adjust TTL Settings**
+```python
+# Increase TTL for specific categories
+vs.category_ttls = {
+    'session': 86400 * 7,      # 7 days instead of 1
+    'entity': 86400 * 180,     # 180 days instead of 90
+    'preference': 86400 * 365  # 1 year
+}
+```
+
+---
+
+### Issue: Plan Confirmation Not Appearing (Phase 6.1)
+
+**Symptoms:**
+- Tasks execute without showing plan
+- No confirmation prompt displayed
+- Plans auto-approved unexpectedly
+
+**Solutions:**
+
+1. **Check Configuration**
+```python
+# Verify plan confirmation is enabled
+from agent.orchestrator import get_config
+cfg = get_config()
+print(f"require_plan_confirmation: {cfg.get('require_plan_confirmation')}")
+print(f"auto_approve_plan: {cfg.get('auto_approve_plan')}")
+```
+
+2. **Force Plan Confirmation**
+```bash
+# Set in environment
+export REQUIRE_PLAN_CONFIRMATION=true
+export AUTO_APPROVE_PLAN=false
+```
+
+3. **Check Task Complexity Threshold**
+```python
+# Plans only shown for complex tasks
+# Adjust threshold if needed
+PLAN_COMPLEXITY_THRESHOLD = 2  # Default: 3 steps
+```
+
+4. **Debug Plan Generation**
+```python
+# Enable verbose plan output
+import logging
+logging.getLogger('agent.orchestrator').setLevel(logging.DEBUG)
+```
+
+---
+
+### Issue: Voice Acknowledgments Not Working (Phase 6.2)
+
+**Symptoms:**
+- No immediate feedback during voice chat
+- Long silence before response
+- "Thinking" messages not appearing
+
+**Solutions:**
+
+1. **Verify WebSocket Connection**
+```javascript
+// Browser console
+const ws = new WebSocket('ws://localhost:8000/api/voice/ws');
+ws.onopen = () => console.log('Connected');
+ws.onmessage = (e) => console.log('Message:', e.data);
+```
+
+2. **Check SSE Endpoint**
+```bash
+# Test SSE stream
+curl -N -X POST http://localhost:8000/api/voice/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"message": "hello", "session_id": "test"}'
+```
+
+3. **Enable Optimistic UI**
+```python
+# Verify setting
+from agent.voice_api import get_config
+print(f"optimistic_ui_enabled: {get_config().get('optimistic_ui_enabled')}")
+```
+
+4. **Check Acknowledgment Style**
+```bash
+# Available styles: jarvis, formal, minimal
+export ACKNOWLEDGMENT_STYLE=jarvis
+```
+
+---
+
+### Issue: Financial Guardrails Blocking Legitimate Transactions (Phase 2)
+
+**Symptoms:**
+- Valid payments rejected
+- "Daily limit exceeded" for normal operations
+- Approval requests for small amounts
+
+**Solutions:**
+
+1. **Check Current Limits**
+```python
+from agent.security.financial_guardrails import FinancialGuardrails
+fg = FinancialGuardrails()
+print(f"Max transaction: ${fg.max_transaction_amount}")
+print(f"Daily limit: ${fg.daily_spending_limit}")
+print(f"Approval threshold: ${fg.require_approval_above}")
+```
+
+2. **View Daily Spending**
+```python
+# Check today's total
+from agent.security.financial_guardrails import FinancialGuardrails
+fg = FinancialGuardrails()
+print(f"Today's spending: ${fg.get_daily_total()}")
+```
+
+3. **Adjust Limits (Requires Admin)**
+```bash
+# Update limits in .env
+MAX_TRANSACTION_AMOUNT=5000.0
+DAILY_SPENDING_LIMIT=25000.0
+REQUIRE_APPROVAL_ABOVE=1000.0
+```
+
+4. **Emergency Override (Use Sparingly)**
+```python
+# Bypass for specific transaction (logged)
+fg.execute_with_override(
+    transaction,
+    override_reason="CEO-approved emergency vendor payment",
+    override_by="admin@company.com"
+)
+```
+
+---
+
+### Issue: Audit Logs Not Recording (Phase 3)
+
+**Symptoms:**
+- Empty audit log files
+- Missing compliance events
+- "Audit service unavailable" warnings
+
+**Solutions:**
+
+1. **Verify Audit Logging Enabled**
+```bash
+echo $AUDIT_LOG_ENABLED  # Should be "true"
+```
+
+2. **Check Log Directory Permissions**
+```bash
+ls -la data/audit/
+# Ensure write permissions
+chmod 755 data/audit/
+```
+
+3. **Test Audit Logger**
+```python
+from agent.security.audit_logger import AuditLogger
+logger = AuditLogger()
+logger.log_event("test_event", {"test": "data"})
+print(f"Log file: {logger.current_log_file}")
+```
+
+4. **Verify Hash Chain Integrity**
+```python
+from agent.security.audit_logger import AuditLogger
+logger = AuditLogger()
+is_valid = logger.verify_chain()
+print(f"Audit chain valid: {is_valid}")
 ```
 
 ---
@@ -4231,6 +4665,398 @@ INTEGRATIONS = {
 
 ---
 
+## 9.6 Creating Custom Financial Guardrails (Phase 2)
+
+> *"Every organization has unique financial constraints. The guardrails I employ are configurable, but you may wish to create entirely new rules for your specific domain."*
+
+### Custom Guardrail Class
+
+```python
+# agent/security/custom_guardrails.py
+from agent.security.financial_guardrails import BaseGuardrail
+
+class DepartmentBudgetGuardrail(BaseGuardrail):
+    """Enforce per-department budget limits."""
+
+    name = "department_budget"
+
+    def __init__(self, budgets: dict[str, float]):
+        self.department_budgets = budgets
+        self.department_spending = {}
+
+    async def check(self, transaction: Transaction) -> GuardrailResult:
+        dept = transaction.metadata.get("department")
+        if not dept:
+            return GuardrailResult(
+                allowed=False,
+                reason="Transaction missing department metadata"
+            )
+
+        budget = self.department_budgets.get(dept, 0)
+        spent = self.department_spending.get(dept, 0)
+
+        if spent + transaction.amount > budget:
+            return GuardrailResult(
+                allowed=False,
+                reason=f"Department {dept} budget exceeded",
+                requires_approval=True,
+                approval_workflow="budget_override"
+            )
+
+        return GuardrailResult(allowed=True)
+
+    async def on_transaction_complete(self, transaction: Transaction):
+        """Update spending after successful transaction."""
+        dept = transaction.metadata.get("department")
+        self.department_spending[dept] = (
+            self.department_spending.get(dept, 0) + transaction.amount
+        )
+```
+
+### Register Custom Guardrail
+
+```python
+# agent/security/financial_guardrails.py
+from agent.security.custom_guardrails import DepartmentBudgetGuardrail
+
+CUSTOM_GUARDRAILS = [
+    DepartmentBudgetGuardrail({
+        "engineering": 50000.0,
+        "marketing": 30000.0,
+        "operations": 25000.0,
+    }),
+]
+```
+
+---
+
+## 9.7 Extending the Secrets Backend (Phase 4.1)
+
+> *"Should your organization employ a secrets management solution I don't natively support, the architecture accommodates custom backends with minimal effort."*
+
+### Custom Secrets Backend
+
+```python
+# agent/security/backends/custom_backend.py
+from agent.security.secrets import BaseSecretsBackend
+
+class OnePasswordBackend(BaseSecretsBackend):
+    """1Password secrets backend."""
+
+    name = "1password"
+
+    def __init__(self):
+        import onepassword
+        self.client = onepassword.Client(
+            token=os.environ.get("OP_SERVICE_ACCOUNT_TOKEN")
+        )
+        self._cache = {}
+        self._cache_ttl = 300  # 5 minutes
+
+    async def get_secret(self, key: str) -> Optional[str]:
+        """Retrieve secret from 1Password vault."""
+        # Check cache first
+        if key in self._cache:
+            value, timestamp = self._cache[key]
+            if time.time() - timestamp < self._cache_ttl:
+                return value
+
+        # Fetch from 1Password
+        try:
+            item = await self.client.items.get(
+                vault="JARVIS",
+                item=key
+            )
+            value = item.fields.get("password") or item.fields.get("value")
+
+            # Update cache
+            self._cache[key] = (value, time.time())
+            return value
+
+        except onepassword.ItemNotFoundError:
+            return None
+
+    async def set_secret(self, key: str, value: str) -> bool:
+        """Store secret in 1Password vault."""
+        try:
+            await self.client.items.create(
+                vault="JARVIS",
+                title=key,
+                category="password",
+                fields={"password": value}
+            )
+            self._cache[key] = (value, time.time())
+            return True
+        except Exception as e:
+            logger.error(f"Failed to store secret: {e}")
+            return False
+
+    async def health_check(self) -> bool:
+        """Verify 1Password connectivity."""
+        try:
+            await self.client.vaults.list()
+            return True
+        except Exception:
+            return False
+```
+
+### Register Backend
+
+```python
+# agent/security/secrets.py
+from agent.security.backends.custom_backend import OnePasswordBackend
+
+BACKENDS = {
+    "vault": VaultBackend,
+    "aws": AWSSecretsBackend,
+    "azure": AzureKeyVaultBackend,
+    "1password": OnePasswordBackend,  # Custom
+    "env": EnvironmentBackend,
+}
+```
+
+---
+
+## 9.8 Custom Memory TTL Policies (Phase 4.2)
+
+> *"Memory retention policies vary by use case. Some memories should persist indefinitely, while others must be purged promptly for compliance reasons."*
+
+### Custom TTL Policy
+
+```python
+# agent/memory/ttl_policies.py
+from agent.memory.vector_store import BaseTTLPolicy
+
+class GDPRCompliantPolicy(BaseTTLPolicy):
+    """TTL policy for GDPR compliance."""
+
+    name = "gdpr_compliant"
+
+    # Maximum retention periods (in seconds)
+    MAX_RETENTION = {
+        "personal_data": 86400 * 30,      # 30 days
+        "conversation": 86400 * 90,        # 90 days
+        "analytics": 86400 * 365,          # 1 year
+        "legal_hold": None,                # No expiration
+    }
+
+    def get_ttl(self, entry: MemoryEntry) -> Optional[int]:
+        """Calculate TTL based on data classification."""
+        classification = self.classify_data(entry)
+        return self.MAX_RETENTION.get(classification)
+
+    def classify_data(self, entry: MemoryEntry) -> str:
+        """Classify data for retention policy."""
+        content = entry.content.lower()
+
+        # Check for personal data indicators
+        if self.contains_pii(content):
+            return "personal_data"
+
+        # Check for legal hold flag
+        if entry.metadata.get("legal_hold"):
+            return "legal_hold"
+
+        # Default based on category
+        category_map = {
+            "session": "conversation",
+            "entity": "personal_data",
+            "preference": "analytics",
+        }
+        return category_map.get(entry.category, "conversation")
+
+    def contains_pii(self, content: str) -> bool:
+        """Detect potential PII in content."""
+        from agent.security.pii_detector import PIIDetector
+        detector = PIIDetector()
+        return detector.has_pii(content)
+```
+
+### Apply Custom Policy
+
+```python
+from agent.memory.vector_store import VectorStore
+from agent.memory.ttl_policies import GDPRCompliantPolicy
+
+vs = VectorStore()
+vs.set_ttl_policy(GDPRCompliantPolicy())
+```
+
+---
+
+## 9.9 Custom Audit Events (Phase 3)
+
+> *"The audit system can be extended to capture domain-specific events that matter to your compliance requirements."*
+
+### Custom Audit Event Types
+
+```python
+# agent/security/custom_audit_events.py
+from agent.security.audit_logger import BaseAuditEvent
+
+class ContractSignedEvent(BaseAuditEvent):
+    """Audit event for contract signing."""
+
+    event_type = "contract.signed"
+    compliance_tags = ["SOC2", "legal"]
+
+    def __init__(
+        self,
+        contract_id: str,
+        parties: list[str],
+        value: float,
+        signed_by: str,
+    ):
+        super().__init__()
+        self.contract_id = contract_id
+        self.parties = parties
+        self.value = value
+        self.signed_by = signed_by
+
+    def to_audit_record(self) -> dict:
+        return {
+            "event_type": self.event_type,
+            "timestamp": self.timestamp,
+            "contract_id": self.contract_id,
+            "parties": self.parties,
+            "value_usd": self.value,
+            "signed_by": self.signed_by,
+            "compliance_tags": self.compliance_tags,
+            "hash": self.compute_hash(),
+        }
+
+
+class DataExportEvent(BaseAuditEvent):
+    """Audit event for data exports (GDPR Article 20)."""
+
+    event_type = "data.exported"
+    compliance_tags = ["GDPR", "privacy"]
+
+    def __init__(
+        self,
+        user_id: str,
+        data_categories: list[str],
+        export_format: str,
+        destination: str,
+    ):
+        super().__init__()
+        self.user_id = user_id
+        self.data_categories = data_categories
+        self.export_format = export_format
+        self.destination = destination
+```
+
+### Register and Use Custom Events
+
+```python
+from agent.security.audit_logger import AuditLogger
+from agent.security.custom_audit_events import ContractSignedEvent
+
+logger = AuditLogger()
+
+# Log custom event
+event = ContractSignedEvent(
+    contract_id="CNT-2025-001",
+    parties=["Acme Corp", "Our Company"],
+    value=150000.00,
+    signed_by="ceo@company.com"
+)
+logger.log_event(event)
+```
+
+---
+
+## 9.10 Extending Plan Confirmation UI (Phase 6.1)
+
+> *"The plan confirmation interface can be customized to match your organization's workflow and branding requirements."*
+
+### Custom Plan Renderer
+
+```python
+# agent/ui/custom_plan_renderer.py
+from agent.orchestrator import BasePlanRenderer
+
+class SlackPlanRenderer(BasePlanRenderer):
+    """Render execution plans as Slack messages."""
+
+    async def render(self, plan: ExecutionPlan) -> dict:
+        """Generate Slack Block Kit message."""
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"🤖 JARVIS Execution Plan"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Goal:* {plan.goal}"
+                }
+            },
+            {"type": "divider"},
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Planned Steps:*\n" + "\n".join(
+                        f"• {step.description}" for step in plan.steps
+                    )
+                }
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "✅ Approve"},
+                        "style": "primary",
+                        "action_id": f"approve_plan_{plan.id}"
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "❌ Reject"},
+                        "style": "danger",
+                        "action_id": f"reject_plan_{plan.id}"
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "📋 Details"},
+                        "action_id": f"details_plan_{plan.id}"
+                    }
+                ]
+            }
+        ]
+
+        return {"blocks": blocks}
+
+    async def send_for_approval(self, plan: ExecutionPlan, channel: str):
+        """Send plan to Slack for approval."""
+        message = await self.render(plan)
+        await self.slack_client.chat_postMessage(
+            channel=channel,
+            **message
+        )
+```
+
+### Configure Custom Renderer
+
+```python
+# In configuration
+PLAN_RENDERERS = {
+    "cli": CLIPlanRenderer,
+    "web": WebPlanRenderer,
+    "slack": SlackPlanRenderer,  # Custom
+}
+
+# Use based on context
+renderer = PLAN_RENDERERS.get(context.interface, CLIPlanRenderer)
+```
+
+---
+
 # PART X: SECURITY MODEL DEEP DIVE
 
 > *"Security, sir, is not an afterthought—it's the foundation upon which trust is built. When Mr. Stark granted me control over his home, his suits, and eventually far more, he did so knowing that multiple layers of protection stood between my capabilities and potential misuse. I take this responsibility rather seriously. A compromised AI assistant isn't merely an inconvenience; it's a liability. Allow me to illuminate the measures I employ to ensure your data and operations remain sacrosanct."*
@@ -4239,14 +5065,19 @@ INTEGRATIONS = {
 
 ### Identified Threats
 
-| Threat | Severity | Mitigation |
-|--------|----------|------------|
-| Prompt Injection | High | Multi-layer detection, input sanitization |
-| Data Exfiltration | High | Output filtering, audit logging |
-| Unauthorized Actions | High | Approval workflows, permission system |
-| Credential Exposure | Critical | Secret scanning, log sanitization |
-| Model Manipulation | Medium | Input validation, response verification |
-| Resource Exhaustion | Medium | Rate limiting, cost caps |
+| Threat | Severity | Mitigation | Hardening Phase |
+|--------|----------|------------|-----------------|
+| Prompt Injection | High | Multi-layer detection, input sanitization | Phase 1 |
+| Data Exfiltration | High | Output filtering, audit logging | Phase 3 |
+| Unauthorized Actions | High | Approval workflows, permission system | Phase 2 |
+| Credential Exposure | Critical | Secret scanning, log sanitization, vault storage | Phase 4.1 |
+| Model Manipulation | Medium | Input validation, response verification | Phase 1 |
+| Resource Exhaustion | Medium | Rate limiting, cost caps | Phase 2 |
+| Financial Fraud | High | Transaction limits, approval workflows | Phase 2 |
+| PII Leakage | High | PII detection, automatic redaction | Phase 3 |
+| Stale Data Access | Medium | Memory TTL, automatic expiration | Phase 4.2 |
+| Supply Chain Attack | High | Dependency locking, reproducible builds | Phase 5 |
+| User Confusion | Medium | Plan confirmation, optimistic UI | Phase 6 |
 
 ### Prompt Injection Defense
 
@@ -4540,36 +5371,209 @@ required:
   - name: "Prompt injection protection"
     setting: PROMPT_SECURITY_ENABLED=true
     location: .env
+    phase: 1
 
   - name: "Audit logging"
     setting: AUDIT_LOG_ENABLED=true
     location: .env
+    phase: 3
 
   - name: "Rate limiting"
     setting: RATE_LIMIT_ENABLED=true
     location: config/security.yaml
+    phase: 2
 
 recommended:
   - name: "Approval workflows for sensitive actions"
     setting: Configure in permissions_matrix.json
+    phase: 2
 
   - name: "Secret scanning pre-commit hook"
     setting: Enable in .githooks/pre-commit
+    phase: 4.1
 
   - name: "Log sanitization"
     setting: LOG_SANITIZE=true
     location: .env
+    phase: 3
 
   - name: "Cost limits"
     setting: Configure daily_max_usd
     location: config/llm_config.yaml
+    phase: 2
+
+  - name: "Financial guardrails"
+    setting: MAX_TRANSACTION_AMOUNT, DAILY_SPENDING_LIMIT
+    location: .env
+    phase: 2
+
+  - name: "Secrets backend"
+    setting: SECRETS_BACKEND=vault
+    location: .env
+    phase: 4.1
+
+  - name: "Memory TTL"
+    setting: Configure category TTLs
+    location: agent/memory/vector_store.py
+    phase: 4.2
+
+  - name: "Dependency locking"
+    setting: Use requirements.lock in production
+    location: requirements.lock
+    phase: 5
+
+  - name: "Plan confirmation"
+    setting: REQUIRE_PLAN_CONFIRMATION=true
+    location: .env
+    phase: 6.1
+
+  - name: "PII detection"
+    setting: PII_DETECTION_ENABLED=true
+    location: .env
+    phase: 3
 ```
 
 ---
 
-*This document is the complete reference for the JARVIS system. All modules, functions, and interconnections are documented here.*
+## 10.7 Hardening Phases Summary
 
-**Document Version:** 2.0.0
+> *"Allow me to provide a comprehensive overview of all security hardening measures implemented across the six phases. Think of it as a security maturity model, sir—each phase building upon the previous to create a robust defense-in-depth architecture."*
+
+### Phase 1: Tool Execution Safety
+
+**Goal:** Prevent malicious or unintended code execution
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Sandbox | `agent/security/sandbox.py` | Isolate file/network operations |
+| Tool Validator | `agent/security/tool_validator.py` | Validate tool arguments |
+| Input Sanitizer | `agent/prompt_security.py` | Detect prompt injection |
+
+**Key Controls:**
+- Restricted filesystem paths
+- Blocked dangerous syscalls
+- Schema-based argument validation
+- Multi-layer prompt injection detection
+
+---
+
+### Phase 2: Human Approval Gates
+
+**Goal:** Require human oversight for sensitive operations
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Financial Guardrails | `agent/security/financial_guardrails.py` | Transaction limits |
+| Approval Workflows | `agent/permissions.py` | Multi-approver gates |
+| Daily Limits | `agent/security/financial_guardrails.py` | Cumulative caps |
+
+**Key Controls:**
+- Per-transaction amount limits
+- Daily spending caps
+- Multi-level approval workflows
+- Audit trail for all financial actions
+
+---
+
+### Phase 3: Regulatory Compliance
+
+**Goal:** Meet SOC2, HIPAA, and GDPR requirements
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Audit Logger | `agent/security/audit_logger.py` | Tamper-evident logging |
+| PII Detector | `agent/security/pii_detector.py` | Personal data detection |
+| Log Sanitizer | `agent/logging/sanitizer.py` | Remove sensitive data |
+
+**Key Controls:**
+- Hash-chained audit logs
+- Automatic PII detection and redaction
+- Structured compliance events
+- Configurable retention policies
+
+---
+
+### Phase 4: Secret & Data Hygiene
+
+**Goal:** Secure credential management and data lifecycle
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Secret Manager | `agent/security/secrets.py` | Multi-backend secrets |
+| Memory TTL | `agent/memory/vector_store.py` | Automatic expiration |
+| Secret Scanner | `agent/git_secret_scanner.py` | Detect exposed secrets |
+
+**Key Controls:**
+- HashiCorp Vault / AWS / Azure integration
+- Category-based memory TTL
+- Automatic expired data cleanup
+- Pre-commit secret scanning
+
+---
+
+### Phase 5: Build & Integration Stability
+
+**Goal:** Reproducible, secure deployments
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Dependency Locker | `scripts/lock_dependencies.py` | Pin versions |
+| Lockfile | `requirements.lock` | Reproducible installs |
+
+**Key Controls:**
+- Exact version pinning
+- Lockfile verification
+- Production vs development separation
+- Supply chain attack mitigation
+
+---
+
+### Phase 6: Human User Experience
+
+**Goal:** Keep humans informed and in control
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Plan Confirmation | `agent/orchestrator.py` | Pre-execution approval |
+| Optimistic UI | `agent/jarvis_voice_chat.py` | Immediate feedback |
+| Voice Streaming | `agent/voice_api.py` | SSE acknowledgments |
+
+**Key Controls:**
+- Execution plan presentation
+- User confirmation before complex tasks
+- Immediate voice acknowledgments
+- Progress visibility throughout execution
+
+---
+
+### Hardening Maturity Model
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    JARVIS Security Maturity                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Level 6 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ Human Experience     │
+│  Level 5 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ Build Stability       │
+│  Level 4 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ Data Hygiene          │
+│  Level 3 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ Compliance            │
+│  Level 2 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ Approval Gates        │
+│  Level 1 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ Execution Safety      │
+│                                                                 │
+│  Current Status: ALL PHASES COMPLETE ✓                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+*This document is the complete reference for the JARVIS 2.0 system. All modules, functions, and interconnections are documented here.*
+
+> *"I trust this comprehensive guide serves you well, sir. Remember: security is not a destination but a continuous journey. I shall remain vigilant in protecting your interests, as I have always done. Now, shall we get to work?"*
+
+**Document Version:** 2.2.0
+**Hardening Phase:** 6 (Human UX) Complete
 **Total Entries:** 300+ files documented
-**New Chapters:** 5 practical guides added
+**New Chapters:** 5 practical guides + 6 hardening phases
+**Security Modules:** 12 hardening components
 **Last Updated:** 2025-11-25

@@ -490,6 +490,52 @@ class VoiceWebSocketHandler:
         self.voice_chat = voice_chat
         self.active_connections: Dict[str, Any] = {}
 
+    # PHASE 6.2: Optimistic UI acknowledgment messages
+    # These provide immediate feedback to prevent user confusion during LLM processing
+    THINKING_ACKNOWLEDGMENTS = [
+        "One moment, sir...",
+        "Processing your request...",
+        "Thinking...",
+        "Allow me a moment...",
+        "Understood. Working on that...",
+        "Very good, sir. Let me consider that...",
+    ]
+
+    async def _send_optimistic_acknowledgment(
+        self,
+        websocket: Any,
+        message_type: str = "thinking"
+    ) -> None:
+        """
+        PHASE 6.2: Send an immediate optimistic UI acknowledgment.
+
+        This provides instant feedback to the user while the LLM processes,
+        preventing them from speaking again and confusing the context.
+
+        Args:
+            websocket: WebSocket connection
+            message_type: Type of acknowledgment (thinking, received, processing)
+        """
+        import random
+
+        # Select appropriate acknowledgment
+        if message_type == "received":
+            text = "Received..."
+        elif message_type == "transcribing":
+            text = "Transcribing..."
+        else:
+            text = random.choice(self.THINKING_ACKNOWLEDGMENTS)
+
+        try:
+            await websocket.send_json({
+                "type": "acknowledgment",
+                "subtype": message_type,
+                "text": text,
+                "timestamp": datetime.now().isoformat()
+            })
+        except Exception:
+            pass  # Best effort - don't fail if acknowledgment fails
+
     async def handle_connection(
         self,
         websocket: Any,
@@ -517,33 +563,60 @@ class VoiceWebSocketHandler:
             # Process messages
             async for message in websocket.iter_json():
                 if message.get("type") == "audio":
+                    # PHASE 6.2: Immediate acknowledgment - user knows we received audio
+                    await self._send_optimistic_acknowledgment(websocket, "received")
+
                     # Process voice input
                     audio_base64 = message.get("data", "")
                     audio_bytes = base64.b64decode(audio_base64)
 
-                    response = await self.voice_chat.process_voice_input(
-                        audio_bytes,
-                        return_audio=True
-                    )
+                    # PHASE 6.2: Transcribing acknowledgment
+                    await self._send_optimistic_acknowledgment(websocket, "transcribing")
 
-                    # Send transcription
+                    # Transcribe first (so we can show transcription faster)
+                    if self.voice_chat.voice.stt_engine:
+                        user_text = await self.voice_chat.voice.stt_engine.transcribe(audio_bytes)
+                    else:
+                        user_text = ""
+
+                    # Send transcription immediately (before LLM processing)
                     await websocket.send_json({
                         "type": "transcription",
-                        "text": response["user_text"]
+                        "text": user_text or ""
                     })
 
-                    # Send response
-                    await websocket.send_json({
-                        "type": "response",
-                        "text": response["jarvis_text"],
-                        "audio": response.get("jarvis_audio_base64")
-                    })
+                    if user_text and user_text.strip():
+                        # PHASE 6.2: "Thinking" acknowledgment before LLM call
+                        await self._send_optimistic_acknowledgment(websocket, "thinking")
 
-                    # Check if session ended
-                    if response.get("session_ended"):
-                        break
+                        # Now process with LLM (this is the slow part)
+                        response = await self.voice_chat.process_voice_input(
+                            audio_bytes,
+                            return_audio=True
+                        )
+
+                        # Send response
+                        await websocket.send_json({
+                            "type": "response",
+                            "text": response["jarvis_text"],
+                            "audio": response.get("jarvis_audio_base64")
+                        })
+
+                        # Check if session ended
+                        if response.get("session_ended"):
+                            break
+                    else:
+                        # No transcription - prompt for retry
+                        await websocket.send_json({
+                            "type": "response",
+                            "text": "I didn't catch that, sir. Could you repeat?",
+                            "audio": None
+                        })
 
                 elif message.get("type") == "text":
+                    # PHASE 6.2: Immediate acknowledgment for text input
+                    await self._send_optimistic_acknowledgment(websocket, "thinking")
+
                     # Process text input (no STT needed)
                     user_text = message.get("text", "")
                     jarvis_text = await self.voice_chat._get_chat_response(user_text)

@@ -452,6 +452,107 @@ def _maybe_confirm_cost(cfg: Dict[str, Any], stage_label: str) -> bool:
     return response == "y"
 
 
+def _present_plan_for_confirmation(
+    plan: Dict[str, Any],
+    phases: List[Dict[str, Any]],
+    cfg: Dict[str, Any],
+) -> bool:
+    """
+    PHASE 6.1: Present the execution plan and wait for user confirmation.
+
+    Human UX Hardening: Before executing complex tasks, JARVIS presents
+    a structured plan and waits for explicit user approval.
+
+    Args:
+        plan: Manager's plan from initial planning phase
+        phases: Supervisor's phased breakdown
+        cfg: Project configuration
+
+    Returns:
+        True if user confirms, False to abort
+    """
+    require_confirmation = cfg.get("require_plan_confirmation", True)
+
+    if not require_confirmation:
+        print("[PlanConfirm] Plan confirmation disabled (require_plan_confirmation=false)")
+        return True
+
+    # Build structured plan summary
+    print("\n" + "=" * 70)
+    print("  📋 EXECUTION PLAN - AWAITING YOUR CONFIRMATION")
+    print("=" * 70)
+
+    # Show acceptance criteria
+    criteria = plan.get("acceptance_criteria", [])
+    if criteria:
+        print("\n🎯 Acceptance Criteria:")
+        for i, c in enumerate(criteria, 1):
+            print(f"   {i}. {c}")
+
+    # Show planned steps
+    steps = plan.get("plan", [])
+    if steps:
+        print("\n📝 Planned Steps:")
+        for i, step in enumerate(steps, 1):
+            if isinstance(step, dict):
+                print(f"   {i}. {step.get('description', step.get('name', str(step)))}")
+            else:
+                print(f"   {i}. {step}")
+
+    # Show execution phases
+    if phases:
+        print("\n🔄 Execution Phases:")
+        for i, phase in enumerate(phases, 1):
+            phase_name = phase.get("name", f"Phase {i}")
+            categories = phase.get("categories", [])
+            cat_str = ", ".join(categories[:3]) if categories else "General"
+            if len(categories) > 3:
+                cat_str += f" +{len(categories) - 3} more"
+            print(f"   {i}. {phase_name}")
+            print(f"      Categories: {cat_str}")
+
+    # Show cost estimate if available
+    max_cost = cfg.get("max_cost_usd", 0)
+    if max_cost:
+        print(f"\n💰 Budget Cap: ${max_cost:.2f} USD")
+
+    max_rounds = cfg.get("max_rounds", 1)
+    print(f"🔁 Max Iterations: {max_rounds}")
+
+    print("\n" + "-" * 70)
+    print("  ⚠️  Employee agents will begin execution after confirmation.")
+    print("-" * 70)
+
+    # Wait for confirmation
+    try:
+        response = input("\n[Proceed] Execute this plan? (y/n/details): ").strip().lower()
+
+        if response == "details":
+            # Show full JSON plan
+            print("\n📄 Full Plan JSON:")
+            print(json.dumps(plan, indent=2, ensure_ascii=False))
+            print("\n📄 Full Phases JSON:")
+            print(json.dumps(phases, indent=2, ensure_ascii=False))
+            # Ask again after showing details
+            response = input("\n[Proceed] Execute this plan? (y/n): ").strip().lower()
+
+        if response == "y":
+            print("\n[PlanConfirm] ✅ Plan confirmed - proceeding with execution...")
+            return True
+        else:
+            print("\n[PlanConfirm] ❌ Plan rejected by user - aborting run.")
+            return False
+
+    except (EOFError, KeyboardInterrupt):
+        # Non-interactive mode or interrupted - check for auto-approve setting
+        auto_approve = cfg.get("auto_approve_plan", False)
+        if auto_approve:
+            print("\n[PlanConfirm] Auto-approving plan (auto_approve_plan=true)")
+            return True
+        print("\n[PlanConfirm] Non-interactive mode without auto_approve_plan - aborting.")
+        return False
+
+
 def main(
     run_summary: Optional[RunSummary] = None,
     mission_id: Optional[str] = None,
@@ -1001,6 +1102,40 @@ def main(
             total_cost_usd=context.cost_tracker.get_total_cost_usd()
         )
         return
+
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 6.1: PLAN CONFIRMATION (Human UX Hardening)
+    # ══════════════════════════════════════════════════════════════
+    # Before executing complex tasks, present the plan and wait for
+    # explicit user confirmation. This prevents unintended execution
+    # and gives users visibility into what will be done.
+    if not _present_plan_for_confirmation(plan, phase_list, cfg):
+        print("[User] Plan rejected - aborting execution.")
+        final_status = "aborted_plan_rejected"
+        final_cost_summary = context.cost_tracker.get_summary()
+        context.logger.log_final_status(
+            core_run_id,
+            status=final_status,
+            reason="User rejected the execution plan",
+            iterations=0,
+            total_cost_usd=context.cost_tracker.get_total_cost_usd()
+        )
+        # Log the rejection event
+        context.logger.log_event(core_run_id, "plan_rejected", {
+            "plan_steps": len(plan.get("plan", [])),
+            "phases": len(phase_list),
+        })
+        return {
+            "status": "aborted",
+            "reason": "Plan rejected by user",
+            "core_run_id": core_run_id,
+        }
+
+    # Log plan confirmation
+    context.logger.log_event(core_run_id, "plan_confirmed", {
+        "plan_steps": len(plan.get("plan", [])),
+        "phases": len(phase_list),
+    })
 
     # ══════════════════════════════════════════════════════════════
     # 3) PHASE 3: INITIALIZE WORKFLOW SYSTEMS

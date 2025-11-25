@@ -96,6 +96,19 @@ class VoiceChatResponse(BaseModel):
     session_ended: bool = False
 
 
+class OptimisticAcknowledgment(BaseModel):
+    """
+    PHASE 6.2: Optimistic UI acknowledgment for latency management.
+
+    Sent immediately when processing begins to provide user feedback
+    before the actual response is ready.
+    """
+    status: str = "processing"
+    acknowledgment: str = "One moment, sir..."
+    stage: str = "received"  # received, transcribing, thinking
+    timestamp: str
+
+
 class VoiceStatusResponse(BaseModel):
     """Voice system status"""
     voice_available: bool
@@ -325,6 +338,127 @@ async def voice_chat_turn(
     except Exception as e:
         core_logging.log_event("voice_chat_error", {"error": str(e)})
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# PHASE 6.2: Streaming Voice Chat with Optimistic UI
+# =============================================================================
+
+# Optimistic acknowledgment messages for JARVIS persona
+JARVIS_ACKNOWLEDGMENTS = [
+    "One moment, sir...",
+    "Processing your request...",
+    "Allow me a moment...",
+    "Understood. Working on that...",
+    "Very good, sir. Let me consider that...",
+    "Thinking...",
+]
+
+
+@router.post("/chat/stream")
+async def voice_chat_stream(
+    request: VoiceChatRequest,
+    current_user: User = Depends(require_auth) if AUTH_AVAILABLE else None
+):
+    """
+    PHASE 6.2: Streaming voice chat with optimistic UI acknowledgments.
+
+    Returns a Server-Sent Events (SSE) stream that provides:
+    1. Immediate acknowledgment when audio is received
+    2. Transcription as soon as STT completes
+    3. "Thinking" acknowledgment before LLM processing
+    4. Final response with audio
+
+    This prevents users from speaking again during processing,
+    as they receive immediate feedback that their input was heard.
+
+    Usage (client-side):
+        const eventSource = new EventSource('/api/voice/chat/stream', {method: 'POST', body: ...});
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'acknowledgment') {
+                // Show "Thinking..." to user
+            } else if (data.type === 'transcription') {
+                // Show what user said
+            } else if (data.type === 'response') {
+                // Show and play JARVIS response
+            }
+        };
+    """
+    import random
+    from fastapi.responses import StreamingResponse
+    import json as json_module
+
+    async def generate_events():
+        try:
+            voice_chat = get_voice_chat()
+
+            # Start session if not active
+            if not voice_chat.session:
+                await voice_chat.start_voice_session()
+
+            # PHASE 6.2: Immediate acknowledgment - audio received
+            yield f"data: {json_module.dumps({'type': 'acknowledgment', 'stage': 'received', 'text': 'Received...', 'timestamp': datetime.now().isoformat()})}\n\n"
+
+            # Decode audio
+            audio_bytes = base64.b64decode(request.audio_base64)
+
+            # PHASE 6.2: Transcribing acknowledgment
+            yield f"data: {json_module.dumps({'type': 'acknowledgment', 'stage': 'transcribing', 'text': 'Transcribing...', 'timestamp': datetime.now().isoformat()})}\n\n"
+
+            # Transcribe first
+            user_text = ""
+            if voice_chat.voice.stt_engine:
+                user_text = await voice_chat.voice.stt_engine.transcribe(
+                    audio_bytes,
+                    language=request.language
+                )
+
+            # Send transcription immediately
+            yield f"data: {json_module.dumps({'type': 'transcription', 'text': user_text or '', 'timestamp': datetime.now().isoformat()})}\n\n"
+
+            if not user_text or user_text.strip() == "":
+                # No transcription
+                yield f"data: {json_module.dumps({'type': 'response', 'text': \"I didn't catch that, sir. Could you repeat?\", 'audio': None, 'session_ended': False})}\n\n"
+                return
+
+            # PHASE 6.2: "Thinking" acknowledgment before LLM call
+            acknowledgment = random.choice(JARVIS_ACKNOWLEDGMENTS)
+            yield f"data: {json_module.dumps({'type': 'acknowledgment', 'stage': 'thinking', 'text': acknowledgment, 'timestamp': datetime.now().isoformat()})}\n\n"
+
+            # Process with LLM (the slow part)
+            start_time = datetime.now()
+            jarvis_text = await voice_chat._get_chat_response(user_text)
+
+            # Generate audio if requested
+            jarvis_audio_base64 = None
+            if request.return_audio:
+                jarvis_audio_base64 = await voice_chat.voice.get_audio_base64(jarvis_text)
+
+            processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+            # Check for session end
+            session_ended = any(
+                phrase in user_text.lower()
+                for phrase in voice_chat.EXIT_PHRASES
+            )
+
+            # Send final response
+            yield f"data: {json_module.dumps({'type': 'response', 'text': jarvis_text, 'audio': jarvis_audio_base64, 'processing_time_ms': processing_time, 'session_ended': session_ended})}\n\n"
+
+        except Exception as e:
+            core_logging.log_event("voice_chat_stream_error", {"error": str(e)})
+            yield f"data: {json_module.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
 
 
 @router.post("/session/start")

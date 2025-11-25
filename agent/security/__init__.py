@@ -1,6 +1,7 @@
 """
 PHASE 11.3: Security & Authentication
 PHASE 1 HARDENING: Security & Sandboxing
+PHASE 4.1 HARDENING: Secrets Management
 
 Production-grade security controls with authentication, authorization, and auditing.
 
@@ -11,6 +12,7 @@ Components:
 - network: SSRF protection and egress filtering (Phase 1.2)
 - approval: Human-in-the-loop approval system (Phase 1.3)
 - sandbox_docker: Docker-based isolated execution (Phase 1.1)
+- secrets: Multi-backend secrets management (Phase 4.1)
 
 Features:
 - API key authentication with secure hashing
@@ -22,6 +24,7 @@ Features:
 - SSRF protection with blocked IP ranges
 - HITL approval for dangerous operations
 - Docker-based sandboxed code execution
+- Multi-backend secrets (Vault, AWS, Azure, env)
 """
 
 from .auth import (
@@ -71,6 +74,16 @@ from .sandbox_docker import (
     is_sandbox_available,
 )
 
+# Phase 4.1: Secrets Management
+from .secrets import (
+    SecretsManager,
+    SecretBackend,
+    get_secret,
+    require_secret,
+    configure_secrets,
+    get_secrets_manager,
+)
+
 __all__ = [
     # Auth
     "AuthManager",
@@ -110,4 +123,11 @@ __all__ = [
     "SandboxLanguage",
     "run_in_sandbox",
     "is_sandbox_available",
+    # Secrets management (Phase 4.1)
+    "SecretsManager",
+    "SecretBackend",
+    "get_secret",
+    "require_secret",
+    "configure_secrets",
+    "get_secrets_manager",
 ]

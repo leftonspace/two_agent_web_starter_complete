@@ -7,6 +7,12 @@ Loads configuration, performs cost estimation, and runs either:
 - Single-run mode (2loop or 3loop)
 
 STAGE 5: Enhanced with status codes and improved error handling.
+PHASE 3.2 HARDENING: 2-loop preference with auto-selection.
+
+Mode Selection:
+- mode="2loop": Always use 2-loop (Manager ↔ Employee)
+- mode="3loop": Always use 3-loop (with Supervisor)
+- mode="auto": Auto-select based on task complexity (default to 2-loop)
 """
 
 from __future__ import annotations
@@ -26,6 +32,20 @@ except ImportError:
     DEFAULT_MANAGER_MODEL = "gpt-4o-mini"
     DEFAULT_SUPERVISOR_MODEL = "gpt-4o-mini"
     DEFAULT_EMPLOYEE_MODEL = "gpt-4o"
+
+# PHASE 3.2: Import orchestrator selector for auto mode
+try:
+    from orchestrator_selector import select_orchestrator_mode, get_mode_description
+    ORCHESTRATOR_SELECTOR_AVAILABLE = True
+except ImportError:
+    ORCHESTRATOR_SELECTOR_AVAILABLE = False
+
+    def select_orchestrator_mode(task: str, **kwargs) -> str:
+        """Fallback: default to 2loop if selector not available."""
+        return "2loop"
+
+    def get_mode_description(mode: str) -> str:
+        return mode
 
 # STAGE 2: Import run logging and cost tracking
 import cost_tracker
@@ -184,10 +204,21 @@ def main() -> None:
     # ──────────────────────────────────────────────────────────────────────
     # STAGE 2: Initialize Run Logging
     # ──────────────────────────────────────────────────────────────────────
-    mode = cfg.get("mode", "3loop").lower().strip()
+    configured_mode = cfg.get("mode", "auto").lower().strip()
     project_subdir = cfg.get("project_subdir", "unknown_project")
     task = cfg.get("task", "")
     max_rounds = int(cfg.get("max_rounds", 1))
+
+    # PHASE 3.2: Handle "auto" mode - select based on task complexity
+    # Default to 2-loop for efficiency, escalate to 3-loop for complex/risky tasks
+    if configured_mode == "auto":
+        mode = select_orchestrator_mode(task, log_analysis=True)
+        print(f"[Mode] Auto-selected: {mode} ({get_mode_description(mode)})")
+    else:
+        mode = configured_mode
+        if mode not in ("2loop", "3loop", "3loop_legacy"):
+            print(f"[Mode] Unknown mode '{mode}', defaulting to 2loop")
+            mode = "2loop"
 
     # Determine project directory
     agent_dir = Path(__file__).resolve().parent

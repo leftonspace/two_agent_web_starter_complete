@@ -1,35 +1,70 @@
 # Core dependencies for the multi-agent orchestrator
-# (Add your existing dependencies here if any)
+# Updated: 2025-11-25 (Phase 8 audit)
+
+# Core HTTP & Async
+httpx>=0.25.0                      # Universal HTTP client
+aiohttp>=3.9.0                     # Async HTTP client for HRIS APIs
+aiofiles>=23.0.0                   # Async file operations
+
+# Database
+sqlalchemy[asyncio]>=2.0.0         # Async database operations
+aiosqlite>=0.19.0                  # SQLite async driver
+
+# Data Validation
+pydantic>=2.0.0                    # Data validation
+
+# Authentication & Security
+pyjwt>=2.8.0                       # JWT token handling
+bcrypt>=4.0.0                      # Password hashing for API keys
 
 # STAGE 7: Web Dashboard dependencies
 fastapi>=0.104.0
 jinja2>=3.1.0
 uvicorn[standard]>=0.24.0
-python-multipart>=0.0.6  # For form data handling
-
-# PHASE 1.1: Authentication dependencies
-bcrypt>=4.0.0  # Password hashing for API keys
+python-multipart>=0.0.6            # For form data handling
 
 # PHASE 2.3: HR Tools dependencies
 google-api-python-client>=2.100.0  # Google Calendar API
-google-auth>=2.23.0  # Google OAuth2
-google-auth-oauthlib>=1.1.0  # OAuth flow
-google-auth-httplib2>=0.1.1  # HTTP transport
-aiohttp>=3.9.0  # Async HTTP client for HRIS APIs
+google-auth>=2.23.0                # Google OAuth2
+google-auth-oauthlib>=1.1.0        # OAuth flow
+google-auth-httplib2>=0.1.1        # HTTP transport
 
 # PHASE 2.4: Document Generation dependencies
-python-docx>=1.1.0  # Word documents
-docxtpl>=0.17.0  # Word templates with Jinja2
-openpyxl>=3.1.0  # Excel spreadsheets
-reportlab>=4.0.0  # PDF generation
-weasyprint>=60.0  # HTML to PDF conversion
-PyPDF2>=3.0.0  # PDF merging and manipulation
+python-docx>=1.1.0                 # Word documents
+docxtpl>=0.17.0                    # Word templates with Jinja2
+openpyxl>=3.1.0                    # Excel spreadsheets
+reportlab>=4.0.0                   # PDF generation
+weasyprint>=60.0                   # HTML to PDF conversion
+PyPDF2>=3.0.0                      # PDF merging and manipulation
+
+# LLM Providers
+openai>=1.0.0                      # OpenAI API client
+anthropic>=0.18.0                  # Anthropic Claude API client
 
 # Testing dependencies
 pytest>=7.4.0
 pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0             # Async test support
+
+# Optional: Vector Store (uncomment if using ChromaDB)
+# chromadb>=0.4.0                  # Vector store for memory
+
+# Optional: Distributed Task Queue (uncomment for production)
+# celery>=5.3.0                    # Distributed task queue
+# redis>=5.0.0                     # Celery backend
+
+# Optional: Workflow Orchestration (uncomment if using Temporal)
+# temporalio>=1.4.0                # Workflow orchestration
+
+# Optional: Meeting Integration (uncomment if using meeting features)
+# playwright>=1.40.0               # Browser automation (Google Meet)
+# pyannote.audio>=3.0.0            # Speaker diarization
+
+# Optional: Voice (uncomment if using voice features)
+# elevenlabs>=0.3.0                # Text-to-speech
+# deepgram-sdk>=3.0.0              # Speech-to-text
 
 # Optional: Development tools
-# ruff  # Linting
-# mypy  # Type checking
-# psutil  # Memory profiling (optional)
+# ruff                             # Linting
+# mypy                             # Type checking
+# psutil                           # Memory profiling

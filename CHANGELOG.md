@@ -9,7 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Phase 1.6 - Deprecate Dual Logging System (2025-01-XX)
+### Phase 8 - Root Level Audit & Cleanup (2025-11-25)
+
+**Status**: ✅ In Progress
+**Addresses**: Technical debt and documentation cleanup
+
+#### Removed
+
+- Deleted obsolete documentation files (AUDIT_REPORT.md, AUDIT_PROMPT.md, README.txt, etc.)
+- Removed shim files (cost_tracker.py, site_tools.py root-level re-exports)
+- Removed one-time utility scripts (add_sqlite_integration.py, check_hr_db.py)
+
+#### Updated
+
+- Fixed placeholder dates in CHANGELOG.md
+- Updated tool name references in documentation (file_read → read)
+- Added missing dependencies to requirements.txt
+- Marked completed items in roadmap documentation
+- Updated orchestrator consolidation plan status
+
+---
+
+### Phase 1.6 - Deprecate Dual Logging System (2025-11-20)
 
 **Status**: ✅ Completed
 **Addresses**: Vulnerability A2 - Dual logging systems causing duplication and wasted resources
@@ -70,7 +91,7 @@ See [docs/MIGRATION_LOGGING.md](./docs/MIGRATION_LOGGING.md) for complete migrat
 
 ## Previous Releases
 
-### Phase 1.5 - Dependency Injection (2025-01-XX)
+### Phase 1.5 - Dependency Injection (2025-11-18)
 
 **Status**: ✅ Completed
 **Addresses**: Vulnerability A1 - Tight coupling to 12+ modules
@@ -116,7 +137,7 @@ See [docs/MIGRATION_LOGGING.md](./docs/MIGRATION_LOGGING.md) for complete migrat
 
 ---
 
-### Phase 1.4 - Git Secret Scanning (2025-01-XX)
+### Phase 1.4 - Git Secret Scanning (2025-11-15)
 
 **Status**: ✅ Completed
 **Addresses**: Security vulnerability - Accidental secret commits
@@ -143,7 +164,7 @@ See [docs/MIGRATION_LOGGING.md](./docs/MIGRATION_LOGGING.md) for complete migrat
 
 ---
 
-### Phase 1.3 - Prompt Security (2025-01-XX)
+### Phase 1.3 - Prompt Security (2025-11-12)
 
 **Status**: ✅ Completed
 **Addresses**: Prompt injection vulnerabilities
@@ -157,7 +178,7 @@ See [docs/MIGRATION_LOGGING.md](./docs/MIGRATION_LOGGING.md) for complete migrat
 
 ---
 
-### Phase 1.2 - Log Sanitization (2025-01-XX)
+### Phase 1.2 - Log Sanitization (2025-11-10)
 
 **Status**: ✅ Completed
 **Addresses**: Sensitive data leakage in logs

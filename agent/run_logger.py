@@ -245,6 +245,9 @@ def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:
     """
     Save RunSummary to disk as JSON.
 
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging event-based logging instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
+
     Creates: <base_dir>/<run_id>/run_summary.json
 
     STAGE 5: Uses safe I/O helpers for error resilience.
@@ -256,6 +259,13 @@ def save_run_summary(run: RunSummary, base_dir: str = "run_logs") -> str:
     Returns:
         Path to the saved JSON file, or empty string on failure
     """
+    warnings.warn(
+        "save_run_summary() is deprecated and will be removed in v2.0. "
+        "Use core_logging event-based logging instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # Get project root (parent of agent/)
     agent_dir = Path(__file__).resolve().parent
     project_root = agent_dir.parent
@@ -294,6 +304,9 @@ def start_session(
     """
     Create a new SessionSummary for tracking an auto-pilot session.
 
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging session events instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
+
     Args:
         task: Task description for the session
         max_sub_runs: Maximum number of sub-runs allowed
@@ -302,6 +315,13 @@ def start_session(
     Returns:
         SessionSummary instance with session_id and started_at populated
     """
+    warnings.warn(
+        "start_session() is deprecated and will be removed in v2.0. "
+        "Use core_logging session events instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     session_id = uuid.uuid4().hex[:12]  # 12-char unique ID
     started_at = _now_iso()
 
@@ -322,11 +342,21 @@ def log_session_run(
     """
     Append a run summary and evaluation to the session.
 
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging session events instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
+
     Args:
         session: SessionSummary instance
         run_summary: RunSummary as dict (from asdict())
         eval_result: Evaluation result from self_eval.evaluate_run()
     """
+    warnings.warn(
+        "log_session_run() is deprecated and will be removed in v2.0. "
+        "Use core_logging session events instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     run_entry = {
         "run_id": run_summary.get("run_id"),
         "final_status": run_summary.get("final_status"),
@@ -348,6 +378,9 @@ def finalize_session(
     """
     Finalize a SessionSummary with final decision.
 
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging.log_final_status() instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
+
     Args:
         session: SessionSummary instance
         final_decision: "success", "max_runs_reached", "stopped", etc.
@@ -355,6 +388,13 @@ def finalize_session(
     Returns:
         Updated SessionSummary instance
     """
+    warnings.warn(
+        "finalize_session() is deprecated and will be removed in v2.0. "
+        "Use core_logging.log_final_status() instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     session.finished_at = _now_iso()
     session.final_decision = final_decision
     return session
@@ -363,6 +403,9 @@ def finalize_session(
 def save_session_summary(session: SessionSummary, base_dir: str = "run_logs") -> str:
     """
     Save SessionSummary to disk as JSON.
+
+    ⚠️  DEPRECATED (Phase 1.6): Use core_logging event-based logging instead.
+    This function will be removed in v2.0. See docs/MIGRATION_LOGGING.md
 
     Creates: <base_dir>/<session_id>/session_summary.json
 
@@ -375,6 +418,13 @@ def save_session_summary(session: SessionSummary, base_dir: str = "run_logs") ->
     Returns:
         Path to the saved JSON file, or empty string on failure
     """
+    warnings.warn(
+        "save_session_summary() is deprecated and will be removed in v2.0. "
+        "Use core_logging event-based logging instead. "
+        "See docs/MIGRATION_LOGGING.md for migration guide.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # Get project root (parent of agent/)
     agent_dir = Path(__file__).resolve().parent
     project_root = agent_dir.parent

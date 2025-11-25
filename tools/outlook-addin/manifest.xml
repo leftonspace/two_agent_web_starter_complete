@@ -12,12 +12,12 @@
   <DisplayName DefaultValue="JARVIS Email Assistant"/>
   <Description DefaultValue="AI-powered email summarization, response drafting, and intelligent email management"/>
 
-  <IconUrl DefaultValue="https://your-domain.com/assets/icon-64.png"/>
-  <HighResolutionIconUrl DefaultValue="https://your-domain.com/assets/icon-128.png"/>
-  <SupportUrl DefaultValue="https://your-domain.com/support"/>
+  <IconUrl DefaultValue="${JARVIS_BASE_URL}/assets/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="${JARVIS_BASE_URL}/assets/icon-128.png"/>
+  <SupportUrl DefaultValue="${JARVIS_BASE_URL}/support"/>
 
   <AppDomains>
-    <AppDomain>https://your-domain.com</AppDomain>
+    <AppDomain>${JARVIS_BASE_URL}</AppDomain>
   </AppDomains>
 
   <Hosts>
@@ -33,13 +33,13 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://your-domain.com/outlook/taskpane.html"/>
+        <SourceLocation DefaultValue="${JARVIS_BASE_URL}/outlook/taskpane.html"/>
         <RequestedHeight>450</RequestedHeight>
       </DesktopSettings>
     </Form>
     <Form xsi:type="ItemEdit">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://your-domain.com/outlook/compose.html"/>
+        <SourceLocation DefaultValue="${JARVIS_BASE_URL}/outlook/compose.html"/>
         <RequestedHeight>450</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -137,15 +137,15 @@
 
       <Resources>
         <bt:Images>
-          <bt:Image id="Icon16" DefaultValue="https://your-domain.com/assets/icon-16.png"/>
-          <bt:Image id="Icon32" DefaultValue="https://your-domain.com/assets/icon-32.png"/>
-          <bt:Image id="Icon80" DefaultValue="https://your-domain.com/assets/icon-80.png"/>
+          <bt:Image id="Icon16" DefaultValue="${JARVIS_BASE_URL}/assets/icon-16.png"/>
+          <bt:Image id="Icon32" DefaultValue="${JARVIS_BASE_URL}/assets/icon-32.png"/>
+          <bt:Image id="Icon80" DefaultValue="${JARVIS_BASE_URL}/assets/icon-80.png"/>
         </bt:Images>
 
         <bt:Urls>
-          <bt:Url id="TaskpaneUrl" DefaultValue="https://your-domain.com/outlook/taskpane.html"/>
-          <bt:Url id="ComposeUrl" DefaultValue="https://your-domain.com/outlook/compose.html"/>
-          <bt:Url id="FunctionsUrl" DefaultValue="https://your-domain.com/outlook/functions.html"/>
+          <bt:Url id="TaskpaneUrl" DefaultValue="${JARVIS_BASE_URL}/outlook/taskpane.html"/>
+          <bt:Url id="ComposeUrl" DefaultValue="${JARVIS_BASE_URL}/outlook/compose.html"/>
+          <bt:Url id="FunctionsUrl" DefaultValue="${JARVIS_BASE_URL}/outlook/functions.html"/>
         </bt:Urls>
 
         <bt:ShortStrings>

@@ -26,7 +26,7 @@
   "addOns": {
     "common": {
       "name": "JARVIS Email Assistant",
-      "logoUrl": "https://your-domain.com/assets/icon-128.png",
+      "logoUrl": "${JARVIS_BASE_URL}/assets/icon-128.png",
       "useLocaleFromApp": true,
       "homepageTrigger": {
         "runFunction": "onHomepage",
@@ -40,7 +40,7 @@
         {
           "label": "Help",
           "openLink": {
-            "url": "https://your-domain.com/help/gmail-addon",
+            "url": "${JARVIS_BASE_URL}/help/gmail-addon",
             "onClose": "NOTHING"
           }
         }

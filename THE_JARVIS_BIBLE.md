@@ -929,9 +929,16 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 - **Links to:** Git operations throughout the system
 
 #### `requirements.txt`
-- **Definition:** Python package dependencies
-- **Importance:** Ensures all required libraries are installed
-- **Links to:** Every Python module in the project
+- **Definition:** Python package dependencies (flexible version ranges)
+- **Importance:** Development dependencies with minimum version requirements
+- **Links to:** Every Python module in the project, `requirements.lock`
+- **Phase 5.2:** Updated with dependency management workflow instructions
+
+#### `requirements.lock`
+- **Definition:** Locked Python dependencies (exact pinned versions)
+- **Importance:** Reproducible production builds with exact package versions
+- **Links to:** `requirements.txt`, `scripts/lock_dependencies.py`
+- **Phase 5.2:** Ensures consistent deployments across environments
 
 #### `make.py`
 - **Definition:** Command dispatcher for common operations
@@ -1015,6 +1022,7 @@ This is the **core of JARVIS** - containing all orchestration, agent, and busine
 #### `orchestrator.py`
 - **Definition:** The 3-loop multi-agent orchestrator (Manager → Supervisor → Employee)
 - **Importance:** Heart of the multi-agent system; coordinates all complex tasks
+- **Phase 6.1:** Implements plan confirmation - presents execution plan to user and waits for explicit approval before Employee agents begin work
 - **Links to:**
   - `llm.py` - For LLM calls
   - `prompts.py` - For prompt templates
@@ -1025,6 +1033,9 @@ This is the **core of JARVIS** - containing all orchestration, agent, and busine
   - `memory_store.py` - For persistent memory
   - `site_tools.py` - For file operations
   - `git_utils.py` - For Git integration
+- **Configuration:**
+  - `require_plan_confirmation` - Enable/disable plan confirmation (default: true)
+  - `auto_approve_plan` - Auto-approve plans in non-interactive mode
 
 #### `orchestrator_2loop.py`
 - **Definition:** Simplified 2-loop orchestrator (Manager → Employee direct)
@@ -1095,9 +1106,26 @@ This is the **core of JARVIS** - containing all orchestration, agent, and busine
 - **Links to:** External TTS APIs
 
 #### `jarvis_voice_chat.py`
-- **Definition:** Full voice conversation handler
-- **Importance:** Enables hands-free voice interaction
+- **Definition:** Full voice conversation handler with WebSocket support
+- **Importance:** Enables hands-free voice interaction with real-time feedback
+- **Phase 6.2:** Implements Optimistic UI - sends immediate acknowledgments ("Received...", "Transcribing...", "Thinking...") during LLM processing to prevent user confusion
 - **Links to:** `jarvis_voice.py`, `voice_api.py`, `jarvis_chat.py`
+- **Features:**
+  - `VoiceWebSocketHandler` - Real-time voice streaming over WebSocket
+  - Immediate acknowledgment messages during processing stages
+  - Session management with activity tracking
+
+#### `voice_api.py`
+- **Definition:** FastAPI router for voice interaction endpoints
+- **Importance:** REST and streaming API for voice features
+- **Phase 6.2:** Adds streaming voice chat endpoint (`/chat/stream`) with SSE-based Optimistic UI
+- **Links to:** `jarvis_voice_chat.py`, `jarvis_voice.py`
+- **Endpoints:**
+  - `POST /api/voice/speak` - Text-to-speech synthesis
+  - `POST /api/voice/listen` - Speech-to-text transcription
+  - `POST /api/voice/chat` - Full voice conversation turn
+  - `POST /api/voice/chat/stream` - **Phase 6.2:** Streaming voice chat with real-time acknowledgments
+  - `WebSocket /api/voice/stream` - Real-time voice streaming
 
 ### Agent Communication
 
@@ -2147,11 +2175,24 @@ Complete memory system.
   - `long_term.py`
 
 ### `vector_store.py`
-- **Definition:** Vector embedding storage (ChromaDB)
-- **Importance:** Semantic similarity search
+- **Definition:** Vector embedding storage (ChromaDB) with TTL support
+- **Importance:** Semantic similarity search with automatic memory expiration
+- **Phase 4.2:** Implements memory TTL and automatic expiration cleanup
 - **Links to:**
   - `context_retriever.py`
   - `long_term.py`
+- **Features:**
+  - ChromaDB vector storage with cosine similarity
+  - OpenAI embeddings (text-embedding-3-small)
+  - TTL-based memory expiration per memory type
+  - Automatic cleanup of expired memories during search
+  - LRU embedding cache with bounded size
+- **Default TTLs:**
+  - MEETING_SUMMARY: 90 days
+  - DECISION: 180 days
+  - ACTION_ITEM: 30 days
+  - PREFERENCE: permanent (no expiration)
+  - OBSERVATION: 7 days
 
 ---
 
@@ -2323,11 +2364,24 @@ Task scheduling.
 
 ## Directory: `/agent/security/`
 
-Security modules.
+Security modules implementing defense-in-depth protection.
 
 ### `__init__.py`
-- **Definition:** Package initializer
+- **Definition:** Package initializer exporting all security components
 - **Links to:** All security modules
+- **Exports:** AuthManager, RateLimiter, AuditLogger, NetworkSecurityValidator, ApprovalManager, DockerSandbox, SecretsManager
+
+### `approval.py`
+- **Definition:** Human-in-the-loop (HITL) approval system
+- **Importance:** Requires explicit human approval for high-risk operations
+- **Phase 1.3:** Implements risk-based approval workflows
+- **Links to:**
+  - `orchestrator.py` - Approval checkpoints
+  - `webapp/approvals.html` - Approval UI
+- **Features:**
+  - Risk level classification (LOW, MEDIUM, HIGH, CRITICAL)
+  - Async approval with timeout
+  - Approval audit trail
 
 ### `audit_log.py`
 - **Definition:** Security audit logging
@@ -2337,18 +2391,61 @@ Security modules.
   - `webapp/auth.py`
 
 ### `auth.py`
-- **Definition:** Authentication system
-- **Importance:** User identity verification
+- **Definition:** Authentication system with API keys, OAuth 2.0, RBAC
+- **Importance:** User identity verification and authorization
 - **Links to:**
   - `webapp/auth.py`
   - `api_keys.py`
 
+### `network.py`
+- **Definition:** Network security with SSRF protection and egress filtering
+- **Importance:** Prevents server-side request forgery attacks
+- **Phase 1.2:** Implements URL validation and IP blocking
+- **Links to:**
+  - `actions/api_client.py` - URL validation before requests
+  - `jarvis_tools.py` - Web fetch safety
+- **Features:**
+  - Blocked IP ranges (private networks, localhost, link-local)
+  - URL scheme validation (http/https only)
+  - DNS rebinding protection
+
 ### `rate_limit.py`
-- **Definition:** Rate limiting
-- **Importance:** Prevent abuse
+- **Definition:** Token bucket rate limiting
+- **Importance:** Prevent API abuse and runaway costs
 - **Links to:**
   - `webapp/app.py`
   - `actions/rate_limiter.py`
+
+### `sandbox_docker.py`
+- **Definition:** Docker-based isolated code execution
+- **Importance:** Safe execution of untrusted code
+- **Phase 1.1:** Implements sandboxed code runner
+- **Links to:**
+  - `actions/code_executor.py` - Code execution
+  - `jarvis_tools.py` - Tool sandboxing
+- **Features:**
+  - Language support (Python, JavaScript, Bash)
+  - Resource limits (CPU, memory, time)
+  - Network isolation
+  - Filesystem isolation
+
+### `secrets.py`
+- **Definition:** Multi-backend secrets management
+- **Importance:** Secure storage and retrieval of sensitive credentials
+- **Phase 4.1:** Implements enterprise secrets management
+- **Links to:**
+  - All modules requiring API keys or credentials
+  - `.env` files (fallback)
+- **Backends:**
+  - HashiCorp Vault
+  - AWS Secrets Manager
+  - Azure Key Vault
+  - Environment variables (fallback)
+  - File-based (development only)
+- **Features:**
+  - Secret caching with TTL
+  - Automatic backend detection
+  - Secret rotation support
 
 ---
 
@@ -2705,6 +2802,22 @@ Developer tools.
 - **Definition:** View logs in browser
 - **Importance:** Log visualization
 - **Links to:** `run_logs/`
+
+---
+
+## Directory: `/scripts/`
+
+Utility scripts for dependency management and build tooling.
+
+### `lock_dependencies.py`
+- **Definition:** Dependency locking script for reproducible builds
+- **Importance:** Generates `requirements.lock` from installed packages
+- **Links to:** `requirements.txt`, `requirements.lock`
+- **Phase 5.2:** Ensures reproducible production deployments
+- **Usage:**
+  - `python scripts/lock_dependencies.py` - Generate lockfile
+  - `python scripts/lock_dependencies.py --check` - Verify lockfile is current
+  - `python scripts/lock_dependencies.py --install` - Install from lockfile
 
 ---
 

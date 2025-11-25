@@ -118,7 +118,7 @@ A multi-agent AI orchestrator system for building web projects autonomously. Thi
 
 ### Direct Execution Mode (Phase 7B.2) ⚡
 - **Fast path execution**: JARVIS executes simple tasks immediately without multi-agent review ✨
-- **7 action types**: query_database, search_info, create_document, send_message, calculate, api_call, file_read ✨
+- **7 action types**: query_database, search_info, create_document, send_message, calculate, api_call, read ✨
 - **Safety-first design**: Only whitelisted actions, read-only by default ✨
 - **Database safety**: Blocks UPDATE, DELETE, INSERT, DROP, ALTER, CREATE - allows SELECT only ✨
 - **API safety**: Blocks POST, PUT, PATCH, DELETE - allows GET and HEAD only ✨

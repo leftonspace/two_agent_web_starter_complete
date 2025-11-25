@@ -914,10 +914,11 @@ JARVIS_ARCHITECTURE.md (This File)
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 2.1.0 | 2024-11-24 | Added Claude Code-like tools, autonomous agent, session isolation |
-| 2.0.0 | 2024-10 | Memory system, adaptive profiles, YAML config |
-| 1.2.0 | 2024-09 | Multi-agent orchestrator, 3-loop pattern |
-| 1.0.0 | 2024-08 | Initial release |
+| 2.1.1 | 2025-11-25 | Phase 8 audit cleanup, documentation updates, dependency fixes |
+| 2.1.0 | 2025-11-24 | Added Claude Code-like tools, autonomous agent, session isolation |
+| 2.0.0 | 2025-10 | Memory system, adaptive profiles, YAML config |
+| 1.2.0 | 2025-09 | Multi-agent orchestrator, 3-loop pattern |
+| 1.0.0 | 2025-08 | Initial release |
 
 ---
 

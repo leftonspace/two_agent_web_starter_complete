@@ -1,8 +1,11 @@
 # JARVIS Comprehensive Code Audit Report
 
 **Date**: 2025-11-24
+**Last Updated**: 2025-11-25
 **Version Audited**: JARVIS 2.1 (with Competitive Council + Graveyard)
 **Audit Scope**: Full codebase audit for inconsistencies, typos, incomplete work, and obsolete code
+
+> **Phase 8 Update (2025-11-25)**: Several issues identified in this report have been addressed in the Phase 8 root-level audit. See status markers below.
 
 ---
 
@@ -66,11 +69,11 @@
 
 ## EXECUTIVE SUMMARY
 
-| Severity | Count | Description |
-|----------|-------|-------------|
-| **CRITICAL** | 12 | Code will crash or produce incorrect results |
-| **MAJOR** | 32 | Significant bugs, missing functionality, or data loss |
-| **MINOR** | 45+ | Code quality, unused imports, inconsistencies |
+| Severity | Count | Description | Status (2025-11-25) |
+|----------|-------|-------------|---------------------|
+| **CRITICAL** | 12 | Code will crash or produce incorrect results | 1 Fixed (gpt-5 models), 11 Remaining |
+| **MAJOR** | 32 | Significant bugs, missing functionality, or data loss | 6 Fixed (gpt-5 references), 26 Remaining |
+| **MINOR** | 45+ | Code quality, unused imports, inconsistencies | In Progress |
 
 ### Top Issues by Impact
 
@@ -84,9 +87,10 @@
 
 ## CRITICAL ISSUES (12)
 
-### 1. Fictional Model Names Throughout Codebase
+### 1. ✅ FIXED: Fictional Model Names Throughout Codebase
 **Files**: 26 Python files, 50+ documentation files
 **Severity**: CRITICAL (NOW FIXED)
+**Status**: ✅ **RESOLVED** (2025-11-24)
 **Description**: References to `gpt-5`, `gpt-5-mini`, `gpt-5-nano` have been replaced with real models (`gpt-4o`, `gpt-4o-mini`).
 
 **Fix Applied**: All instances replaced with real OpenAI models
@@ -290,16 +294,17 @@ self.councillors.extend(actions["new_councillors"])  # ADD THIS
 
 ### Old Tool Names Still Referenced
 **Files**: `README.md`, `JARVIS_2_0_ROADMAP.md`, `docs/CONFIGURATION_QUICK_REFERENCE.md`, `docs/INSTALLATION.md`
+**Status**: ✅ **PARTIALLY RESOLVED** (2025-11-25) - README.md updated
 
 Old tool names that should be replaced:
-- `file_read` → `read`
+- `file_read` → `read` ✅ Fixed in README.md
 - `file_write` → `write`
 - `code_execute` → `bash`
 - `git_operations` → `bash` (git commands via bash)
 - `api_call` → `web_fetch`
 
 **Locations**:
-- `README.md:121` - Lists old action types
+- ~~`README.md:121` - Lists old action types~~ ✅ Fixed
 - `JARVIS_2_0_ROADMAP.md:2508-2510` - Lists `file_read`, `file_write`, `code_execute`
 - `docs/CONFIGURATION_QUICK_REFERENCE.md:115` - `git_operations`
 - `docs/INSTALLATION.md:256` - `git_operations`

@@ -51,22 +51,50 @@ The new tool names are part of Claude Code's standard toolkit and are used throu
 
 ## Usage Examples
 
-### Before (Old Names)
-```python
-# Old tool names (deprecated)
-file_read("example.py")
-file_write("output.txt", content)
-file_edit("config.py", old_str, new_str)
-execute_command("ls -la")
+The new tool names are used by the AI assistant within tool calls (not as Python functions).
+
+### Claude Code Tool Call Format
+
+When JARVIS or Claude Code uses tools, they appear in the conversation as structured tool calls:
+
+```
+# Reading a file
+Tool: Read
+Parameters: {"file_path": "/path/to/example.py"}
+
+# Writing a file
+Tool: Write
+Parameters: {"file_path": "/path/to/output.txt", "content": "file content here"}
+
+# Editing a file
+Tool: Edit
+Parameters: {"file_path": "/path/to/config.py", "old_string": "old text", "new_string": "new text"}
+
+# Executing a command
+Tool: Bash
+Parameters: {"command": "ls -la"}
 ```
 
-### After (New Names)
+### Python Code (Agent Internals)
+
+Within JARVIS agent code, tools are accessed through the tools registry:
+
 ```python
-# New standardized tool names
-Read("example.py")
-Write("output.txt", content)
-Edit("config.py", old_str, new_str)
-Bash("ls -la")
+from agent.jarvis_tools import JarvisTools
+
+tools = JarvisTools(workspace="/path/to/workspace")
+
+# Read file
+content = await tools.read("/path/to/file.py")
+
+# Write file
+await tools.write("/path/to/output.txt", "content here")
+
+# Edit file
+await tools.edit("/path/to/config.py", "old_text", "new_text")
+
+# Execute command
+result = await tools.bash("ls -la", timeout=30)
 ```
 
 ## References

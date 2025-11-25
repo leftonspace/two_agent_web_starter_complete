@@ -1,10 +1,11 @@
 # THE JARVIS BIBLE
 ## Complete System Reference & Architecture Documentation
 
-> **Version:** 2.1.0
-> **Last Updated:** 2025-11-24
+> **Version:** 2.2.0
+> **Last Updated:** 2025-11-25
 > **Total Files:** 400+
 > **Total Lines of Code:** 150,000+
+> **Hardening Phase:** 6 (Human UX) Complete
 
 ---
 
@@ -31,6 +32,8 @@ JARVIS operates on these principles:
 4. **Safety First** - Multiple layers of validation before any risky action
 5. **Transparent Operations** - All actions are logged and auditable
 6. **Self-Improvement** - Continuously optimizes based on performance data
+7. **Human-First UX** - Presents plans for confirmation, provides immediate feedback (Phase 6)
+8. **Secure by Default** - Multi-backend secrets management, TTL-based memory expiration (Phase 4)
 
 ## 1.3 Project Structure
 
@@ -330,9 +333,13 @@ two_agent_web_starter_complete/
 │   │   └── cron.py                        # Cron scheduler
 │   ├── security/                          # Security modules
 │   │   ├── __init__.py
+│   │   ├── approval.py                    # Human-in-the-loop approvals (Phase 1.3)
 │   │   ├── audit_log.py                   # Security audit log
 │   │   ├── auth.py                        # Authentication
-│   │   └── rate_limit.py                  # Rate limiting
+│   │   ├── network.py                     # SSRF protection & egress filtering (Phase 1.2)
+│   │   ├── rate_limit.py                  # Rate limiting
+│   │   ├── sandbox_docker.py              # Docker-based sandbox execution (Phase 1.1)
+│   │   └── secrets.py                     # Multi-backend secrets management (Phase 4.1)
 │   ├── self_eval.py                       # Self-evaluation
 │   ├── self_refinement.py                 # Self-refinement
 │   ├── site_tools.py                      # Site management tools
@@ -703,7 +710,10 @@ two_agent_web_starter_complete/
 ├── POSTGRESQL_MIGRATION_GUIDE.md          # PostgreSQL migration
 ├── README.md                              # This file
 ├── README.txt                             # Text readme
-├── requirements.txt                       # Python dependencies
+├── requirements.txt                       # Python dependencies (flexible versions)
+├── requirements.lock                      # Locked dependencies (Phase 5.2)
+├── scripts/                               # Utility scripts
+│   └── lock_dependencies.py               # Dependency locking script (Phase 5.2)
 ├── site_tools.py                          # Site tools (root)
 ├── start_webapp.py                        # Webapp starter
 ├── TEMPORAL_INTEGRATION_GUIDE.md          # Temporal integration
@@ -858,8 +868,13 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Authentication** | User identity verification | `security/auth.py` |
 | **Execution Safety** | Validate before execute | `exec_safety.py` |
 | **Static Analysis** | Code vulnerability scanning | `static_analysis.py` |
+| **Secrets Management** | Multi-backend secrets (Vault, AWS, Azure) | `security/secrets.py` |
+| **Plan Confirmation** | Present plan and wait for user approval | `orchestrator.py` |
+| **Memory TTL** | Automatic expiration of sensitive memories | `memory/vector_store.py` |
+| **Network Security** | SSRF protection and egress filtering | `security/network.py` |
+| **Docker Sandbox** | Isolated code execution environment | `security/sandbox_docker.py` |
 
-> *"With great capability comes great responsibility, sir—a lesson Mr. Stark learned rather dramatically on several occasions. I take security with the utmost seriousness. Every action I contemplate is first evaluated for safety: Could this command harm the system? Is this code attempting to exfiltrate data? Has someone attempted to manipulate me through prompt injection? I maintain a comprehensive audit log of every action taken—who requested it, when, and what the outcome was. For particularly sensitive operations, I require explicit human approval through structured workflows. I scan your git repositories for accidentally committed secrets, analyze code for vulnerabilities before execution, and rate-limit API calls to prevent both abuse and accidental runaway costs. The approval engine ensures that even if someone gains access to the system, they cannot authorize significant actions without proper credentials. I am, sir, both sword and shield—capable of tremendous action, but governed by equally tremendous restraint."*
+> *"With great capability comes great responsibility, sir—a lesson Mr. Stark learned rather dramatically on several occasions. I take security with the utmost seriousness. Every action I contemplate is first evaluated for safety: Could this command harm the system? Is this code attempting to exfiltrate data? Has someone attempted to manipulate me through prompt injection? I maintain a comprehensive audit log of every action taken—who requested it, when, and what the outcome was. For particularly sensitive operations, I require explicit human approval through structured workflows—and since Phase 6, I present my execution plan for your confirmation before Employee agents begin working. You'll see precisely what I intend to do and may approve, reject, or request details. The secrets management system supports multiple backends—HashiCorp Vault, AWS Secrets Manager, Azure Key Vault—ensuring your credentials are never stored in plain text. My memories now have TTL expiration, automatically cleaning up sensitive observations after appropriate periods. I scan your git repositories for accidentally committed secrets, execute code in Docker sandboxes, and validate all URLs against SSRF attacks. I am, sir, both sword and shield—capable of tremendous action, but governed by equally tremendous restraint."*
 
 ---
 
@@ -873,8 +888,10 @@ Administration - Calendar, email, workflows, monitoring, analytics, self-optimiz
 | **Text-to-Speech** | Voice output (ElevenLabs/OpenAI) | `jarvis_voice.py` |
 | **Speech-to-Text** | Voice input recognition | `voice_api.py` |
 | **Voice Chat** | Full voice conversations | `jarvis_voice_chat.py` |
+| **Optimistic UI** | Immediate "Thinking..." feedback during LLM processing | `voice_api.py`, `jarvis_voice_chat.py` |
+| **Streaming Voice Chat** | SSE-based real-time voice response stream | `voice_api.py` |
 
-> *"I have eyes, sir, and I have a voice—though I daresay they're rather more sophisticated than the biological variety. Show me a screenshot of an error message, and I'll not only read it but diagnose the problem. Share an image of a whiteboard from your brainstorming session, and I'll extract the text, organize the ideas, and create actionable tasks. My vision capabilities extend to scene understanding—I can describe what I see, identify objects, and even read handwritten notes with reasonable accuracy. As for voice, well, I've been told my British accent is rather pleasant. Through ElevenLabs, I can speak with a refined, natural voice that doesn't have that dreadful robotic quality. We can converse entirely through speech if you prefer—you speak, I listen, I respond, you hear. It's remarkably like having a conversation with an actual assistant, except I don't require tea breaks. Mr. Stark often preferred voice interaction whilst working in the lab; it kept his hands free for more important matters."*
+> *"I have eyes, sir, and I have a voice—though I daresay they're rather more sophisticated than the biological variety. Show me a screenshot of an error message, and I'll not only read it but diagnose the problem. Share an image of a whiteboard from your brainstorming session, and I'll extract the text, organize the ideas, and create actionable tasks. My vision capabilities extend to scene understanding—I can describe what I see, identify objects, and even read handwritten notes with reasonable accuracy. As for voice, well, I've been told my British accent is rather pleasant. Through ElevenLabs, I can speak with a refined, natural voice that doesn't have that dreadful robotic quality. We can converse entirely through speech if you prefer—you speak, I listen, I respond, you hear. What's particularly clever, sir, is my Optimistic UI system—the moment you finish speaking, I acknowledge with 'One moment, sir...' or 'Thinking...' This prevents that awkward silence where one wonders if the system has crashed. You'll know immediately that I've heard you and am formulating a proper response. The streaming voice chat provides real-time feedback throughout the entire process: received, transcribing, thinking, responding. It's remarkably like having a conversation with an actual assistant, except I don't require tea breaks. Mr. Stark often preferred voice interaction whilst working in the lab; it kept his hands free for more important matters."*
 
 ---
 

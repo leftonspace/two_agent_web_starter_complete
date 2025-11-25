@@ -50,16 +50,27 @@ Complete installation guide for JARVIS 2.0 - the AI Agent Orchestration Platform
 git clone https://github.com/your-org/jarvis.git
 cd jarvis
 
-# Run automated setup
-./scripts/install.sh
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-nano .env  # Add your API keys
+nano .env  # Add your API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
+
+# Create required directories
+mkdir -p config data logs artifacts
 
 # Start JARVIS
-python -m agent.webapp.app
+python start_webapp.py
+# Or: cd agent/webapp && python app.py
 ```
+
+> **Note**: For detailed step-by-step instructions, see [Detailed Installation](#detailed-installation) below.
 
 ---
 

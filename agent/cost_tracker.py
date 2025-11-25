@@ -1,18 +1,29 @@
 # cost_tracker.py
 """
 PHASE 1.7: Integrated with ModelRegistry for dynamic pricing.
+PHASE 2.1 HARDENING: Kill Switch Middleware with hard budget enforcement.
 
 Cost tracking now queries models.json for up-to-date pricing information
 instead of relying on hard-coded prices.
+
+Kill Switch Features:
+- BudgetExceededException raised when budget is exceeded
+- enforce_budget() function for mandatory budget checks
+- @budget_guard decorator for wrapping LLM calls
+- Configurable hard limits per task/session
 """
 
 from __future__ import annotations
 
+import functools
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
+
+from agent.core_logging import log_event
 
 # PHASE 1.7: Import model registry for dynamic pricing
 try:
@@ -355,3 +366,275 @@ def append_history(
         history = load_history()
         history.append(record)
         save_history(history)
+
+
+# ============================================================================
+# PHASE 2.1: Kill Switch Middleware - Hard Budget Enforcement
+# ============================================================================
+
+# Type variable for generic decorator
+F = TypeVar("F", bound=Callable[..., Any])
+
+# Default budget limits (can be overridden via environment variables)
+DEFAULT_TASK_BUDGET_USD = float(os.getenv("JARVIS_TASK_BUDGET_USD", "5.00"))
+DEFAULT_SESSION_BUDGET_USD = float(os.getenv("JARVIS_SESSION_BUDGET_USD", "50.00"))
+
+
+class BudgetExceededException(Exception):
+    """
+    Raised when a budget limit is exceeded.
+
+    This is a hard stop - execution must halt to prevent runaway costs.
+    """
+
+    def __init__(
+        self,
+        current_cost: float,
+        budget_limit: float,
+        budget_type: str = "task",
+        message: Optional[str] = None,
+    ):
+        self.current_cost = current_cost
+        self.budget_limit = budget_limit
+        self.budget_type = budget_type
+
+        if message is None:
+            message = (
+                f"BUDGET EXCEEDED: {budget_type} budget of ${budget_limit:.4f} exceeded. "
+                f"Current cost: ${current_cost:.4f}. "
+                f"JARVIS has been severed from the API. Manual override required."
+            )
+
+        super().__init__(message)
+
+        # Log the budget breach
+        log_event("budget_exceeded", {
+            "current_cost": current_cost,
+            "budget_limit": budget_limit,
+            "budget_type": budget_type,
+            "overage": current_cost - budget_limit,
+        })
+
+
+@dataclass
+class BudgetConfig:
+    """Configuration for budget enforcement."""
+    task_budget_usd: float = DEFAULT_TASK_BUDGET_USD
+    session_budget_usd: float = DEFAULT_SESSION_BUDGET_USD
+    warn_at_percent: float = 80.0  # Warn when 80% of budget used
+    enabled: bool = True
+
+
+# Global budget configuration
+_budget_config = BudgetConfig()
+
+
+def configure_budget(
+    task_budget_usd: Optional[float] = None,
+    session_budget_usd: Optional[float] = None,
+    warn_at_percent: Optional[float] = None,
+    enabled: Optional[bool] = None,
+) -> None:
+    """
+    Configure budget limits.
+
+    Args:
+        task_budget_usd: Maximum cost per task (default $5.00)
+        session_budget_usd: Maximum cost per session (default $50.00)
+        warn_at_percent: Percentage at which to warn (default 80%)
+        enabled: Enable/disable budget enforcement
+    """
+    global _budget_config
+
+    if task_budget_usd is not None:
+        _budget_config.task_budget_usd = task_budget_usd
+    if session_budget_usd is not None:
+        _budget_config.session_budget_usd = session_budget_usd
+    if warn_at_percent is not None:
+        _budget_config.warn_at_percent = warn_at_percent
+    if enabled is not None:
+        _budget_config.enabled = enabled
+
+    log_event("budget_configured", {
+        "task_budget_usd": _budget_config.task_budget_usd,
+        "session_budget_usd": _budget_config.session_budget_usd,
+        "warn_at_percent": _budget_config.warn_at_percent,
+        "enabled": _budget_config.enabled,
+    })
+
+
+def get_budget_config() -> BudgetConfig:
+    """Get current budget configuration."""
+    return _budget_config
+
+
+def enforce_budget(
+    budget_limit: Optional[float] = None,
+    budget_type: str = "task",
+    estimated_next_cost: float = 0.0,
+) -> None:
+    """
+    Enforce budget limit - raises BudgetExceededException if exceeded.
+
+    This is the HARD STOP middleware. Call this before every LLM request.
+
+    Args:
+        budget_limit: Budget limit in USD (default from config)
+        budget_type: Type of budget ("task" or "session")
+        estimated_next_cost: Estimated cost of next call (for proactive blocking)
+
+    Raises:
+        BudgetExceededException: If budget would be exceeded
+    """
+    if not _budget_config.enabled:
+        return
+
+    # Get appropriate budget limit
+    if budget_limit is None:
+        if budget_type == "session":
+            budget_limit = _budget_config.session_budget_usd
+        else:
+            budget_limit = _budget_config.task_budget_usd
+
+    # Skip if no limit configured
+    if budget_limit <= 0:
+        return
+
+    current_cost = get_total_cost_usd()
+    projected_cost = current_cost + estimated_next_cost
+
+    # Check if we've already exceeded
+    if current_cost >= budget_limit:
+        raise BudgetExceededException(
+            current_cost=current_cost,
+            budget_limit=budget_limit,
+            budget_type=budget_type,
+        )
+
+    # Check if next call would exceed (proactive blocking)
+    if projected_cost > budget_limit:
+        raise BudgetExceededException(
+            current_cost=current_cost,
+            budget_limit=budget_limit,
+            budget_type=budget_type,
+            message=(
+                f"BUDGET WOULD BE EXCEEDED: Next call (est. ${estimated_next_cost:.4f}) "
+                f"would push {budget_type} cost to ${projected_cost:.4f}, "
+                f"exceeding limit of ${budget_limit:.4f}. "
+                f"Current cost: ${current_cost:.4f}. Blocking preemptively."
+            ),
+        )
+
+    # Warn if approaching limit
+    usage_percent = (current_cost / budget_limit) * 100
+    if usage_percent >= _budget_config.warn_at_percent:
+        remaining = budget_limit - current_cost
+        log_event("budget_warning", {
+            "current_cost": current_cost,
+            "budget_limit": budget_limit,
+            "budget_type": budget_type,
+            "usage_percent": usage_percent,
+            "remaining": remaining,
+        })
+        print(
+            f"[CostTracker] WARNING: {usage_percent:.1f}% of {budget_type} budget used. "
+            f"Remaining: ${remaining:.4f}"
+        )
+
+
+def budget_guard(
+    budget_limit: Optional[float] = None,
+    budget_type: str = "task",
+    estimated_tokens: int = 5000,
+    model: str = "gpt-4o-mini",
+) -> Callable[[F], F]:
+    """
+    Decorator to enforce budget before executing a function.
+
+    Use this to wrap LLM call functions to automatically enforce budget.
+
+    Args:
+        budget_limit: Budget limit in USD (default from config)
+        budget_type: Type of budget ("task" or "session")
+        estimated_tokens: Estimated tokens for cost calculation
+        model: Model for cost estimation
+
+    Returns:
+        Decorated function
+
+    Example:
+        @budget_guard(budget_limit=5.00)
+        async def call_llm(prompt: str) -> str:
+            ...
+
+        @budget_guard(budget_type="session")
+        def expensive_operation():
+            ...
+    """
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Estimate cost of this call
+            price_cfg = _get_pricing_fallback(model)
+            estimated_cost = estimated_tokens * price_cfg["output"]
+
+            # Enforce budget (will raise if exceeded)
+            enforce_budget(
+                budget_limit=budget_limit,
+                budget_type=budget_type,
+                estimated_next_cost=estimated_cost,
+            )
+
+            return func(*args, **kwargs)
+
+        @functools.wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Estimate cost of this call
+            price_cfg = _get_pricing_fallback(model)
+            estimated_cost = estimated_tokens * price_cfg["output"]
+
+            # Enforce budget (will raise if exceeded)
+            enforce_budget(
+                budget_limit=budget_limit,
+                budget_type=budget_type,
+                estimated_next_cost=estimated_cost,
+            )
+
+            return await func(*args, **kwargs)
+
+        # Return appropriate wrapper based on function type
+        import asyncio
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper  # type: ignore
+        return sync_wrapper  # type: ignore
+
+    return decorator
+
+
+def get_budget_status() -> Dict[str, Any]:
+    """
+    Get current budget status.
+
+    Returns:
+        Dict with current cost, limits, and usage percentages
+    """
+    current_cost = get_total_cost_usd()
+    task_limit = _budget_config.task_budget_usd
+    session_limit = _budget_config.session_budget_usd
+
+    return {
+        "current_cost_usd": current_cost,
+        "task_budget": {
+            "limit_usd": task_limit,
+            "remaining_usd": max(0, task_limit - current_cost),
+            "usage_percent": (current_cost / task_limit * 100) if task_limit > 0 else 0,
+            "exceeded": current_cost >= task_limit if task_limit > 0 else False,
+        },
+        "session_budget": {
+            "limit_usd": session_limit,
+            "remaining_usd": max(0, session_limit - current_cost),
+            "usage_percent": (current_cost / session_limit * 100) if session_limit > 0 else 0,
+            "exceeded": current_cost >= session_limit if session_limit > 0 else False,
+        },
+        "enforcement_enabled": _budget_config.enabled,
+    }

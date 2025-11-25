@@ -4,10 +4,13 @@ Universal API client with authentication and retry logic.
 PHASE 8.2: Robust HTTP client for external API integration with auth,
 rate limiting, and exponential backoff retry.
 
+PHASE 1.2 HARDENING: SSRF protection with blocked IP ranges.
+
 Features connection pooling for improved performance:
 - Shared connection pool reduces connection overhead
 - Configurable connection limits prevent resource exhaustion
 - Keep-alive connections for repeated requests to same host
+- SSRF protection (blocks private IPs, cloud metadata endpoints)
 """
 
 import asyncio
@@ -20,6 +23,18 @@ import threading
 
 from agent.actions.rate_limiter import RateLimiter
 from agent.core_logging import log_event
+
+# Phase 1.2: SSRF Protection
+try:
+    from agent.security.network import (
+        NetworkSecurityValidator,
+        SSRFError,
+        validate_url_or_raise,
+    )
+    SSRF_PROTECTION_AVAILABLE = True
+except ImportError:
+    SSRF_PROTECTION_AVAILABLE = False
+    SSRFError = Exception  # Fallback
 
 
 # Global shared HTTP client pool for connection reuse
@@ -119,7 +134,8 @@ class APIClient:
         rate_limit: float = 10.0,
         max_retries: int = 3,
         timeout: float = 30.0,
-        use_shared_pool: bool = True
+        use_shared_pool: bool = True,
+        ssrf_protection: bool = True,
     ):
         """
         Initialize API client.
@@ -131,12 +147,20 @@ class APIClient:
             max_retries: Maximum retry attempts (default 3)
             timeout: Request timeout in seconds (default 30)
             use_shared_pool: Use shared connection pool (default True, recommended)
+            ssrf_protection: Enable SSRF protection (default True, blocks private IPs)
         """
         self.base_url = base_url.rstrip("/")
         self.auth_config = auth_config or {"type": "none"}
         self.max_retries = max_retries
         self.timeout = timeout
         self.use_shared_pool = use_shared_pool
+        self.ssrf_protection = ssrf_protection and SSRF_PROTECTION_AVAILABLE
+
+        # Phase 1.2: Initialize SSRF validator
+        if self.ssrf_protection:
+            self._ssrf_validator = NetworkSecurityValidator()
+        else:
+            self._ssrf_validator = None
 
         # Setup HTTP client - use shared pool for connection reuse
         if use_shared_pool:
@@ -374,6 +398,17 @@ class APIClient:
         """
         # Build full URL
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
+
+        # Phase 1.2: SSRF Protection - validate URL before making request
+        if self._ssrf_validator:
+            is_safe, reason = self._ssrf_validator.validate_url(url)
+            if not is_safe:
+                log_event("api_request_ssrf_blocked", {
+                    "method": method,
+                    "url": url[:200],
+                    "reason": reason,
+                })
+                raise SSRFError(f"SSRF protection blocked request to {url}: {reason}")
 
         # Merge headers
         headers = {**self._auth_headers}

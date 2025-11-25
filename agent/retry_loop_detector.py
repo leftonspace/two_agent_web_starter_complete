@@ -1,5 +1,6 @@
 """
 PHASE 4.3: Infinite Loop Prevention (R1)
+PHASE 2.2 HARDENING: Hallucination Spiral Detection
 
 Detects consecutive identical retry feedback to prevent infinite loops
 where Manager always returns "retry" with same feedback.
@@ -8,6 +9,11 @@ Circuit Breaker Logic:
 - Track last N retry feedback messages
 - If Manager returns "retry" with identical feedback 2+ times consecutively,
   force escalation to Overseer or abort with detailed error
+
+Hallucination Spiral Detection (Phase 2.2):
+- Detects patterns like "I apologize...", "Let me try again...", etc.
+- Triggers when agent produces apologetic/retry messages 4+ times sequentially
+- Indicates LLM is stuck and unable to make progress
 
 Integration with Checkpoint System:
 - Retry count and feedback hash stored in checkpoint
@@ -26,13 +32,20 @@ Usage:
     if should_abort:
         print(f"Aborting: {reason}")
         # Escalate to Overseer or abort run
+
+    # Check for hallucination spiral
+    spiral_detector = HallucinationSpiralDetector()
+    is_spiral, reason = spiral_detector.check_response("I apologize, let me try again...")
 """
 
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
+
+from agent.core_logging import log_event
 
 
 @dataclass
@@ -260,3 +273,264 @@ def check_for_retry_loop(
         state["consecutive_retry_count"],
         state["last_retry_feedback_hash"],
     )
+
+
+# ============================================================================
+# PHASE 2.2: Hallucination Spiral Detection
+# ============================================================================
+
+# Patterns that indicate the LLM is in a hallucination spiral
+HALLUCINATION_PATTERNS: List[str] = [
+    # Apology patterns
+    r"(?i)i\s+apologize",
+    r"(?i)i'm\s+sorry",
+    r"(?i)my\s+apologies",
+    r"(?i)sorry\s+for\s+the\s+confusion",
+    r"(?i)sorry\s+about\s+that",
+
+    # Retry patterns
+    r"(?i)let\s+me\s+try\s+again",
+    r"(?i)i'll\s+try\s+again",
+    r"(?i)let\s+me\s+attempt",
+    r"(?i)i'll\s+attempt\s+again",
+    r"(?i)let\s+me\s+redo",
+    r"(?i)i'll\s+redo",
+
+    # Confusion/stuck patterns
+    r"(?i)i\s+seem\s+to\s+be\s+having\s+trouble",
+    r"(?i)i'm\s+having\s+difficulty",
+    r"(?i)i'm\s+unable\s+to",
+    r"(?i)i\s+cannot\s+seem\s+to",
+    r"(?i)this\s+is\s+proving\s+difficult",
+
+    # Acknowledgment of failure patterns
+    r"(?i)that\s+didn't\s+work",
+    r"(?i)that\s+approach\s+failed",
+    r"(?i)my\s+previous\s+attempt",
+    r"(?i)the\s+previous\s+solution",
+
+    # Repetitive uncertainty
+    r"(?i)i'm\s+not\s+sure\s+(?:why|what|how)",
+    r"(?i)i\s+don't\s+understand\s+why",
+]
+
+
+@dataclass
+class SpiralHistory:
+    """History of potential hallucination spiral messages."""
+    consecutive_spiral_count: int = 0
+    recent_messages: List[str] = field(default_factory=list)
+    pattern_matches: List[str] = field(default_factory=list)
+
+
+class HallucinationSpiralDetector:
+    """
+    Detects when an LLM is in a hallucination spiral.
+
+    PHASE 2.2: A hallucination spiral occurs when the LLM repeatedly produces
+    apologetic or retry messages without making actual progress. This is a sign
+    that the LLM is stuck and the task should be aborted or escalated.
+
+    Patterns detected:
+    - "I apologize...", "I'm sorry...", "My apologies..."
+    - "Let me try again...", "I'll attempt again..."
+    - "I seem to be having trouble...", "I'm unable to..."
+    - "That didn't work...", "My previous attempt..."
+
+    Trigger: 4+ consecutive messages matching these patterns.
+    """
+
+    def __init__(
+        self,
+        max_consecutive_spirals: int = 4,
+        custom_patterns: Optional[List[str]] = None,
+    ):
+        """
+        Initialize hallucination spiral detector.
+
+        Args:
+            max_consecutive_spirals: Max consecutive spiral messages before abort (default: 4)
+            custom_patterns: Additional regex patterns to detect
+        """
+        self.max_consecutive_spirals = max_consecutive_spirals
+        self.history = SpiralHistory()
+
+        # Compile patterns for efficiency
+        self._patterns = HALLUCINATION_PATTERNS.copy()
+        if custom_patterns:
+            self._patterns.extend(custom_patterns)
+
+        self._compiled_patterns = [re.compile(p) for p in self._patterns]
+
+    def check_response(self, response: str) -> Tuple[bool, Optional[str]]:
+        """
+        Check if a response indicates a hallucination spiral.
+
+        Args:
+            response: The LLM response text to check
+
+        Returns:
+            Tuple of (is_spiral, reason)
+            - is_spiral: True if spiral detected and should abort
+            - reason: Human-readable explanation if spiral detected
+        """
+        if not response:
+            return (False, None)
+
+        # Check first 500 chars (spiral indicators are usually at the start)
+        check_text = response[:500]
+
+        # Find matching patterns
+        matches = []
+        for pattern in self._compiled_patterns:
+            if pattern.search(check_text):
+                matches.append(pattern.pattern)
+
+        if matches:
+            # This response matches spiral patterns
+            self.history.consecutive_spiral_count += 1
+            self.history.recent_messages.append(check_text[:100])
+            self.history.pattern_matches.extend(matches)
+
+            log_event("hallucination_spiral_match", {
+                "consecutive_count": self.history.consecutive_spiral_count,
+                "patterns_matched": matches[:3],  # Limit logged patterns
+                "response_preview": check_text[:100],
+            })
+
+            print(
+                f"[SpiralDetector] Spiral pattern detected "
+                f"(count: {self.history.consecutive_spiral_count}/{self.max_consecutive_spirals})"
+            )
+
+            # Check if we've hit the threshold
+            if self.history.consecutive_spiral_count >= self.max_consecutive_spirals:
+                reason = (
+                    f"Hallucination spiral detected: LLM produced {self.history.consecutive_spiral_count} "
+                    f"consecutive apologetic/retry messages. "
+                    f"Patterns: {', '.join(set(self.history.pattern_matches[-5:]))}. "
+                    f"This indicates the LLM is stuck and unable to make progress. "
+                    f"Aborting to prevent infinite loop and wasted tokens."
+                )
+
+                log_event("hallucination_spiral_abort", {
+                    "consecutive_count": self.history.consecutive_spiral_count,
+                    "unique_patterns": list(set(self.history.pattern_matches)),
+                    "recent_messages": self.history.recent_messages[-3:],
+                })
+
+                return (True, reason)
+
+        else:
+            # Response doesn't match patterns - reset counter
+            if self.history.consecutive_spiral_count > 0:
+                print(
+                    f"[SpiralDetector] Non-spiral response - resetting counter "
+                    f"(was {self.history.consecutive_spiral_count})"
+                )
+            self._reset()
+
+        return (False, None)
+
+    def _reset(self) -> None:
+        """Reset spiral tracking."""
+        self.history = SpiralHistory()
+
+    def get_state(self) -> dict:
+        """Get current detector state for persistence."""
+        return {
+            "consecutive_spiral_count": self.history.consecutive_spiral_count,
+            "pattern_matches": self.history.pattern_matches[-10:],  # Keep last 10
+        }
+
+    def restore_state(self, state: dict) -> None:
+        """Restore detector state from checkpoint."""
+        self.history.consecutive_spiral_count = state.get("consecutive_spiral_count", 0)
+        self.history.pattern_matches = state.get("pattern_matches", [])
+
+        if self.history.consecutive_spiral_count > 0:
+            print(
+                f"[SpiralDetector] Restored state: {self.history.consecutive_spiral_count} "
+                f"consecutive spiral messages"
+            )
+
+    def get_statistics(self) -> dict:
+        """Get detector statistics."""
+        return {
+            "consecutive_count": self.history.consecutive_spiral_count,
+            "threshold": self.max_consecutive_spirals,
+            "total_patterns_matched": len(self.history.pattern_matches),
+            "unique_patterns": list(set(self.history.pattern_matches)),
+        }
+
+
+class CombinedLoopDetector:
+    """
+    Combined detector for both retry loops and hallucination spirals.
+
+    Convenience class that wraps both detectors for easy integration.
+    """
+
+    def __init__(
+        self,
+        max_consecutive_retries: int = 2,
+        max_consecutive_spirals: int = 4,
+    ):
+        """
+        Initialize combined detector.
+
+        Args:
+            max_consecutive_retries: Max retries with identical feedback
+            max_consecutive_spirals: Max spiral messages before abort
+        """
+        self.retry_detector = RetryLoopDetector(max_consecutive_retries)
+        self.spiral_detector = HallucinationSpiralDetector(max_consecutive_spirals)
+
+    def check_all(
+        self,
+        status: str,
+        feedback: List[str],
+        response: str,
+        iteration: int,
+        max_rounds: Optional[int] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Check for both retry loops and hallucination spirals.
+
+        Args:
+            status: Manager status
+            feedback: Manager feedback
+            response: LLM response text
+            iteration: Current iteration
+            max_rounds: Maximum allowed rounds
+
+        Returns:
+            Tuple of (should_abort, reason)
+        """
+        # Check retry loop first
+        should_abort, reason = self.retry_detector.check_retry_loop(
+            status, feedback, iteration, max_rounds
+        )
+        if should_abort:
+            return (True, reason)
+
+        # Check hallucination spiral
+        should_abort, reason = self.spiral_detector.check_response(response)
+        if should_abort:
+            return (True, reason)
+
+        return (False, None)
+
+    def get_state(self) -> dict:
+        """Get combined state for persistence."""
+        return {
+            "retry": self.retry_detector.get_state(),
+            "spiral": self.spiral_detector.get_state(),
+        }
+
+    def restore_state(self, state: dict) -> None:
+        """Restore combined state from checkpoint."""
+        if "retry" in state:
+            self.retry_detector.restore_state(state["retry"])
+        if "spiral" in state:
+            self.spiral_detector.restore_state(state["spiral"])

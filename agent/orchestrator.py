@@ -1,4 +1,4 @@
-# orchestrator_phase3.py
+# orchestrator.py
 """
 PHASE 3: Adaptive Multi-Agent Orchestrator
 
@@ -23,6 +23,8 @@ BACKWARD COMPATIBILITY:
 - Maintains all Stage 1-2 features (safety checks, cost tracking, git, etc.)
 - Can run in parallel with orchestrator.py (different mode in run_mode.py)
 - Uses same config format with optional Phase 3 settings
+
+NOTE (2025-11-25): Header corrected from "orchestrator_phase3.py" per Phase 8 audit.
 """
 
 from __future__ import annotations

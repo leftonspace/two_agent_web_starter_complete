@@ -27,8 +27,8 @@ export const BudgetStatus: React.FC<BudgetStatusProps> = ({ budget }) => {
           />
         </div>
         <span className="text-sm font-medium">
-          ${budget.production_spent_today.toFixed(2)}
-          <span className="text-gray-400">/${budget.production_limit.toFixed(0)}</span>
+          ${(budget.production_spent_today || 0).toFixed(2)}
+          <span className="text-gray-400">/${(budget.production_limit || 0).toFixed(0)}</span>
         </span>
         {budget.is_warning && (
           <span className="badge badge-warning">Warning</span>
@@ -45,8 +45,8 @@ export const BudgetStatus: React.FC<BudgetStatusProps> = ({ budget }) => {
           />
         </div>
         <span className="text-sm font-medium">
-          ${budget.benchmark_spent_today.toFixed(2)}
-          <span className="text-gray-400">/${budget.benchmark_limit.toFixed(0)}</span>
+          ${(budget.benchmark_spent_today || 0).toFixed(2)}
+          <span className="text-gray-400">/${(budget.benchmark_limit || 0).toFixed(0)}</span>
         </span>
       </div>
     </div>

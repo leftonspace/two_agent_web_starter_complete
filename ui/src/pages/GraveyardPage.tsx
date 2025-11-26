@@ -41,9 +41,9 @@ export const GraveyardPage: React.FC = () => {
 
   const stats = {
     total: mockGraveyardData.length,
-    avgScore: mockGraveyardData.reduce((sum, s) => sum + s.final_score, 0) / mockGraveyardData.length,
+    avgScore: mockGraveyardData.length > 0 ? mockGraveyardData.reduce((sum, s) => sum + s.final_score, 0) / mockGraveyardData.length : 0,
     totalTasks: mockGraveyardData.reduce((sum, s) => sum + s.tasks_completed, 0),
-    avgLifespan: mockGraveyardData.reduce((sum, s) => sum + s.lifespan_days, 0) / mockGraveyardData.length,
+    avgLifespan: mockGraveyardData.length > 0 ? mockGraveyardData.reduce((sum, s) => sum + s.lifespan_days, 0) / mockGraveyardData.length : 0,
   };
 
   const formatDate = (ts: string) => new Date(ts).toLocaleDateString();
@@ -151,8 +151,8 @@ export const GraveyardPage: React.FC = () => {
                   <div className="card-stats">
                     <div className="stat">
                       <span className="stat-label">Final Score</span>
-                      <span className="stat-value" style={{ color: getScoreColor(specialist.final_score) }}>
-                        {specialist.final_score.toFixed(3)}
+                      <span className="stat-value" style={{ color: getScoreColor(specialist.final_score || 0) }}>
+                        {(specialist.final_score || 0).toFixed(3)}
                       </span>
                     </div>
                     <div className="stat">

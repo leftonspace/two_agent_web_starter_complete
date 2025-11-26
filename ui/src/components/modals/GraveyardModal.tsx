@@ -124,8 +124,8 @@ export const GraveyardModal: React.FC<GraveyardModalProps> = ({
                 </div>
                 <div className="entry-stats">
                   <div className="stat">
-                    <span className="stat-value\" style={{ color: getScoreColor(entry.final_score) }}>
-                      {entry.final_score.toFixed(3)}
+                    <span className="stat-value" style={{ color: getScoreColor(entry.final_score || 0) }}>
+                      {(entry.final_score || 0).toFixed(3)}
                     </span>
                     <span className="stat-label">Final Score</span>
                   </div>

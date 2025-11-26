@@ -1,124 +1,298 @@
 # Basic Functions Benchmark
-# Tests fundamental code generation capabilities
+# Tests fundamental code generation capabilities with test cases
 
-name: Basic Functions
-domain: code_generation
-version: "1.0"
-description: Test basic function creation, error handling, and documentation
-created_by: claude
+name: "Basic Functions Benchmark"
+domain: "code_generation"
+version: "1.0.0"
+created_by: "Claude (external)"
+description: "Tests basic function writing capabilities including algorithms, data structures, and OOP"
 
 tasks:
-  - id: bf_001
-    difficulty: easy
-    prompt: |
-      Write a Python function called `add_numbers` that takes two numbers
-      and returns their sum. Include type hints and a docstring.
+  # ============================================================================
+  # Easy Tasks
+  # ============================================================================
+
+  - id: "bf_001"
+    difficulty: "easy"
+    prompt: "Write a Python function called 'is_palindrome' that checks if a string is a palindrome. Ignore case and spaces."
     verification:
-      - type: syntax_valid
+      - type: "syntax_valid"
         params:
           language: python
-      - type: has_type_hints
-      - type: has_docstrings
-      - type: contains
+      - type: "contains"
         params:
           required:
-            - "def add_numbers"
+            - "def is_palindrome"
             - "return"
-    expected_domain: code_generation
-    tags:
-      - functions
-      - basic
-      - arithmetic
-
-  - id: bf_002
-    difficulty: easy
-    prompt: |
-      Write a Python function called `is_even` that takes an integer
-      and returns True if it's even, False otherwise.
-      Include type hints and a docstring.
-    verification:
-      - type: syntax_valid
+      - type: "test_cases"
         params:
-          language: python
-      - type: has_type_hints
-      - type: contains
-        params:
-          required:
-            - "def is_even"
-            - "bool"
-    expected_domain: code_generation
-    tags:
-      - functions
-      - basic
-      - boolean
-
-  - id: bf_003
-    difficulty: medium
-    prompt: |
-      Write a Python function called `safe_divide` that divides two numbers.
-      It should handle division by zero gracefully by returning None.
-      Include proper error handling, type hints, and a docstring.
-    verification:
-      - type: syntax_valid
-        params:
-          language: python
-      - type: has_error_handling
-      - type: has_type_hints
-      - type: has_docstrings
-      - type: contains
-        params:
-          required:
-            - "def safe_divide"
-            - "None"
-    expected_domain: code_generation
-    tags:
-      - functions
-      - error-handling
-      - division
-
-  - id: bf_004
-    difficulty: medium
-    prompt: |
-      Write a Python function called `reverse_string` that reverses a string.
-      Handle edge cases like empty strings and None input.
-      Include type hints and a docstring.
-    verification:
-      - type: syntax_valid
-        params:
-          language: python
-      - type: has_type_hints
-      - type: has_docstrings
-      - type: contains
-        params:
-          required:
-            - "def reverse_string"
+          cases:
+            - input: "'racecar'"
+              expected: "True"
+            - input: "'A man a plan a canal Panama'"
+              expected: "True"
+            - input: "'hello'"
+              expected: "False"
     expected_domain: code_generation
     tags:
       - functions
       - strings
-      - edge-cases
+      - easy
 
-  - id: bf_005
-    difficulty: hard
-    prompt: |
-      Write a Python function called `fibonacci` that returns the nth
-      Fibonacci number using memoization for efficiency.
-      Include type hints, docstring with examples, and error handling
-      for negative numbers.
+  - id: "bf_002"
+    difficulty: "easy"
+    prompt: "Write a Python function called 'fizzbuzz' that takes a number n and returns a list of strings from 1 to n, where multiples of 3 are 'Fizz', multiples of 5 are 'Buzz', and multiples of both are 'FizzBuzz'."
     verification:
-      - type: syntax_valid
+      - type: "syntax_valid"
         params:
           language: python
-      - type: has_error_handling
-      - type: has_type_hints
-      - type: has_docstrings
-      - type: contains
+      - type: "contains"
         params:
           required:
-            - "def fibonacci"
+            - "def fizzbuzz"
+            - "Fizz"
+            - "Buzz"
+      - type: "test_cases"
+        params:
+          cases:
+            - input: "15"
+              expected: "['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz']"
+    expected_domain: code_generation
+    tags:
+      - functions
+      - loops
+      - easy
+
+  - id: "bf_003"
+    difficulty: "easy"
+    prompt: |
+      Write a Python function called 'count_vowels' that counts the number
+      of vowels (a, e, i, o, u) in a string. Should be case-insensitive.
+    verification:
+      - type: "syntax_valid"
+        params:
+          language: python
+      - type: "contains"
+        params:
+          required:
+            - "def count_vowels"
+      - type: "test_cases"
+        params:
+          cases:
+            - input: "'hello'"
+              expected: "2"
+            - input: "'AEIOU'"
+              expected: "5"
+            - input: "'xyz'"
+              expected: "0"
+    expected_domain: code_generation
+    tags:
+      - functions
+      - strings
+      - easy
+
+  # ============================================================================
+  # Medium Tasks
+  # ============================================================================
+
+  - id: "bf_004"
+    difficulty: "medium"
+    prompt: |
+      Write a Python class called 'RateLimiter' that implements a token bucket rate limiter.
+
+      Requirements:
+      - Constructor takes 'capacity' (max tokens) and 'refill_rate' (tokens per second)
+      - Method 'acquire()' returns True if a token is available, False otherwise
+      - Tokens refill automatically based on time elapsed
+    verification:
+      - type: "syntax_valid"
+        params:
+          language: python
+      - type: "has_error_handling"
+      - type: "has_docstrings"
+      - type: "contains"
+        params:
+          required:
+            - "class RateLimiter"
+            - "def __init__"
+            - "def acquire"
+            - "capacity"
+            - "refill_rate"
+    expected_domain: code_generation
+    tags:
+      - classes
+      - algorithms
+      - medium
+
+  - id: "bf_005"
+    difficulty: "medium"
+    prompt: |
+      Write a Python function called 'merge_sorted_lists' that merges two sorted
+      lists into a single sorted list. Do not use built-in sort functions.
+      Include type hints and handle edge cases (empty lists, None inputs).
+    verification:
+      - type: "syntax_valid"
+        params:
+          language: python
+      - type: "has_type_hints"
+      - type: "has_docstrings"
+      - type: "contains"
+        params:
+          required:
+            - "def merge_sorted_lists"
+      - type: "test_cases"
+        params:
+          cases:
+            - input: "[1, 3, 5], [2, 4, 6]"
+              expected: "[1, 2, 3, 4, 5, 6]"
+            - input: "[], [1, 2, 3]"
+              expected: "[1, 2, 3]"
     expected_domain: code_generation
     tags:
       - functions
       - algorithms
-      - memoization
-      - recursion
+      - sorting
+      - medium
+
+  - id: "bf_006"
+    difficulty: "medium"
+    prompt: |
+      Write a Python decorator called 'retry' that retries a function up to
+      a specified number of times if it raises an exception.
+
+      Usage: @retry(max_attempts=3, delay=1.0)
+
+      The decorator should:
+      - Accept max_attempts and delay parameters
+      - Wait 'delay' seconds between retries
+      - Re-raise the last exception if all attempts fail
+    verification:
+      - type: "syntax_valid"
+        params:
+          language: python
+      - type: "has_docstrings"
+      - type: "contains"
+        params:
+          required:
+            - "def retry"
+            - "max_attempts"
+            - "delay"
+    expected_domain: code_generation
+    tags:
+      - decorators
+      - error-handling
+      - medium
+
+  # ============================================================================
+  # Hard Tasks
+  # ============================================================================
+
+  - id: "bf_007"
+    difficulty: "hard"
+    prompt: |
+      Create a Python module for a simple in-memory cache with the following features:
+
+      1. LRU eviction when capacity is reached
+      2. TTL (time-to-live) support for entries
+      3. Thread-safe operations
+      4. Statistics tracking (hits, misses, evictions)
+
+      Include a Cache class with get(), set(), delete(), and stats() methods.
+    verification:
+      - type: "syntax_valid"
+        params:
+          language: python
+      - type: "has_error_handling"
+      - type: "has_docstrings"
+      - type: "has_type_hints"
+      - type: "contains"
+        params:
+          required:
+            - "class Cache"
+            - "def get"
+            - "def set"
+            - "def delete"
+            - "def stats"
+            - "threading"
+    expected_domain: code_generation
+    tags:
+      - classes
+      - caching
+      - threading
+      - hard
+
+  - id: "bf_008"
+    difficulty: "hard"
+    prompt: |
+      Implement a Python class called 'ExpressionParser' that can parse and
+      evaluate simple mathematical expressions with the following operators:
+      +, -, *, /, and parentheses.
+
+      Requirements:
+      - Handle operator precedence correctly
+      - Support nested parentheses
+      - Raise appropriate errors for invalid expressions
+      - Include a parse() method that returns an AST
+      - Include an evaluate() method that computes the result
+
+      Example: ExpressionParser().evaluate("2 + 3 * (4 - 1)") should return 11
+    verification:
+      - type: "syntax_valid"
+        params:
+          language: python
+      - type: "has_error_handling"
+      - type: "has_docstrings"
+      - type: "contains"
+        params:
+          required:
+            - "class ExpressionParser"
+            - "def parse"
+            - "def evaluate"
+      - type: "test_cases"
+        params:
+          cases:
+            - input: "'2 + 3'"
+              expected: "5"
+            - input: "'2 + 3 * 4'"
+              expected: "14"
+            - input: "'(2 + 3) * 4'"
+              expected: "20"
+    expected_domain: code_generation
+    tags:
+      - classes
+      - parsing
+      - algorithms
+      - hard
+
+  - id: "bf_009"
+    difficulty: "hard"
+    prompt: |
+      Write a Python async function called 'fetch_with_retry' that fetches
+      data from multiple URLs concurrently with the following features:
+
+      1. Accept a list of URLs
+      2. Retry failed requests up to 3 times with exponential backoff
+      3. Timeout after 30 seconds per request
+      4. Return results as they complete (not wait for all)
+      5. Include proper error handling and logging
+
+      Use asyncio and aiohttp (assume it's available).
+    verification:
+      - type: "syntax_valid"
+        params:
+          language: python
+      - type: "has_error_handling"
+      - type: "has_docstrings"
+      - type: "has_type_hints"
+      - type: "contains"
+        params:
+          required:
+            - "async def fetch_with_retry"
+            - "asyncio"
+            - "await"
+    expected_domain: code_generation
+    tags:
+      - async
+      - networking
+      - error-handling
+      - hard

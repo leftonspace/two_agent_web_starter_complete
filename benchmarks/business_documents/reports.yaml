@@ -1,123 +1,329 @@
 # Business Reports Benchmark
-# Tests report and document generation capabilities
+# Tests report and document writing capabilities
 
-name: Business Reports
-domain: business_documents
-version: "1.0"
-description: Test professional report and document generation
-created_by: claude
+name: "Business Reports Benchmark"
+domain: "business_documents"
+version: "1.0.0"
+created_by: "Claude (external)"
+description: "Tests report writing capabilities including executive summaries, status reports, and analysis documents"
 
 tasks:
-  - id: br_001
-    difficulty: easy
-    prompt: |
-      Write a brief executive summary (2-3 paragraphs) about the benefits
-      of adopting cloud computing for a small business.
-      Use professional language and include a clear structure.
+  # ============================================================================
+  # Easy Tasks
+  # ============================================================================
+
+  - id: "br_001"
+    difficulty: "easy"
+    prompt: "Write a brief executive summary (3-4 paragraphs) for a Q3 sales report. The company exceeded targets by 15%, with strongest performance in the Northeast region. Include key metrics and recommendations."
     verification:
-      - type: format_valid
+      - type: "format_valid"
         params:
           format: markdown
-      - type: min_length
+      - type: "min_length"
         params:
-          min_words: 100
-      - type: contains
+          min_words: 150
+          min_paragraphs: 3
+      - type: "contains"
         params:
           required:
-            - "cloud"
+            - "15%"
+            - "Northeast"
           case_sensitive: false
     expected_domain: business_documents
     tags:
       - executive-summary
-      - technology
-      - basic
+      - sales
+      - easy
 
-  - id: br_002
-    difficulty: easy
+  - id: "br_002"
+    difficulty: "easy"
     prompt: |
-      Draft a professional email to a client thanking them for their
-      recent purchase and offering support if they have questions.
-      Keep it brief but warm and professional.
+      Draft a professional email to a client thanking them for their continued
+      partnership and introducing a new account manager who will be taking over
+      their account. The new manager's name is Sarah Chen.
     verification:
-      - type: format_valid
+      - type: "format_valid"
         params:
           format: email
-      - type: min_length
+      - type: "min_length"
         params:
-          min_words: 50
-      - type: contains
+          min_words: 75
+      - type: "contains"
         params:
           required:
+            - "Sarah Chen"
             - "thank"
           case_sensitive: false
     expected_domain: business_documents
     tags:
       - email
-      - customer-service
-      - basic
+      - client-communication
+      - easy
 
-  - id: br_003
-    difficulty: medium
+  - id: "br_003"
+    difficulty: "easy"
     prompt: |
-      Create a quarterly sales report outline with the following sections:
-      - Executive Summary
-      - Sales Performance Overview
-      - Regional Breakdown
-      - Product Line Analysis
-      - Recommendations
-      Include placeholder text and formatting guidance for each section.
+      Create meeting minutes for a weekly team standup. Include:
+      - Date and attendees (make up 4-5 names)
+      - Key updates from each team member
+      - Action items with owners
+      - Next meeting date
     verification:
-      - type: format_valid
+      - type: "format_valid"
         params:
           format: markdown
-      - type: contains
+      - type: "min_length"
+        params:
+          min_words: 100
+      - type: "contains"
+        params:
+          required:
+            - "Attendees"
+            - "Action"
+          case_sensitive: false
+    expected_domain: business_documents
+    tags:
+      - meeting-minutes
+      - team
+      - easy
+
+  # ============================================================================
+  # Medium Tasks
+  # ============================================================================
+
+  - id: "br_004"
+    difficulty: "medium"
+    prompt: |
+      Create a project status report with the following sections:
+      - Executive Summary
+      - Progress Update (we're 60% complete, on track)
+      - Key Accomplishments (list 3)
+      - Risks and Mitigation (list 2 risks)
+      - Next Steps
+      - Budget Status (under budget by 5%)
+
+      The project is a CRM implementation for a mid-size company.
+    verification:
+      - type: "format_valid"
+        params:
+          format: markdown
+      - type: "min_length"
+        params:
+          min_words: 300
+      - type: "contains"
         params:
           required:
             - "Executive Summary"
-            - "Sales"
-            - "Recommendations"
+            - "Progress"
+            - "Accomplishments"
+            - "Risk"
+            - "Next Steps"
+            - "Budget"
           case_sensitive: false
-      - type: min_length
-        params:
-          min_words: 150
     expected_domain: business_documents
     tags:
-      - report
-      - sales
-      - template
+      - status-report
+      - project-management
+      - medium
 
-  - id: br_004
-    difficulty: hard
+  - id: "br_005"
+    difficulty: "medium"
     prompt: |
-      Write a project proposal for implementing a new customer relationship
-      management (CRM) system. Include:
-      - Problem statement
-      - Proposed solution
-      - Benefits and ROI analysis
-      - Implementation timeline
-      - Budget considerations
-      - Risk assessment
-      Use professional formatting with headers and bullet points.
+      Write a business case document for implementing a new employee wellness
+      program. Include:
+      - Problem Statement
+      - Proposed Solution
+      - Benefits (quantify where possible)
+      - Cost Analysis
+      - Implementation Timeline
+      - Success Metrics/KPIs
+
+      Budget: $50,000 for first year. Company size: 200 employees.
     verification:
-      - type: format_valid
+      - type: "format_valid"
         params:
           format: markdown
-      - type: contains
+      - type: "min_length"
+        params:
+          min_words: 400
+      - type: "contains"
         params:
           required:
             - "Problem"
             - "Solution"
             - "Benefits"
+            - "Cost"
             - "Timeline"
-            - "Budget"
-            - "Risk"
+            - "KPI"
           case_sensitive: false
-      - type: min_length
-        params:
-          min_words: 300
     expected_domain: business_documents
     tags:
-      - proposal
-      - project-management
-      - crm
-      - comprehensive
+      - business-case
+      - hr
+      - medium
+
+  - id: "br_006"
+    difficulty: "medium"
+    prompt: |
+      Create a quarterly performance review document for a fictional software
+      engineer named Alex Rivera. Include:
+      - Performance summary
+      - Key achievements (3-4 items)
+      - Areas for improvement (2 items)
+      - Goals for next quarter
+      - Development recommendations
+
+      Overall rating: Exceeds Expectations
+    verification:
+      - type: "format_valid"
+        params:
+          format: markdown
+      - type: "min_length"
+        params:
+          min_words: 350
+      - type: "contains"
+        params:
+          required:
+            - "Alex Rivera"
+            - "Achievements"
+            - "Improvement"
+            - "Goals"
+          case_sensitive: false
+    expected_domain: business_documents
+    tags:
+      - performance-review
+      - hr
+      - medium
+
+  # ============================================================================
+  # Hard Tasks
+  # ============================================================================
+
+  - id: "br_007"
+    difficulty: "hard"
+    prompt: |
+      Write a comprehensive market analysis report for entering the electric
+      vehicle charging station market.
+
+      Include:
+      1. Market Overview (size, growth rate, key players)
+      2. Competitive Analysis (at least 3 competitors)
+      3. SWOT Analysis
+      4. Target Customer Segments
+      5. Go-to-Market Strategy Recommendations
+      6. Financial Projections (high-level)
+      7. Risks and Mitigation
+
+      The report should be professional and suitable for executive presentation.
+    verification:
+      - type: "format_valid"
+        params:
+          format: markdown
+      - type: "min_length"
+        params:
+          min_words: 1000
+      - type: "contains"
+        params:
+          required:
+            - "Market Overview"
+            - "Competitive"
+            - "SWOT"
+            - "Customer"
+            - "Strategy"
+            - "Financial"
+            - "Risk"
+          case_sensitive: false
+    expected_domain: business_documents
+    tags:
+      - market-analysis
+      - strategy
+      - hard
+
+  - id: "br_008"
+    difficulty: "hard"
+    prompt: |
+      Create a comprehensive Request for Proposal (RFP) document for selecting
+      a cloud infrastructure provider. The company is migrating from on-premises
+      to cloud.
+
+      Include:
+      1. Company Background
+      2. Project Scope and Objectives
+      3. Technical Requirements (compute, storage, networking, security)
+      4. Service Level Requirements
+      5. Vendor Qualifications
+      6. Pricing Structure Requirements
+      7. Evaluation Criteria and Weighting
+      8. Timeline and Submission Instructions
+
+      Company size: 500 employees, 50 applications to migrate.
+    verification:
+      - type: "format_valid"
+        params:
+          format: markdown
+      - type: "min_length"
+        params:
+          min_words: 800
+      - type: "contains"
+        params:
+          required:
+            - "Background"
+            - "Scope"
+            - "Requirements"
+            - "Security"
+            - "Evaluation"
+            - "Timeline"
+          case_sensitive: false
+    expected_domain: business_documents
+    tags:
+      - rfp
+      - procurement
+      - it
+      - hard
+
+  - id: "br_009"
+    difficulty: "hard"
+    prompt: |
+      Write a board presentation document for a Series B funding round.
+      The company is a B2B SaaS platform for supply chain management.
+
+      Include:
+      1. Executive Summary
+      2. Problem & Market Opportunity
+      3. Product Overview and Differentiation
+      4. Business Model and Unit Economics
+      5. Traction and Key Metrics (ARR $5M, 150% NRR, 50 customers)
+      6. Competitive Landscape
+      7. Go-to-Market Strategy
+      8. Team Highlights
+      9. Financial Projections (3-year)
+      10. Use of Funds ($25M raise)
+      11. Ask and Terms
+
+      Format should be suitable for a pitch deck narrative.
+    verification:
+      - type: "format_valid"
+        params:
+          format: markdown
+      - type: "min_length"
+        params:
+          min_words: 1200
+      - type: "contains"
+        params:
+          required:
+            - "Executive Summary"
+            - "Market"
+            - "Product"
+            - "Business Model"
+            - "Traction"
+            - "Competitive"
+            - "Team"
+            - "Financial"
+            - "Use of Funds"
+          case_sensitive: false
+    expected_domain: business_documents
+    tags:
+      - investor-presentation
+      - fundraising
+      - saas
+      - hard

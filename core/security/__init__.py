@@ -1,12 +1,13 @@
 """
 PHASE 7: Security Foundation
 
-OS-level sandboxing for secure code execution.
+OS-level sandboxing for secure code execution and output guardrails.
 
 Components:
 - sandbox: OS-level isolation using bubblewrap (Linux) or sandbox-exec (macOS)
 - profiles: YAML-based profile configuration and loading
 - network: Domain validation and network configuration for sandboxes
+- guardrails: Output validation and PII detection
 
 Usage:
     from core.security import Sandbox, SandboxProfile, ExecutionResult
@@ -36,6 +37,13 @@ Usage:
     validator = DomainValidator(["github.com", "pypi.org"])
     if validator.is_allowed("https://api.github.com/repos"):
         print("URL allowed")
+
+    # Validate outputs with guardrails
+    from core.security import OutputGuardrails, GuardrailContext
+
+    guardrails = OutputGuardrails()
+    context = GuardrailContext(pii_policy="redact")
+    result = guardrails.validate(output_text, context)
 """
 
 from .sandbox import (
@@ -76,6 +84,39 @@ from .network import (
     get_sandbox_network_env,
 )
 
+from .guardrails import (
+    # Enums and models
+    PIIPattern,
+    IssueSeverity,
+    PIIMatch,
+    Anomaly,
+    Issue,
+    GuardrailContext,
+    ValidationResult,
+    # Main classes
+    PIIDetector,
+    AnomalyDetector,
+    OutputGuardrails,
+    # Convenience functions
+    create_guardrails,
+    validate_output,
+    redact_pii,
+    hash_system_prompt,
+)
+
+from .pii_patterns import (
+    # Patterns
+    SSN_PATTERN,
+    CREDIT_CARD_PATTERN,
+    US_PHONE_PATTERN,
+    EMAIL_PATTERN,
+    API_KEY_PATTERNS,
+    PII_PATTERNS,
+    # Utilities
+    luhn_checksum,
+    analyze_script_distribution,
+)
+
 __all__ = [
     # Models
     "SandboxProfile",
@@ -105,4 +146,30 @@ __all__ = [
     "create_validator",
     "is_domain_allowed",
     "get_sandbox_network_env",
+    # Guardrails - enums and models
+    "PIIPattern",
+    "IssueSeverity",
+    "PIIMatch",
+    "Anomaly",
+    "Issue",
+    "GuardrailContext",
+    "ValidationResult",
+    # Guardrails - main classes
+    "PIIDetector",
+    "AnomalyDetector",
+    "OutputGuardrails",
+    # Guardrails - convenience functions
+    "create_guardrails",
+    "validate_output",
+    "redact_pii",
+    "hash_system_prompt",
+    # PII patterns
+    "SSN_PATTERN",
+    "CREDIT_CARD_PATTERN",
+    "US_PHONE_PATTERN",
+    "EMAIL_PATTERN",
+    "API_KEY_PATTERNS",
+    "PII_PATTERNS",
+    "luhn_checksum",
+    "analyze_script_distribution",
 ]

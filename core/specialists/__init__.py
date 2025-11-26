@@ -16,6 +16,9 @@ Usage:
         SelectionMode,
         PoolManager,
         get_pool_manager,
+        DomainConfig,
+        DomainConfigLoader,
+        get_domain_loader,
     )
 
     # Create a new specialist
@@ -41,6 +44,10 @@ Usage:
 
     # Select specialist for task
     selected = pool.select(SelectionMode.WEIGHTED)
+
+    # Load domain configs
+    loader = get_domain_loader()
+    config = loader.load("code_generation")
 """
 
 from .specialist import (
@@ -75,6 +82,19 @@ from .pool_manager import (
     reset_pool_manager,
 )
 
+from .domain_config import (
+    # Config models
+    VerificationRule,
+    QualityThresholds,
+    EvolutionSettings,
+    DefaultSpecialistConfig,
+    DomainConfig,
+    # Loader
+    DomainConfigLoader,
+    get_domain_loader,
+    reset_domain_loader,
+)
+
 
 __all__ = [
     # Specialist enums
@@ -101,4 +121,14 @@ __all__ = [
     "PoolManager",
     "get_pool_manager",
     "reset_pool_manager",
+    # Domain config models
+    "VerificationRule",
+    "QualityThresholds",
+    "EvolutionSettings",
+    "DefaultSpecialistConfig",
+    "DomainConfig",
+    # Domain config loader
+    "DomainConfigLoader",
+    "get_domain_loader",
+    "reset_domain_loader",
 ]

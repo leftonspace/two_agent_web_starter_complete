@@ -28,6 +28,12 @@ from .user_feedback import (
     FeedbackStatsDB,
 )
 
+from .council_vote import (
+    CouncilVoteDB,
+    CouncilSessionDB,
+    CouncilStatsDB,
+)
+
 
 __all__ = [
     # Cost tracking
@@ -46,4 +52,8 @@ __all__ = [
     "UserFeedbackDB",
     "FeedbackRequestDB",
     "FeedbackStatsDB",
+    # Council votes
+    "CouncilVoteDB",
+    "CouncilSessionDB",
+    "CouncilStatsDB",
 ]

@@ -1,0 +1,227 @@
+# =============================================================================
+# JARVIS Model Providers Configuration
+# =============================================================================
+#
+# Configuration for all LLM providers and their models.
+#
+# Provider settings:
+#   enabled: Whether the provider is active
+#   api_key_env: Environment variable containing API key
+#   default_max_tokens: Default max tokens for completions
+#   retry_attempts: Number of retry attempts on failure
+#   retry_delay_seconds: Base delay between retries (exponential backoff)
+#   rate_limits: Rate limiting configuration
+#
+# Model settings:
+#   name: Full model identifier
+#   tier: Capability tier (low, medium, high, highest)
+#   cost_per_1k_input: Cost per 1K input tokens (USD)
+#   cost_per_1k_output: Cost per 1K output tokens (USD)
+#   max_context: Maximum context window size
+#   max_output_tokens: Maximum output tokens
+#   supports_vision: Whether model supports vision/images
+#   supports_tools: Whether model supports tool use
+#
+# =============================================================================
+
+providers:
+  # ---------------------------------------------------------------------------
+  # Anthropic (Claude)
+  # ---------------------------------------------------------------------------
+  anthropic:
+    enabled: true
+    api_key_env: "ANTHROPIC_API_KEY"
+    base_url: null  # Use default API URL
+    default_max_tokens: 4096
+    default_temperature: 0.7
+    retry_attempts: 3
+    retry_delay_seconds: 1.0
+    timeout_seconds: 120
+
+    rate_limits:
+      requests_per_minute: 60
+      tokens_per_minute: 100000
+
+    models:
+      haiku:
+        name: "claude-haiku-4-5-20251001"
+        tier: "low"
+        cost_per_1k_input: 0.001      # $1.00 per million
+        cost_per_1k_output: 0.005     # $5.00 per million
+        max_context: 200000
+        max_output_tokens: 8192
+        supports_vision: true
+        supports_tools: true
+        description: "Fast, cost-effective for simple tasks"
+
+      sonnet:
+        name: "claude-sonnet-4-5-20250929"
+        tier: "medium"
+        cost_per_1k_input: 0.003      # $3.00 per million
+        cost_per_1k_output: 0.015     # $15.00 per million
+        max_context: 200000
+        max_output_tokens: 8192
+        supports_vision: true
+        supports_tools: true
+        description: "Balanced performance and cost"
+
+      opus:
+        name: "claude-opus-4-5-20251101"
+        tier: "high"
+        cost_per_1k_input: 0.015      # $15.00 per million
+        cost_per_1k_output: 0.075     # $75.00 per million
+        max_context: 200000
+        max_output_tokens: 8192
+        supports_vision: true
+        supports_tools: true
+        description: "Most capable, complex reasoning tasks"
+
+  # ---------------------------------------------------------------------------
+  # OpenAI (Future - disabled by default)
+  # ---------------------------------------------------------------------------
+  openai:
+    enabled: false
+    api_key_env: "OPENAI_API_KEY"
+    base_url: null
+    default_max_tokens: 4096
+    default_temperature: 0.7
+    retry_attempts: 3
+    retry_delay_seconds: 1.0
+    timeout_seconds: 120
+
+    rate_limits:
+      requests_per_minute: 60
+      tokens_per_minute: 150000
+
+    models:
+      gpt4o:
+        name: "gpt-4o"
+        tier: "high"
+        cost_per_1k_input: 0.005
+        cost_per_1k_output: 0.015
+        max_context: 128000
+        max_output_tokens: 4096
+        supports_vision: true
+        supports_tools: true
+        description: "GPT-4o flagship model"
+
+      gpt4o_mini:
+        name: "gpt-4o-mini"
+        tier: "low"
+        cost_per_1k_input: 0.00015
+        cost_per_1k_output: 0.0006
+        max_context: 128000
+        max_output_tokens: 16384
+        supports_vision: true
+        supports_tools: true
+        description: "Cost-optimized GPT-4o"
+
+  # ---------------------------------------------------------------------------
+  # Local Models (Ollama)
+  # ---------------------------------------------------------------------------
+  local:
+    enabled: false
+    backend: "ollama"
+    base_url: "http://localhost:11434"
+    default_max_tokens: 4096
+    default_temperature: 0.7
+    retry_attempts: 2
+    retry_delay_seconds: 0.5
+    timeout_seconds: 300  # Local models can be slower
+
+    rate_limits:
+      requests_per_minute: 30  # Limited by local hardware
+      tokens_per_minute: 50000
+
+    models:
+      llama70b:
+        name: "llama3.1:70b-instruct-q4_K_M"
+        tier: "medium"
+        cost_per_1k_input: 0.0
+        cost_per_1k_output: 0.0
+        max_context: 128000
+        max_output_tokens: 4096
+        supports_vision: false
+        supports_tools: true
+        description: "Llama 3.1 70B (quantized)"
+        requirements:
+          min_vram_gb: 40
+
+      llama8b:
+        name: "llama3.1:8b-instruct-q8_0"
+        tier: "low"
+        cost_per_1k_input: 0.0
+        cost_per_1k_output: 0.0
+        max_context: 128000
+        max_output_tokens: 4096
+        supports_vision: false
+        supports_tools: true
+        description: "Llama 3.1 8B (quantized)"
+        requirements:
+          min_vram_gb: 8
+
+      codellama:
+        name: "codellama:34b-instruct-q4_K_M"
+        tier: "medium"
+        cost_per_1k_input: 0.0
+        cost_per_1k_output: 0.0
+        max_context: 100000
+        max_output_tokens: 4096
+        supports_vision: false
+        supports_tools: false
+        description: "Code Llama 34B for code generation"
+        requirements:
+          min_vram_gb: 24
+
+# =============================================================================
+# Default Settings
+# =============================================================================
+
+defaults:
+  # Default provider when not specified
+  provider: "anthropic"
+
+  # Default model per provider
+  default_models:
+    anthropic: "sonnet"
+    openai: "gpt4o_mini"
+    local: "llama8b"
+
+  # Model selection by task type
+  task_routing:
+    # Simple tasks - use cheap/fast models
+    simple:
+      preferred_tier: "low"
+      fallback_tier: "medium"
+
+    # Standard tasks - balanced approach
+    standard:
+      preferred_tier: "medium"
+      fallback_tier: "high"
+
+    # Complex tasks - use most capable
+    complex:
+      preferred_tier: "high"
+      fallback_tier: "medium"
+
+    # Code generation - prefer code-optimized
+    code:
+      preferred_tier: "medium"
+      fallback_tier: "high"
+
+# =============================================================================
+# Cost Controls
+# =============================================================================
+
+cost_controls:
+  # Maximum cost per request (USD)
+  max_cost_per_request: 1.0
+
+  # Daily cost budget (USD)
+  daily_budget: 50.0
+
+  # Warning threshold (percentage of daily budget)
+  warning_threshold: 0.8
+
+  # Kill switch - stop all requests above this
+  hard_limit: 100.0

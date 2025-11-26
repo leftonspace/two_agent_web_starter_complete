@@ -111,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="domain-score"
                 style={{ color: getScoreColor(domain.avgScore) }}
               >
-                {domain.avgScore.toFixed(2)}
+                {(domain.avgScore || 0).toFixed(2)}
               </span>
             </button>
           ))}

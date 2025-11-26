@@ -72,7 +72,7 @@ export const DomainCard: React.FC<DomainCardProps> = ({ domain, onClick }) => {
         </div>
         <div>
           <div className={`text-2xl font-bold ${getScoreColor(domain.best_score)}`}>
-            {(domain.best_score * 100).toFixed(0)}%
+            {((domain.best_score || 0) * 100).toFixed(0)}%
           </div>
           <div className="text-xs text-gray-500">Best Score</div>
         </div>
@@ -87,7 +87,7 @@ export const DomainCard: React.FC<DomainCardProps> = ({ domain, onClick }) => {
         <div className="mb-4">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>Convergence</span>
-            <span>{domain.convergence_progress.toFixed(0)}%</span>
+            <span>{(domain.convergence_progress || 0).toFixed(0)}%</span>
           </div>
           <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div
@@ -122,7 +122,7 @@ export const DomainCard: React.FC<DomainCardProps> = ({ domain, onClick }) => {
                   <span className="text-xs text-gray-400">G{spec.generation}</span>
                 </div>
                 <span className={`font-medium ${getScoreColor(spec.score)}`}>
-                  {(spec.score * 100).toFixed(0)}%
+                  {((spec.score || 0) * 100).toFixed(0)}%
                 </span>
               </div>
             ))}

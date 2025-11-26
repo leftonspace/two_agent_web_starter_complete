@@ -1,0 +1,87 @@
+# JARVIS Sandbox Security Profiles
+# ================================
+#
+# Predefined execution contexts for the sandbox system.
+# Each profile defines filesystem access, network access, and resource limits.
+#
+# Profiles:
+# - code_generation: For writing and executing code (most permissive)
+# - business_documents: For creating documents (minimal execution)
+# - benchmark: For running benchmark tests (no network, generous limits)
+# - minimal: Default fallback (most restrictive)
+
+profiles:
+  code_generation:
+    description: "Code writing and execution with package manager access"
+    allowed_paths:
+      - "/jarvis/workspace"
+      - "/tmp"
+      - "/usr/lib"            # Python/system libraries
+      - "/usr/local/lib"      # Local Python packages
+      - "/usr/share"          # Shared data files
+    allowed_domains:
+      - "github.com"
+      - "raw.githubusercontent.com"
+      - "api.github.com"
+      - "pypi.org"
+      - "files.pythonhosted.org"
+      - "npmjs.org"
+      - "registry.npmjs.org"
+      - "crates.io"           # Rust packages
+      - "pkg.go.dev"          # Go packages
+    max_memory_mb: 4096
+    max_time_seconds: 300
+    allow_network: true
+
+  business_documents:
+    description: "Document generation with no network or code execution"
+    allowed_paths:
+      - "/jarvis/workspace"
+      - "/tmp"
+    allowed_domains: []
+    max_memory_mb: 2048
+    max_time_seconds: 120
+    allow_network: false
+
+  benchmark:
+    description: "Benchmark execution with extended time limits"
+    allowed_paths:
+      - "/jarvis/workspace"
+      - "/jarvis/benchmarks"
+      - "/tmp"
+      - "/usr/lib"
+      - "/usr/local/lib"
+    allowed_domains: []
+    max_memory_mb: 4096
+    max_time_seconds: 600
+    allow_network: false
+
+  minimal:
+    description: "Most restrictive - default fallback profile"
+    allowed_paths:
+      - "/tmp"
+    allowed_domains: []
+    max_memory_mb: 512
+    max_time_seconds: 30
+    allow_network: false
+
+# Default profile to use when none specified
+default_profile: minimal
+
+# Global settings applied to all profiles
+global:
+  # Paths that are always blocked regardless of profile
+  blocked_paths:
+    - "/etc/shadow"
+    - "/etc/passwd"
+    - "/root"
+    - "/home"
+    - "/.ssh"
+    - "/.gnupg"
+    - "/.aws"
+    - "/.azure"
+    - "/.gcloud"
+
+  # Maximum values (profiles cannot exceed these)
+  max_allowed_memory_mb: 8192
+  max_allowed_time_seconds: 3600

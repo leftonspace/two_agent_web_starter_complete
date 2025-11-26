@@ -11,10 +11,21 @@ from .cost_log import (
     CostAggregate,
 )
 
+from .specialist import (
+    SpecialistDB,
+    SpecialistTaskLog,
+    GraveyardLearning,
+)
+
 
 __all__ = [
+    # Cost tracking
     "UUID",
     "CostLog",
     "BudgetState",
     "CostAggregate",
+    # Specialists
+    "SpecialistDB",
+    "SpecialistTaskLog",
+    "GraveyardLearning",
 ]

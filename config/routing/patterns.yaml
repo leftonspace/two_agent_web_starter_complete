@@ -1,0 +1,221 @@
+# Domain classification patterns
+# Used by KeywordClassifier for fast, free classification
+#
+# Confidence levels:
+# - high_confidence: 0.9 - Strong indicators for this domain
+# - medium_confidence: 0.7 - Moderate indicators
+# - low_confidence: 0.5 - Weak indicators, likely need semantic check
+
+domains:
+  code_generation:
+    description: "Coding, scripts, automation, technical implementation"
+    high_confidence:
+      - "write code"
+      - "write a code"
+      - "create a script"
+      - "build an api"
+      - "implement a"
+      - "implement the"
+      - "code this"
+      - "code that"
+      - "program a"
+      - "function that"
+      - "class that"
+      - "create a function"
+      - "write a function"
+      - "build a function"
+      - "make a script"
+      - "python script"
+      - "javascript code"
+      - "typescript code"
+      - "create an endpoint"
+      - "build an endpoint"
+      - "write tests for"
+      - "unit test"
+      - "integration test"
+    medium_confidence:
+      - "automate"
+      - "automation"
+      - "script"
+      - "integration"
+      - "fix the bug"
+      - "fix this bug"
+      - "debug"
+      - "debugging"
+      - "refactor"
+      - "optimize"
+      - "algorithm"
+      - "data structure"
+      - "api"
+      - "backend"
+      - "frontend"
+      - "database query"
+      - "sql query"
+      - "regex"
+      - "parse"
+      - "json"
+      - "yaml"
+      - "config file"
+    low_confidence:
+      - "code"
+      - "coding"
+      - "technical"
+      - "developer"
+
+  code_review:
+    description: "Code review, analysis, and feedback"
+    high_confidence:
+      - "review this code"
+      - "review my code"
+      - "code review"
+      - "check this code"
+      - "analyze this code"
+      - "what's wrong with this code"
+      - "improve this code"
+      - "is this code correct"
+    medium_confidence:
+      - "review"
+      - "feedback on"
+      - "critique"
+      - "suggestions for"
+      - "best practices"
+      - "code smell"
+      - "security issue"
+      - "vulnerability"
+    low_confidence:
+      - "look at"
+      - "check"
+
+  business_documents:
+    description: "Reports, emails, proposals, documentation"
+    high_confidence:
+      - "write a report"
+      - "draft an email"
+      - "draft a email"
+      - "create a proposal"
+      - "write a proposal"
+      - "document this"
+      - "write documentation"
+      - "create documentation"
+      - "business plan"
+      - "project proposal"
+      - "executive summary"
+      - "meeting notes"
+      - "meeting minutes"
+      - "status report"
+      - "progress report"
+    medium_confidence:
+      - "summary"
+      - "summarize"
+      - "notes"
+      - "presentation"
+      - "memo"
+      - "letter"
+      - "template"
+      - "format"
+      - "professional"
+      - "formal"
+      - "write up"
+      - "writeup"
+      - "draft"
+      - "outline"
+    low_confidence:
+      - "document"
+      - "report"
+      - "email"
+
+  research:
+    description: "Research, analysis, information gathering"
+    high_confidence:
+      - "research about"
+      - "research on"
+      - "find information"
+      - "gather data"
+      - "market research"
+      - "competitive analysis"
+      - "literature review"
+      - "analyze the market"
+      - "industry analysis"
+    medium_confidence:
+      - "research"
+      - "investigate"
+      - "explore"
+      - "compare"
+      - "comparison"
+      - "pros and cons"
+      - "advantages"
+      - "disadvantages"
+      - "trends"
+      - "statistics"
+    low_confidence:
+      - "learn about"
+      - "understand"
+      - "look into"
+
+  planning:
+    description: "Project planning, strategy, roadmaps"
+    high_confidence:
+      - "create a plan"
+      - "project plan"
+      - "roadmap"
+      - "timeline"
+      - "milestone"
+      - "sprint planning"
+      - "backlog"
+      - "work breakdown"
+      - "gantt chart"
+      - "strategic plan"
+    medium_confidence:
+      - "plan"
+      - "planning"
+      - "schedule"
+      - "organize"
+      - "prioritize"
+      - "breakdown"
+      - "phases"
+      - "steps"
+      - "strategy"
+    low_confidence:
+      - "next steps"
+      - "what to do"
+
+  administration:
+    description: "General questions, routing help, system queries"
+    high_confidence:
+      - "what can you do"
+      - "what are you"
+      - "help me understand"
+      - "how do i use"
+      - "system status"
+      - "who are you"
+      - "capabilities"
+      - "what specialists"
+      - "show me stats"
+    medium_confidence:
+      - "help me"
+      - "how do i"
+      - "explain"
+      - "tell me about"
+      - "what is"
+      - "can you"
+      - "general question"
+    low_confidence:
+      - "hello"
+      - "hi"
+      - "hey"
+      - "thanks"
+      - "thank you"
+
+# Fallback configuration
+fallback:
+  domain: "administration"
+  confidence: 0.3
+  message: "Request could not be confidently classified"
+
+# Confidence thresholds
+thresholds:
+  high_confidence_score: 0.9
+  medium_confidence_score: 0.7
+  low_confidence_score: 0.5
+  semantic_fallback_threshold: 0.8  # Use semantic if keyword confidence below this
+  minimum_confidence: 0.3  # Below this, always fallback to administration

@@ -1948,6 +1948,24 @@ async def jarvis_chat_page(request: Request):
     )
 
 
+@app.get("/jarvis-dashboard", response_class=HTMLResponse)
+async def jarvis_dashboard_page(request: Request):
+    """
+    Serve JARVIS Specialist Dashboard.
+
+    PHASE 7: Comprehensive dashboard for monitoring specialist AI system:
+    - Domain cards with specialist performance
+    - Benchmark control panel
+    - Task history and feedback
+    - Budget monitoring
+    - Evolution/graveyard tracking
+    """
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {"request": request}
+    )
+
+
 @app.get("/chat", response_class=HTMLResponse)
 async def chat_page(request: Request):
     """
@@ -2128,6 +2146,474 @@ async def respond_to_agent(request: Request, current_user: User = Depends(requir
             {"error": str(e)},
             status_code=500
         )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# JARVIS Specialist Dashboard API Endpoints
+# ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/api/specialists")
+async def get_specialists():
+    """
+    Get list of all specialists with their current stats.
+
+    Returns:
+        List of specialists grouped by domain with performance metrics.
+    """
+    # TODO: Integrate with actual specialist pool manager
+    # For now, return mock data for dashboard development
+    specialists = {
+        "administration": [
+            {
+                "id": "admin-1",
+                "name": "Admin Pro",
+                "score": 0.94,
+                "tasks_completed": 42,
+                "status": "active",
+                "created_at": "2024-01-15T10:30:00Z"
+            },
+            {
+                "id": "admin-2",
+                "name": "Admin Elite",
+                "score": 0.88,
+                "tasks_completed": 38,
+                "status": "active",
+                "created_at": "2024-01-20T14:45:00Z"
+            },
+            {
+                "id": "admin-3",
+                "name": "Admin Helper",
+                "score": 0.72,
+                "tasks_completed": 15,
+                "status": "probation",
+                "created_at": "2024-02-01T09:00:00Z"
+            }
+        ],
+        "code_generation": [
+            {
+                "id": "code-1",
+                "name": "Code Master",
+                "score": 0.91,
+                "tasks_completed": 67,
+                "status": "active",
+                "created_at": "2024-01-10T08:00:00Z"
+            },
+            {
+                "id": "code-2",
+                "name": "Code Helper",
+                "score": 0.65,
+                "tasks_completed": 23,
+                "status": "probation",
+                "created_at": "2024-02-05T11:30:00Z"
+            }
+        ],
+        "business_documents": [
+            {
+                "id": "docs-1",
+                "name": "Doc Writer",
+                "score": 0.82,
+                "tasks_completed": 28,
+                "status": "active",
+                "created_at": "2024-01-25T16:00:00Z"
+            }
+        ]
+    }
+    return JSONResponse(specialists)
+
+
+@app.get("/api/specialists/{specialist_id}")
+async def get_specialist_detail(specialist_id: str):
+    """
+    Get detailed information about a specific specialist.
+
+    Returns:
+        Specialist details including performance history and configuration.
+    """
+    # TODO: Fetch from actual specialist pool
+    specialist = {
+        "id": specialist_id,
+        "name": "Admin Pro",
+        "domain": "administration",
+        "score": 0.94,
+        "tasks_completed": 42,
+        "success_rate": 0.96,
+        "status": "active",
+        "created_at": "2024-01-15T10:30:00Z",
+        "model": "claude-3-sonnet",
+        "temperature": 0.7,
+        "system_prompt": "You are an expert administrative assistant...",
+        "performance_history": [
+            {"date": "2024-02-01", "score": 0.92},
+            {"date": "2024-02-08", "score": 0.93},
+            {"date": "2024-02-15", "score": 0.94},
+            {"date": "2024-02-22", "score": 0.94}
+        ],
+        "recent_tasks": [
+            {"id": "task-001", "description": "Schedule meeting", "score": 0.95, "status": "completed"},
+            {"id": "task-002", "description": "Draft email", "score": 0.92, "status": "completed"},
+            {"id": "task-003", "description": "Organize files", "score": 0.96, "status": "completed"}
+        ]
+    }
+    return JSONResponse(specialist)
+
+
+@app.get("/api/domains")
+async def get_domains():
+    """
+    Get list of all domains with aggregate statistics.
+
+    Returns:
+        Domain list with specialist counts and average scores.
+    """
+    domains = [
+        {
+            "id": "administration",
+            "name": "Administration",
+            "icon": "terminal",
+            "specialist_count": 3,
+            "avg_score": 0.87,
+            "tasks_today": 12,
+            "tasks_total": 95
+        },
+        {
+            "id": "code_generation",
+            "name": "Code Generation",
+            "icon": "code",
+            "specialist_count": 2,
+            "avg_score": 0.78,
+            "tasks_today": 8,
+            "tasks_total": 90
+        },
+        {
+            "id": "business_documents",
+            "name": "Business Documents",
+            "icon": "file-text",
+            "specialist_count": 1,
+            "avg_score": 0.82,
+            "tasks_today": 4,
+            "tasks_total": 28
+        }
+    ]
+    return JSONResponse(domains)
+
+
+@app.get("/api/benchmark/status")
+async def get_benchmark_status():
+    """
+    Get current benchmark status.
+
+    Returns:
+        Benchmark state including progress and results if available.
+    """
+    # TODO: Integrate with actual benchmark runner
+    status = {
+        "state": "idle",  # idle, running, paused, completed
+        "progress": 0,
+        "total_tasks": 0,
+        "completed_tasks": 0,
+        "current_domain": None,
+        "last_run": {
+            "timestamp": "2024-02-20T15:30:00Z",
+            "avg_score": 0.84,
+            "tasks_evaluated": 30,
+            "domains_tested": 3
+        }
+    }
+    return JSONResponse(status)
+
+
+@app.post("/api/benchmark/run")
+async def run_benchmark(request: Request):
+    """
+    Start a new benchmark run.
+
+    Body:
+        domains: Optional list of domain IDs to benchmark (default: all)
+        task_count: Number of tasks per domain (default: 10)
+
+    Returns:
+        Benchmark run ID and initial status.
+    """
+    try:
+        data = await request.json()
+        domains = data.get("domains", ["administration", "code_generation", "business_documents"])
+        task_count = data.get("task_count", 10)
+
+        # TODO: Actually start benchmark
+        run_id = f"bench-{int(datetime.now().timestamp())}"
+
+        return JSONResponse({
+            "run_id": run_id,
+            "status": "started",
+            "domains": domains,
+            "task_count": task_count,
+            "message": "Benchmark started successfully"
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/benchmark/pause")
+async def pause_benchmark():
+    """
+    Pause the currently running benchmark.
+
+    Returns:
+        Updated benchmark status.
+    """
+    # TODO: Actually pause benchmark
+    return JSONResponse({
+        "status": "paused",
+        "message": "Benchmark paused"
+    })
+
+
+@app.get("/api/tasks")
+async def get_tasks(
+    domain: str = None,
+    status: str = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Get task history with optional filtering.
+
+    Query params:
+        domain: Filter by domain ID
+        status: Filter by status (completed, pending, failed)
+        limit: Max results to return
+        offset: Pagination offset
+
+    Returns:
+        List of tasks with metadata.
+    """
+    # TODO: Fetch from actual task history
+    tasks = [
+        {
+            "id": "task-001",
+            "description": "Schedule team meeting for project review",
+            "domain": "administration",
+            "specialist": "Admin Pro",
+            "score": 0.95,
+            "status": "completed",
+            "timestamp": "2024-02-22T14:30:00Z",
+            "cost": 0.0012,
+            "feedback": "positive"
+        },
+        {
+            "id": "task-002",
+            "description": "Generate Python API endpoint",
+            "domain": "code_generation",
+            "specialist": "Code Master",
+            "score": 0.88,
+            "status": "completed",
+            "timestamp": "2024-02-22T14:15:00Z",
+            "cost": 0.0045,
+            "feedback": None
+        },
+        {
+            "id": "task-003",
+            "description": "Draft quarterly report summary",
+            "domain": "business_documents",
+            "specialist": "Doc Writer",
+            "score": 0.72,
+            "status": "completed",
+            "timestamp": "2024-02-22T13:45:00Z",
+            "cost": 0.0023,
+            "feedback": "negative"
+        },
+        {
+            "id": "task-004",
+            "description": "Refactor authentication module",
+            "domain": "code_generation",
+            "specialist": "Code Helper",
+            "score": None,
+            "status": "pending",
+            "timestamp": "2024-02-22T14:45:00Z",
+            "cost": 0.0,
+            "feedback": None
+        },
+        {
+            "id": "task-005",
+            "description": "Parse email attachments",
+            "domain": "administration",
+            "specialist": "Admin Helper",
+            "score": 0.45,
+            "status": "failed",
+            "timestamp": "2024-02-22T12:30:00Z",
+            "cost": 0.0008,
+            "feedback": None,
+            "error": "Unable to access attachment - permission denied"
+        }
+    ]
+
+    # Apply filters
+    if domain:
+        tasks = [t for t in tasks if t["domain"] == domain]
+    if status:
+        tasks = [t for t in tasks if t["status"] == status]
+
+    return JSONResponse({
+        "tasks": tasks[offset:offset + limit],
+        "total": len(tasks),
+        "limit": limit,
+        "offset": offset
+    })
+
+
+@app.post("/api/tasks")
+async def create_task(request: Request):
+    """
+    Create a new task for specialist processing.
+
+    Body:
+        description: Task description
+        domain: Target domain (optional, auto-routed if not specified)
+        priority: Task priority (low, normal, high)
+
+    Returns:
+        Created task with assigned specialist.
+    """
+    try:
+        data = await request.json()
+        description = data.get("description", "")
+        domain = data.get("domain")
+        priority = data.get("priority", "normal")
+
+        if not description:
+            return JSONResponse({"error": "description required"}, status_code=400)
+
+        # TODO: Actually route and create task
+        task_id = f"task-{int(datetime.now().timestamp())}"
+
+        return JSONResponse({
+            "id": task_id,
+            "description": description,
+            "domain": domain or "auto",
+            "priority": priority,
+            "status": "pending",
+            "specialist": None,
+            "message": "Task created and queued for processing"
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/tasks/{task_id}/feedback")
+async def submit_task_feedback(task_id: str, request: Request):
+    """
+    Submit feedback for a completed task.
+
+    Body:
+        type: Feedback type (positive, negative)
+        comment: Optional comment
+
+    Returns:
+        Updated task status.
+    """
+    try:
+        data = await request.json()
+        feedback_type = data.get("type", "")
+        comment = data.get("comment", "")
+
+        if feedback_type not in ("positive", "negative"):
+            return JSONResponse({"error": "type must be 'positive' or 'negative'"}, status_code=400)
+
+        # TODO: Store feedback and update specialist scores
+        return JSONResponse({
+            "task_id": task_id,
+            "feedback": feedback_type,
+            "comment": comment,
+            "message": "Feedback recorded successfully"
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/budget/status")
+async def get_budget_status():
+    """
+    Get current budget status across all tiers.
+
+    Returns:
+        Budget usage for production, benchmark, and development tiers.
+    """
+    import os
+
+    # Get limits from environment or use defaults
+    budget = {
+        "production": {
+            "spent_daily": 12.50,
+            "limit_daily": float(os.getenv("BUDGET_PRODUCTION_DAILY", 20.00)),
+            "limit_weekly": float(os.getenv("BUDGET_PRODUCTION_WEEKLY", 100.00)),
+            "limit_monthly": float(os.getenv("BUDGET_PRODUCTION_MONTHLY", 300.00))
+        },
+        "benchmark": {
+            "spent_daily": 2.30,
+            "limit_daily": float(os.getenv("BUDGET_BENCHMARK_DAILY", 5.00)),
+            "limit_weekly": float(os.getenv("BUDGET_BENCHMARK_WEEKLY", 25.00)),
+            "limit_monthly": float(os.getenv("BUDGET_BENCHMARK_MONTHLY", 75.00))
+        },
+        "development": {
+            "spent_daily": 0.0,
+            "limit_daily": float(os.getenv("BUDGET_DEVELOPMENT_DAILY", 10.00)),
+            "limit_weekly": float(os.getenv("BUDGET_DEVELOPMENT_WEEKLY", 50.00)),
+            "limit_monthly": float(os.getenv("BUDGET_DEVELOPMENT_MONTHLY", 150.00))
+        },
+        "warn_percent": int(os.getenv("BUDGET_WARN_PERCENT", 80)),
+        "critical_percent": int(os.getenv("BUDGET_CRITICAL_PERCENT", 95))
+    }
+    return JSONResponse(budget)
+
+
+@app.post("/api/evolution/trigger")
+async def trigger_evolution():
+    """
+    Manually trigger an evolution cycle.
+
+    Returns:
+        Evolution cycle results including any culled specialists.
+    """
+    # TODO: Actually trigger evolution
+    return JSONResponse({
+        "status": "completed",
+        "specialists_evaluated": 6,
+        "specialists_culled": 0,
+        "specialists_promoted": 1,
+        "message": "Evolution cycle completed. No specialists culled."
+    })
+
+
+@app.get("/api/graveyard")
+async def get_graveyard():
+    """
+    Get list of retired/culled specialists.
+
+    Returns:
+        List of retired specialists with retirement reasons.
+    """
+    graveyard = [
+        {
+            "id": "admin-retired-1",
+            "name": "Admin Trainee",
+            "domain": "administration",
+            "final_score": 0.52,
+            "tasks_completed": 8,
+            "retired_at": "2024-02-10T12:00:00Z",
+            "reason": "Score below threshold (0.6) for 7 consecutive days"
+        },
+        {
+            "id": "code-retired-1",
+            "name": "Code Rookie",
+            "domain": "code_generation",
+            "final_score": 0.48,
+            "tasks_completed": 5,
+            "retired_at": "2024-02-05T09:30:00Z",
+            "reason": "Failed 3 consecutive tasks"
+        }
+    ]
+    return JSONResponse(graveyard)
 
 
 @app.get("/health")

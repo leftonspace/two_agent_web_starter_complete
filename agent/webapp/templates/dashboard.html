@@ -1,0 +1,1866 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - JARVIS{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Dashboard Header -->
+<div class="content-header">
+    <h1 class="content-title">
+        <i data-lucide="layout-dashboard" class="icon icon-lg"></i>
+        System Overview
+    </h1>
+    <div class="content-actions">
+        <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()">
+            <i data-lucide="refresh-cw" class="icon icon-sm"></i>
+            Refresh
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openNewTaskModal()">
+            <i data-lucide="plus" class="icon icon-sm"></i>
+            New Task
+        </button>
+    </div>
+</div>
+
+<!-- Benchmark Control Panel -->
+<div class="benchmark-panel card">
+    <div class="benchmark-panel-header">
+        <div class="benchmark-panel-title">
+            <i data-lucide="gauge" class="icon icon-md"></i>
+            Benchmark Control
+        </div>
+        <div class="benchmark-status" id="benchmarkStatus">
+            <span class="badge badge-idle badge-dot">Idle</span>
+        </div>
+    </div>
+    <div class="benchmark-panel-body">
+        <div class="benchmark-status" id="benchmarkStatusDisplay">
+            <div class="benchmark-status-indicator" id="benchmarkIndicator">
+                <i data-lucide="play-circle" class="icon icon-lg"></i>
+            </div>
+            <div class="benchmark-status-info">
+                <div class="benchmark-status-title" id="benchmarkTitle">Ready to Run</div>
+                <div class="benchmark-status-detail" id="benchmarkDetail">No benchmark in progress</div>
+            </div>
+        </div>
+        <div class="benchmark-progress" id="benchmarkProgress" style="display: none;">
+            <div class="benchmark-progress-bar">
+                <div class="benchmark-progress-fill" id="benchmarkProgressFill" style="width: 0%;"></div>
+            </div>
+            <div class="benchmark-progress-text">
+                <span id="benchmarkProgressLabel">0 / 0 tasks</span>
+                <span id="benchmarkProgressPercent">0%</span>
+            </div>
+        </div>
+        <div class="benchmark-controls">
+            <button class="btn btn-secondary" onclick="runBenchmark()" id="benchmarkRunBtn">
+                <i data-lucide="play" class="icon icon-sm"></i>
+                Run Benchmark
+            </button>
+            <button class="btn btn-warning" onclick="pauseBenchmark()" id="benchmarkPauseBtn" disabled>
+                <i data-lucide="pause" class="icon icon-sm"></i>
+                Pause
+            </button>
+            <button class="btn btn-ghost" onclick="viewBenchmarkHistory()">
+                <i data-lucide="history" class="icon icon-sm"></i>
+                History
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Domain Cards Grid -->
+<div class="domain-grid">
+    <!-- Administration Domain -->
+    <div class="domain-card" id="domain-admin">
+        <div class="domain-card-header" onclick="toggleDomainCard('admin')">
+            <div class="domain-card-icon">
+                <i data-lucide="terminal"></i>
+            </div>
+            <div class="domain-card-info">
+                <div class="domain-card-name">Administration</div>
+                <div class="domain-card-meta">
+                    <span>3 specialists</span>
+                    <span>|</span>
+                    <span>Avg: 0.87</span>
+                </div>
+            </div>
+            <div class="domain-card-stats">
+                <div class="domain-stat">
+                    <div class="domain-stat-value">24</div>
+                    <div class="domain-stat-label">Tasks</div>
+                </div>
+                <div class="domain-stat">
+                    <div class="domain-stat-value">0.87</div>
+                    <div class="domain-stat-label">Score</div>
+                </div>
+            </div>
+            <div class="domain-card-expand">
+                <i data-lucide="chevron-down"></i>
+            </div>
+        </div>
+        <div class="domain-card-body">
+            <div class="specialist-list">
+                <div class="specialist-row" onclick="openSpecialistModal('admin-1')">
+                    <div class="specialist-avatar">A1</div>
+                    <div class="specialist-info">
+                        <div class="specialist-name">Admin Specialist Alpha</div>
+                        <div class="specialist-id">sp_admin_001</div>
+                    </div>
+                    <div class="specialist-score">
+                        <div class="specialist-score-bar">
+                            <div class="specialist-score-fill excellent" style="width: 92%;"></div>
+                        </div>
+                        <div class="specialist-score-value excellent">0.92</div>
+                    </div>
+                    <div class="specialist-status">
+                        <span class="badge badge-active badge-sm badge-dot">Active</span>
+                    </div>
+                </div>
+                <div class="specialist-row" onclick="openSpecialistModal('admin-2')">
+                    <div class="specialist-avatar">A2</div>
+                    <div class="specialist-info">
+                        <div class="specialist-name">Admin Specialist Beta</div>
+                        <div class="specialist-id">sp_admin_002</div>
+                    </div>
+                    <div class="specialist-score">
+                        <div class="specialist-score-bar">
+                            <div class="specialist-score-fill good" style="width: 85%;"></div>
+                        </div>
+                        <div class="specialist-score-value good">0.85</div>
+                    </div>
+                    <div class="specialist-status">
+                        <span class="badge badge-idle badge-sm badge-dot">Idle</span>
+                    </div>
+                </div>
+                <div class="specialist-row" onclick="openSpecialistModal('admin-3')">
+                    <div class="specialist-avatar">A3</div>
+                    <div class="specialist-info">
+                        <div class="specialist-name">Admin Specialist Gamma</div>
+                        <div class="specialist-id">sp_admin_003</div>
+                    </div>
+                    <div class="specialist-score">
+                        <div class="specialist-score-bar">
+                            <div class="specialist-score-fill good" style="width: 78%;"></div>
+                        </div>
+                        <div class="specialist-score-value good">0.78</div>
+                    </div>
+                    <div class="specialist-status">
+                        <span class="badge badge-probation badge-sm badge-dot">Probation</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Generation Domain -->
+    <div class="domain-card" id="domain-code">
+        <div class="domain-card-header" onclick="toggleDomainCard('code')">
+            <div class="domain-card-icon">
+                <i data-lucide="code"></i>
+            </div>
+            <div class="domain-card-info">
+                <div class="domain-card-name">Code Generation</div>
+                <div class="domain-card-meta">
+                    <span>4 specialists</span>
+                    <span>|</span>
+                    <span>Avg: 0.81</span>
+                </div>
+            </div>
+            <div class="domain-card-stats">
+                <div class="domain-stat">
+                    <div class="domain-stat-value">156</div>
+                    <div class="domain-stat-label">Tasks</div>
+                </div>
+                <div class="domain-stat">
+                    <div class="domain-stat-value">0.81</div>
+                    <div class="domain-stat-label">Score</div>
+                </div>
+            </div>
+            <div class="domain-card-expand">
+                <i data-lucide="chevron-down"></i>
+            </div>
+        </div>
+        <div class="domain-card-body">
+            <div class="specialist-list">
+                <div class="specialist-row" onclick="openSpecialistModal('code-1')">
+                    <div class="specialist-avatar">C1</div>
+                    <div class="specialist-info">
+                        <div class="specialist-name">Code Specialist Prime</div>
+                        <div class="specialist-id">sp_code_001</div>
+                    </div>
+                    <div class="specialist-score">
+                        <div class="specialist-score-bar">
+                            <div class="specialist-score-fill excellent" style="width: 94%;"></div>
+                        </div>
+                        <div class="specialist-score-value excellent">0.94</div>
+                    </div>
+                    <div class="specialist-status">
+                        <span class="badge badge-active badge-sm badge-dot">Active</span>
+                    </div>
+                </div>
+                <div class="specialist-row" onclick="openSpecialistModal('code-2')">
+                    <div class="specialist-avatar">C2</div>
+                    <div class="specialist-info">
+                        <div class="specialist-name">Code Specialist Two</div>
+                        <div class="specialist-id">sp_code_002</div>
+                    </div>
+                    <div class="specialist-score">
+                        <div class="specialist-score-bar">
+                            <div class="specialist-score-fill good" style="width: 82%;"></div>
+                        </div>
+                        <div class="specialist-score-value good">0.82</div>
+                    </div>
+                    <div class="specialist-status">
+                        <span class="badge badge-idle badge-sm badge-dot">Idle</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Business Documents Domain -->
+    <div class="domain-card" id="domain-docs">
+        <div class="domain-card-header" onclick="toggleDomainCard('docs')">
+            <div class="domain-card-icon">
+                <i data-lucide="file-text"></i>
+            </div>
+            <div class="domain-card-info">
+                <div class="domain-card-name">Business Documents</div>
+                <div class="domain-card-meta">
+                    <span>3 specialists</span>
+                    <span>|</span>
+                    <span>Avg: 0.79</span>
+                </div>
+            </div>
+            <div class="domain-card-stats">
+                <div class="domain-stat">
+                    <div class="domain-stat-value">89</div>
+                    <div class="domain-stat-label">Tasks</div>
+                </div>
+                <div class="domain-stat">
+                    <div class="domain-stat-value">0.79</div>
+                    <div class="domain-stat-label">Score</div>
+                </div>
+            </div>
+            <div class="domain-card-expand">
+                <i data-lucide="chevron-down"></i>
+            </div>
+        </div>
+        <div class="domain-card-body">
+            <div class="specialist-list">
+                <div class="specialist-row" onclick="openSpecialistModal('docs-1')">
+                    <div class="specialist-avatar">D1</div>
+                    <div class="specialist-info">
+                        <div class="specialist-name">Docs Specialist Alpha</div>
+                        <div class="specialist-id">sp_docs_001</div>
+                    </div>
+                    <div class="specialist-score">
+                        <div class="specialist-score-bar">
+                            <div class="specialist-score-fill good" style="width: 88%;"></div>
+                        </div>
+                        <div class="specialist-score-value good">0.88</div>
+                    </div>
+                    <div class="specialist-status">
+                        <span class="badge badge-active badge-sm badge-dot">Active</span>
+                    </div>
+                </div>
+                <div class="specialist-row" onclick="openSpecialistModal('docs-2')">
+                    <div class="specialist-avatar">D2</div>
+                    <div class="specialist-info">
+                        <div class="specialist-name">Docs Specialist Beta</div>
+                        <div class="specialist-id">sp_docs_002</div>
+                    </div>
+                    <div class="specialist-score">
+                        <div class="specialist-score-bar">
+                            <div class="specialist-score-fill fair" style="width: 65%;"></div>
+                        </div>
+                        <div class="specialist-score-value fair">0.65</div>
+                    </div>
+                    <div class="specialist-status">
+                        <span class="badge badge-probation badge-sm badge-dot">Probation</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Charts Grid -->
+<div class="charts-grid">
+    <!-- Performance Line Chart -->
+    <div class="chart-container chart-wide">
+        <div class="chart-container-header">
+            <div>
+                <div class="chart-container-title">Specialist Performance Over Time</div>
+                <div class="chart-container-subtitle">Average scores across all domains (last 30 days)</div>
+            </div>
+            <div class="chart-container-actions">
+                <button class="btn btn-ghost btn-sm" onclick="toggleChartPeriod('7d')">7D</button>
+                <button class="btn btn-ghost btn-sm active" onclick="toggleChartPeriod('30d')">30D</button>
+                <button class="btn btn-ghost btn-sm" onclick="toggleChartPeriod('90d')">90D</button>
+            </div>
+        </div>
+        <div class="chart-body score-chart">
+            <canvas id="performanceChart"></canvas>
+        </div>
+        <div class="chart-legend">
+            <div class="chart-legend-item">
+                <div class="chart-legend-color primary"></div>
+                <span>Administration</span>
+            </div>
+            <div class="chart-legend-item">
+                <div class="chart-legend-color secondary"></div>
+                <span>Code Generation</span>
+            </div>
+            <div class="chart-legend-item">
+                <div class="chart-legend-color warning"></div>
+                <span>Business Documents</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Score Distribution -->
+    <div class="chart-container">
+        <div class="chart-container-header">
+            <div>
+                <div class="chart-container-title">Domain Distribution</div>
+                <div class="chart-container-subtitle">Task completion by domain</div>
+            </div>
+        </div>
+        <div class="chart-body pie-chart">
+            <div class="pie-chart-visual">
+                <canvas id="domainPieChart"></canvas>
+            </div>
+            <div class="pie-chart-legend">
+                <div class="pie-chart-legend-item">
+                    <div class="pie-chart-legend-color" style="background: var(--accent-primary);"></div>
+                    <span class="pie-chart-legend-label">Administration</span>
+                    <span class="pie-chart-legend-value">42</span>
+                </div>
+                <div class="pie-chart-legend-item">
+                    <div class="pie-chart-legend-color" style="background: var(--accent-secondary);"></div>
+                    <span class="pie-chart-legend-label">Code Generation</span>
+                    <span class="pie-chart-legend-value">67</span>
+                </div>
+                <div class="pie-chart-legend-item">
+                    <div class="pie-chart-legend-color" style="background: var(--accent-warning);"></div>
+                    <span class="pie-chart-legend-label">Business Docs</span>
+                    <span class="pie-chart-legend-value">28</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Budget Usage Chart -->
+    <div class="chart-container">
+        <div class="chart-container-header">
+            <div>
+                <div class="chart-container-title">Budget Usage</div>
+                <div class="chart-container-subtitle">Current spending by tier</div>
+            </div>
+        </div>
+        <div class="chart-body budget-chart">
+            <div class="budget-chart-header">
+                <span class="budget-chart-title">Total Spent Today</span>
+                <span class="budget-chart-amount"><span class="currency">$</span>14.80</span>
+            </div>
+            <div class="progress-bar progress-bar-lg">
+                <div class="progress-bar-fill" style="width: 74%;"></div>
+            </div>
+            <div class="budget-chart-breakdown">
+                <div class="budget-item">
+                    <div class="budget-item-value">$12.50</div>
+                    <div class="budget-item-label">Production</div>
+                </div>
+                <div class="budget-item">
+                    <div class="budget-item-value">$2.30</div>
+                    <div class="budget-item-label">Benchmark</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Specialist Scores Bar Chart -->
+    <div class="chart-container chart-wide">
+        <div class="chart-container-header">
+            <div>
+                <div class="chart-container-title">Top Specialists by Score</div>
+                <div class="chart-container-subtitle">Current performance ranking</div>
+            </div>
+        </div>
+        <div class="chart-body bar-chart-horizontal">
+            <div class="bar-chart-row">
+                <span class="bar-chart-label">Admin Pro</span>
+                <div class="bar-chart-track">
+                    <div class="bar-chart-fill" style="width: 94%; background: var(--accent-primary);">
+                        <span class="bar-chart-value">0.94</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bar-chart-row">
+                <span class="bar-chart-label">Code Master</span>
+                <div class="bar-chart-track">
+                    <div class="bar-chart-fill" style="width: 91%; background: var(--accent-primary);">
+                        <span class="bar-chart-value">0.91</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bar-chart-row">
+                <span class="bar-chart-label">Admin Elite</span>
+                <div class="bar-chart-track">
+                    <div class="bar-chart-fill" style="width: 88%; background: var(--accent-secondary);">
+                        <span class="bar-chart-value">0.88</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bar-chart-row">
+                <span class="bar-chart-label">Doc Writer</span>
+                <div class="bar-chart-track">
+                    <div class="bar-chart-fill" style="width: 82%; background: var(--accent-secondary);">
+                        <span class="bar-chart-value">0.82</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bar-chart-row">
+                <span class="bar-chart-label">Code Helper</span>
+                <div class="bar-chart-track">
+                    <div class="bar-chart-fill" style="width: 65%; background: var(--accent-warning);">
+                        <span class="bar-chart-value">0.65</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Tasks Table -->
+<div class="tasks-table-container">
+    <div class="tasks-table-header">
+        <div class="tasks-table-title">
+            <i data-lucide="list-checks" class="icon icon-md"></i>
+            Recent Tasks
+        </div>
+        <div class="tasks-table-actions">
+            <button class="btn btn-ghost btn-sm" onclick="exportTasks()">
+                <i data-lucide="download" class="icon icon-sm"></i>
+                Export
+            </button>
+        </div>
+    </div>
+    <div class="tasks-filters">
+        <div class="tasks-search input-icon">
+            <i data-lucide="search"></i>
+            <input type="text" class="input" placeholder="Search tasks..." id="taskSearch">
+        </div>
+        <div class="tasks-filter-group">
+            <button class="tasks-filter-btn active" data-filter="all">All</button>
+            <button class="tasks-filter-btn" data-filter="completed">Completed</button>
+            <button class="tasks-filter-btn" data-filter="pending">Pending</button>
+            <button class="tasks-filter-btn" data-filter="failed">Failed</button>
+        </div>
+    </div>
+    <table class="tasks-table">
+        <thead>
+            <tr>
+                <th class="sortable" data-sort="id">ID</th>
+                <th class="sortable" data-sort="task">Task</th>
+                <th class="sortable" data-sort="specialist">Specialist</th>
+                <th class="sortable" data-sort="score">Score</th>
+                <th class="sortable" data-sort="status">Status</th>
+                <th class="sortable" data-sort="timestamp">Time</th>
+                <th>Feedback</th>
+            </tr>
+        </thead>
+        <tbody id="tasksTableBody">
+            <tr onclick="openTaskModal('task-001')">
+                <td><span class="task-id">#001</span></td>
+                <td><span class="task-description">Generate quarterly report summary for Q4 2024</span></td>
+                <td>
+                    <div class="task-specialist">
+                        <div class="task-specialist-avatar">A1</div>
+                        <span>Admin Alpha</span>
+                    </div>
+                </td>
+                <td><span class="task-score excellent">0.95</span></td>
+                <td><span class="badge badge-success badge-sm">Completed</span></td>
+                <td><span class="task-timestamp">2 min ago</span></td>
+                <td>
+                    <div class="feedback-buttons">
+                        <button class="feedback-btn thumbs-up" onclick="event.stopPropagation(); giveFeedback('task-001', 'up')">
+                            <i data-lucide="thumbs-up"></i>
+                        </button>
+                        <button class="feedback-btn thumbs-down" onclick="event.stopPropagation(); giveFeedback('task-001', 'down')">
+                            <i data-lucide="thumbs-down"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr onclick="openTaskModal('task-002')">
+                <td><span class="task-id">#002</span></td>
+                <td><span class="task-description">Refactor authentication module with JWT</span></td>
+                <td>
+                    <div class="task-specialist">
+                        <div class="task-specialist-avatar">C1</div>
+                        <span>Code Prime</span>
+                    </div>
+                </td>
+                <td><span class="task-score good">0.88</span></td>
+                <td><span class="badge badge-success badge-sm">Completed</span></td>
+                <td><span class="task-timestamp">15 min ago</span></td>
+                <td>
+                    <div class="feedback-buttons">
+                        <button class="feedback-btn thumbs-up active" onclick="event.stopPropagation(); giveFeedback('task-002', 'up')">
+                            <i data-lucide="thumbs-up"></i>
+                        </button>
+                        <button class="feedback-btn thumbs-down" onclick="event.stopPropagation(); giveFeedback('task-002', 'down')">
+                            <i data-lucide="thumbs-down"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr onclick="openTaskModal('task-003')">
+                <td><span class="task-id">#003</span></td>
+                <td><span class="task-description">Create employee onboarding document template</span></td>
+                <td>
+                    <div class="task-specialist">
+                        <div class="task-specialist-avatar">D1</div>
+                        <span>Docs Alpha</span>
+                    </div>
+                </td>
+                <td><span class="task-score fair">0.62</span></td>
+                <td><span class="badge badge-warning badge-sm">In Review</span></td>
+                <td><span class="task-timestamp">1 hour ago</span></td>
+                <td>
+                    <div class="feedback-buttons">
+                        <button class="feedback-btn thumbs-up" onclick="event.stopPropagation(); giveFeedback('task-003', 'up')">
+                            <i data-lucide="thumbs-up"></i>
+                        </button>
+                        <button class="feedback-btn thumbs-down" onclick="event.stopPropagation(); giveFeedback('task-003', 'down')">
+                            <i data-lucide="thumbs-down"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr onclick="openTaskModal('task-004')">
+                <td><span class="task-id">#004</span></td>
+                <td><span class="task-description">Debug memory leak in data processing pipeline</span></td>
+                <td>
+                    <div class="task-specialist">
+                        <div class="task-specialist-avatar">C2</div>
+                        <span>Code Two</span>
+                    </div>
+                </td>
+                <td><span class="task-score poor">0.45</span></td>
+                <td><span class="badge badge-error badge-sm">Failed</span></td>
+                <td><span class="task-timestamp">3 hours ago</span></td>
+                <td>
+                    <div class="feedback-buttons">
+                        <button class="feedback-btn thumbs-up" onclick="event.stopPropagation(); giveFeedback('task-004', 'up')">
+                            <i data-lucide="thumbs-up"></i>
+                        </button>
+                        <button class="feedback-btn thumbs-down active" onclick="event.stopPropagation(); giveFeedback('task-004', 'down')">
+                            <i data-lucide="thumbs-down"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr onclick="openTaskModal('task-005')">
+                <td><span class="task-id">#005</span></td>
+                <td><span class="task-description">Schedule team meeting for sprint planning</span></td>
+                <td>
+                    <div class="task-specialist">
+                        <div class="task-specialist-avatar">A2</div>
+                        <span>Admin Beta</span>
+                    </div>
+                </td>
+                <td><span class="task-score excellent">0.91</span></td>
+                <td><span class="badge badge-success badge-sm">Completed</span></td>
+                <td><span class="task-timestamp">5 hours ago</span></td>
+                <td>
+                    <div class="feedback-buttons">
+                        <button class="feedback-btn thumbs-up" onclick="event.stopPropagation(); giveFeedback('task-005', 'up')">
+                            <i data-lucide="thumbs-up"></i>
+                        </button>
+                        <button class="feedback-btn thumbs-down" onclick="event.stopPropagation(); giveFeedback('task-005', 'down')">
+                            <i data-lucide="thumbs-down"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="tasks-pagination">
+        <div class="pagination-info">Showing 1-5 of 269 tasks</div>
+        <div class="pagination-controls">
+            <button class="pagination-btn" disabled>
+                <i data-lucide="chevron-left"></i>
+            </button>
+            <button class="pagination-btn active">1</button>
+            <button class="pagination-btn">2</button>
+            <button class="pagination-btn">3</button>
+            <button class="pagination-btn">...</button>
+            <button class="pagination-btn">54</button>
+            <button class="pagination-btn">
+                <i data-lucide="chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODALS
+     ================================================================ -->
+
+<!-- Task Detail Modal -->
+<div class="modal-overlay" id="taskModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i data-lucide="file-check"></i>
+                Task Details
+            </div>
+            <button class="modal-close" onclick="closeModal('taskModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="task-detail">
+                <div class="task-detail-section">
+                    <div class="task-detail-label">Task ID</div>
+                    <div class="task-detail-value" id="taskDetailId">#001</div>
+                </div>
+                <div class="task-detail-section">
+                    <div class="task-detail-label">Description</div>
+                    <div class="task-detail-value" id="taskDetailDesc">Generate quarterly report summary for Q4 2024</div>
+                </div>
+                <div class="task-detail-section">
+                    <div class="task-detail-label">Response</div>
+                    <div class="task-detail-response" id="taskDetailResponse">
+                        The quarterly report has been generated successfully. Key highlights include:
+                        - Revenue growth of 15% compared to Q3
+                        - New customer acquisition up 23%
+                        - Operating costs reduced by 8%
+                        - Employee satisfaction score improved to 4.2/5
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4);">
+                    <div class="task-detail-section">
+                        <div class="task-detail-label">Score</div>
+                        <div class="task-detail-value" style="font-family: var(--font-display); font-size: var(--text-2xl); color: var(--accent-primary);">0.95</div>
+                    </div>
+                    <div class="task-detail-section">
+                        <div class="task-detail-label">Specialist</div>
+                        <div class="task-detail-value">Admin Specialist Alpha</div>
+                    </div>
+                    <div class="task-detail-section">
+                        <div class="task-detail-label">Completed</div>
+                        <div class="task-detail-value">2 minutes ago</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <div class="modal-footer-left">
+                <div class="feedback-buttons">
+                    <button class="feedback-btn thumbs-up" onclick="giveFeedback('task-001', 'up')">
+                        <i data-lucide="thumbs-up"></i>
+                    </button>
+                    <button class="feedback-btn thumbs-down" onclick="giveFeedback('task-001', 'down')">
+                        <i data-lucide="thumbs-down"></i>
+                    </button>
+                </div>
+            </div>
+            <button class="btn btn-ghost" onclick="closeModal('taskModal')">Close</button>
+            <button class="btn btn-primary" onclick="retryTask()">Retry Task</button>
+        </div>
+    </div>
+</div>
+
+<!-- Specialist Detail Modal -->
+<div class="modal-overlay" id="specialistModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i data-lucide="user"></i>
+                Specialist Details
+            </div>
+            <button class="modal-close" onclick="closeModal('specialistModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="specialist-detail">
+                <div class="specialist-detail-header">
+                    <div class="specialist-detail-avatar">A1</div>
+                    <div class="specialist-detail-info">
+                        <h3>Admin Specialist Alpha</h3>
+                        <p>sp_admin_001 | Administration Domain</p>
+                    </div>
+                    <span class="badge badge-active badge-dot">Active</span>
+                </div>
+                <div class="specialist-detail-stats">
+                    <div class="specialist-stat-card">
+                        <div class="specialist-stat-value">0.92</div>
+                        <div class="specialist-stat-label">Average Score</div>
+                    </div>
+                    <div class="specialist-stat-card">
+                        <div class="specialist-stat-value">24</div>
+                        <div class="specialist-stat-label">Tasks Completed</div>
+                    </div>
+                    <div class="specialist-stat-card">
+                        <div class="specialist-stat-value">96%</div>
+                        <div class="specialist-stat-label">Success Rate</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">Performance History (Last 30 Days)</div>
+                    </div>
+                    <div class="chart-body">
+                        <div class="sparkline" style="height: 100px;">
+                            <div class="sparkline-bar" style="height: 70%;"></div>
+                            <div class="sparkline-bar" style="height: 75%;"></div>
+                            <div class="sparkline-bar" style="height: 82%;"></div>
+                            <div class="sparkline-bar" style="height: 78%;"></div>
+                            <div class="sparkline-bar" style="height: 85%;"></div>
+                            <div class="sparkline-bar" style="height: 88%;"></div>
+                            <div class="sparkline-bar" style="height: 84%;"></div>
+                            <div class="sparkline-bar" style="height: 90%;"></div>
+                            <div class="sparkline-bar" style="height: 87%;"></div>
+                            <div class="sparkline-bar" style="height: 92%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-danger" onclick="retireSpecialist()">Retire Specialist</button>
+            <button class="btn btn-ghost" onclick="closeModal('specialistModal')">Close</button>
+            <button class="btn btn-primary" onclick="assignTask()">Assign Task</button>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Modal -->
+<div class="modal-overlay" id="budgetModal">
+    <div class="modal modal-md">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i data-lucide="wallet"></i>
+                Budget Status
+            </div>
+            <button class="modal-close" onclick="closeModal('budgetModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="budget-modal-content">
+                <div class="budget-tier">
+                    <div class="budget-tier-header">
+                        <span class="budget-tier-name">Production</span>
+                        <span class="budget-tier-amount" style="color: var(--accent-primary);">$12.50 / $20.00</span>
+                    </div>
+                    <div class="progress budget-tier-progress">
+                        <div class="progress-bar" style="width: 62.5%;"></div>
+                    </div>
+                    <div class="budget-tier-limits">
+                        <span>Daily: $20.00</span>
+                        <span>Weekly: $100.00</span>
+                        <span>Monthly: $300.00</span>
+                    </div>
+                </div>
+                <div class="budget-tier">
+                    <div class="budget-tier-header">
+                        <span class="budget-tier-name">Benchmark</span>
+                        <span class="budget-tier-amount" style="color: var(--accent-secondary);">$2.30 / $5.00</span>
+                    </div>
+                    <div class="progress budget-tier-progress">
+                        <div class="progress-bar" style="width: 46%; background: var(--accent-secondary);"></div>
+                    </div>
+                    <div class="budget-tier-limits">
+                        <span>Daily: $5.00</span>
+                        <span>Weekly: $25.00</span>
+                        <span>Monthly: $75.00</span>
+                    </div>
+                </div>
+                <div class="budget-tier">
+                    <div class="budget-tier-header">
+                        <span class="budget-tier-name">Development</span>
+                        <span class="budget-tier-amount" style="color: var(--accent-info);">$8.75 / $10.00</span>
+                    </div>
+                    <div class="progress budget-tier-progress">
+                        <div class="progress-bar" style="width: 87.5%; background: var(--accent-warning);"></div>
+                    </div>
+                    <div class="budget-tier-limits">
+                        <span>Daily: $10.00</span>
+                        <span>Weekly: $50.00</span>
+                        <span>Monthly: $150.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('budgetModal')">Close</button>
+            <button class="btn btn-secondary" onclick="viewCostLog()">View Cost Log</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Task Modal -->
+<div class="modal-overlay" id="newTaskModal">
+    <div class="modal modal-md">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i data-lucide="plus-circle"></i>
+                New Task
+            </div>
+            <button class="modal-close" onclick="closeModal('newTaskModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form class="task-input-form" id="newTaskForm">
+                <div class="task-input-field">
+                    <label class="task-input-label">Domain</label>
+                    <select class="input select" name="domain" required>
+                        <option value="">Select domain...</option>
+                        <option value="admin">Administration</option>
+                        <option value="code">Code Generation</option>
+                        <option value="docs">Business Documents</option>
+                    </select>
+                </div>
+                <div class="task-input-field">
+                    <label class="task-input-label">Task Description</label>
+                    <textarea class="input textarea" name="description" rows="4" placeholder="Describe the task you want to assign..." required></textarea>
+                    <span class="task-input-help">Be specific about what you want the specialist to accomplish.</span>
+                </div>
+                <div class="task-input-field">
+                    <label class="task-input-label">Priority</label>
+                    <select class="input select" name="priority">
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('newTaskModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitNewTask()">
+                <i data-lucide="send" class="icon icon-sm"></i>
+                Submit Task
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i data-lucide="settings"></i>
+                Settings
+            </div>
+            <button class="modal-close" onclick="closeModal('settingsModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-tabs">
+                <button class="settings-tab active" data-tab="general">General</button>
+                <button class="settings-tab" data-tab="evaluation">Evaluation</button>
+                <button class="settings-tab" data-tab="budget">Budget</button>
+                <button class="settings-tab" data-tab="notifications">Notifications</button>
+            </div>
+            <div class="settings-content" id="settingsContent">
+                <div class="settings-group">
+                    <div class="settings-group-title">System Preferences</div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Auto-refresh Dashboard</div>
+                            <div class="settings-item-description">Automatically refresh data every 30 seconds</div>
+                        </div>
+                        <div class="toggle active" onclick="toggleSetting(this)"></div>
+                    </div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Enable Notifications</div>
+                            <div class="settings-item-description">Show desktop notifications for important events</div>
+                        </div>
+                        <div class="toggle active" onclick="toggleSetting(this)"></div>
+                    </div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Dark Mode</div>
+                            <div class="settings-item-description">Use dark theme (currently enabled)</div>
+                        </div>
+                        <div class="toggle active" onclick="toggleSetting(this)"></div>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="settings-group-title">Evolution Settings</div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Auto Evolution</div>
+                            <div class="settings-item-description">Automatically evolve specialists when conditions are met</div>
+                        </div>
+                        <div class="toggle active" onclick="toggleSetting(this)"></div>
+                    </div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-label">Minimum Score Threshold</div>
+                            <div class="settings-item-description">Specialists below this score are put on probation</div>
+                        </div>
+                        <div class="slider-container" style="width: 200px;">
+                            <input type="range" class="slider" min="0" max="100" value="60">
+                            <div class="slider-marks">
+                                <span>0.0</span>
+                                <span>0.5</span>
+                                <span>1.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('settingsModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveSettings()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Graveyard Modal -->
+<div class="modal-overlay" id="graveyardModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i data-lucide="archive"></i>
+                Specialist Graveyard
+            </div>
+            <button class="modal-close" onclick="closeModal('graveyardModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="graveyard-list">
+                <div class="graveyard-item">
+                    <div class="graveyard-avatar">
+                        <i data-lucide="skull"></i>
+                    </div>
+                    <div class="graveyard-info">
+                        <div class="graveyard-name">Code Specialist Delta</div>
+                        <div class="graveyard-meta">Retired on Nov 20, 2024 | 12 tasks completed | Final score: 0.42</div>
+                    </div>
+                    <div class="graveyard-reason">Score below threshold</div>
+                </div>
+                <div class="graveyard-item">
+                    <div class="graveyard-avatar">
+                        <i data-lucide="skull"></i>
+                    </div>
+                    <div class="graveyard-info">
+                        <div class="graveyard-name">Admin Specialist Omega</div>
+                        <div class="graveyard-meta">Retired on Nov 15, 2024 | 8 tasks completed | Final score: 0.38</div>
+                    </div>
+                    <div class="graveyard-reason">Consistent failures</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('graveyardModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Panel (Slide-out) -->
+<div class="notification-panel" id="notificationPanel">
+    <div class="notification-panel-header">
+        <span class="notification-panel-title">Notifications</span>
+        <button class="modal-close" onclick="closeNotificationPanel()">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+    <div class="notification-list">
+        <div class="notification-item unread">
+            <div class="notification-icon success">
+                <i data-lucide="check-circle"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">Task Completed</div>
+                <div class="notification-message">Admin Specialist Alpha completed "Generate quarterly report"</div>
+                <div class="notification-time">2 min ago</div>
+            </div>
+        </div>
+        <div class="notification-item unread">
+            <div class="notification-icon warning">
+                <i data-lucide="alert-triangle"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">Budget Warning</div>
+                <div class="notification-message">Development budget is at 87% utilization</div>
+                <div class="notification-time">15 min ago</div>
+            </div>
+        </div>
+        <div class="notification-item">
+            <div class="notification-icon info">
+                <i data-lucide="git-branch"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">Evolution Complete</div>
+                <div class="notification-message">Code Specialist Prime evolved with improved prompts</div>
+                <div class="notification-time">1 hour ago</div>
+            </div>
+        </div>
+        <div class="notification-item">
+            <div class="notification-icon error">
+                <i data-lucide="x-circle"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">Task Failed</div>
+                <div class="notification-message">Code Specialist Two failed "Debug memory leak"</div>
+                <div class="notification-time">3 hours ago</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // ================================================================
+    // Dashboard JavaScript
+    // ================================================================
+
+    // Domain Card Toggle
+    function toggleDomainCard(domainId) {
+        const card = document.getElementById('domain-' + domainId);
+        card.classList.toggle('expanded');
+    }
+
+    // Modal Functions
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.add('active');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+    }
+
+    function openTaskModal(taskId) {
+        // TODO: Fetch task data and populate modal
+        openModal('taskModal');
+    }
+
+    function openSpecialistModal(specialistId) {
+        // TODO: Fetch specialist data and populate modal
+        openModal('specialistModal');
+    }
+
+    function openNewTaskModal() {
+        openModal('newTaskModal');
+    }
+
+    // Override header functions from base.html
+    window.openBudgetPanel = function() {
+        openModal('budgetModal');
+    };
+
+    window.openSettings = function() {
+        openModal('settingsModal');
+    };
+
+    window.openNotifications = function() {
+        const panel = document.getElementById('notificationPanel');
+        panel.classList.toggle('open');
+    };
+
+    function closeNotificationPanel() {
+        document.getElementById('notificationPanel').classList.remove('open');
+    }
+
+    // Benchmark Functions
+    function runBenchmark() {
+        const indicator = document.getElementById('benchmarkIndicator');
+        const title = document.getElementById('benchmarkTitle');
+        const detail = document.getElementById('benchmarkDetail');
+        const progress = document.getElementById('benchmarkProgress');
+        const runBtn = document.getElementById('benchmarkRunBtn');
+        const pauseBtn = document.getElementById('benchmarkPauseBtn');
+
+        indicator.classList.add('running');
+        indicator.innerHTML = '<i data-lucide="loader" class="icon icon-lg"></i>';
+        title.textContent = 'Running Benchmark...';
+        detail.textContent = 'Processing tasks across all domains';
+        progress.style.display = 'block';
+        runBtn.disabled = true;
+        pauseBtn.disabled = false;
+
+        lucide.createIcons();
+
+        // Simulate progress
+        let progressValue = 0;
+        const interval = setInterval(() => {
+            progressValue += Math.random() * 15;
+            if (progressValue >= 100) {
+                progressValue = 100;
+                clearInterval(interval);
+                completeBenchmark();
+            }
+            document.getElementById('benchmarkProgressFill').style.width = progressValue + '%';
+            document.getElementById('benchmarkProgressPercent').textContent = Math.round(progressValue) + '%';
+            document.getElementById('benchmarkProgressLabel').textContent = Math.round(progressValue / 10) + ' / 10 tasks';
+        }, 500);
+    }
+
+    function completeBenchmark() {
+        const indicator = document.getElementById('benchmarkIndicator');
+        const title = document.getElementById('benchmarkTitle');
+        const detail = document.getElementById('benchmarkDetail');
+        const runBtn = document.getElementById('benchmarkRunBtn');
+        const pauseBtn = document.getElementById('benchmarkPauseBtn');
+
+        indicator.classList.remove('running');
+        indicator.classList.add('completed');
+        indicator.innerHTML = '<i data-lucide="check-circle" class="icon icon-lg"></i>';
+        title.textContent = 'Benchmark Complete';
+        detail.textContent = '10 tasks evaluated | Average score: 0.84';
+        runBtn.disabled = false;
+        pauseBtn.disabled = true;
+
+        lucide.createIcons();
+    }
+
+    function pauseBenchmark() {
+        const indicator = document.getElementById('benchmarkIndicator');
+        const title = document.getElementById('benchmarkTitle');
+        const pauseBtn = document.getElementById('benchmarkPauseBtn');
+
+        indicator.classList.remove('running');
+        indicator.innerHTML = '<i data-lucide="pause-circle" class="icon icon-lg"></i>';
+        title.textContent = 'Benchmark Paused';
+        pauseBtn.disabled = true;
+
+        lucide.createIcons();
+    }
+
+    function viewBenchmarkHistory() {
+        alert('Benchmark history view coming soon!');
+    }
+
+    // Feedback Functions
+    function giveFeedback(taskId, type) {
+        const btn = event.target.closest('.feedback-btn');
+        const buttons = btn.parentElement.querySelectorAll('.feedback-btn');
+
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // TODO: Send feedback to API
+        console.log('Feedback:', taskId, type);
+    }
+
+    // Task Functions
+    function submitNewTask() {
+        const form = document.getElementById('newTaskForm');
+        const formData = new FormData(form);
+
+        // TODO: Submit task to API
+        console.log('New task:', Object.fromEntries(formData));
+
+        closeModal('newTaskModal');
+        form.reset();
+    }
+
+    function retryTask() {
+        // TODO: Implement retry
+        console.log('Retry task');
+    }
+
+    // Specialist Functions
+    function retireSpecialist() {
+        if (confirm('Are you sure you want to retire this specialist? This action cannot be undone.')) {
+            // TODO: Send retire request to API
+            console.log('Retire specialist');
+            closeModal('specialistModal');
+        }
+    }
+
+    function assignTask() {
+        closeModal('specialistModal');
+        openModal('newTaskModal');
+    }
+
+    // Settings Functions
+    function toggleSetting(toggle) {
+        toggle.classList.toggle('active');
+    }
+
+    function saveSettings() {
+        // TODO: Save settings to API
+        console.log('Saving settings...');
+        closeModal('settingsModal');
+    }
+
+    // Sidebar Quick Actions
+    window.runBenchmarks = function() {
+        runBenchmark();
+    };
+
+    window.forceEvolution = function() {
+        if (confirm('Force evolution cycle? This will evaluate all specialists and may retire underperformers.')) {
+            // TODO: Trigger evolution
+            console.log('Force evolution');
+        }
+    };
+
+    window.newTask = function() {
+        openNewTaskModal();
+    };
+
+    // Dashboard Refresh
+    function refreshDashboard() {
+        // TODO: Refresh dashboard data
+        console.log('Refreshing dashboard...');
+        location.reload();
+    }
+
+    // Task Filter Buttons
+    document.querySelectorAll('.tasks-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.tasks-filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            // TODO: Filter tasks
+        });
+    });
+
+    // Export Tasks
+    function exportTasks() {
+        // TODO: Export tasks to CSV
+        console.log('Exporting tasks...');
+    }
+
+    // View Cost Log
+    function viewCostLog() {
+        window.location.href = '/cost-log';
+    }
+
+    // Close modals on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+                modal.classList.remove('active');
+            });
+            closeNotificationPanel();
+        }
+    });
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+            }
+        });
+    });
+
+    // Initialize tooltips and re-init Lucide icons
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        // Initialize charts
+        initializeCharts();
+    });
+
+    // ================================================================
+    // Chart.js Initialization
+    // ================================================================
+
+    // Chart.js default styling for dark theme
+    const chartColors = {
+        primary: '#00ff88',
+        secondary: '#00d4ff',
+        warning: '#ffcc00',
+        danger: '#ff5555',
+        background: '#0a0a0f',
+        border: '#2a2a3a',
+        text: '#e5e5e8',
+        textDim: '#888899',
+        grid: 'rgba(42, 42, 58, 0.5)'
+    };
+
+    function initializeCharts() {
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js not loaded');
+            return;
+        }
+
+        // Set global defaults
+        Chart.defaults.color = chartColors.text;
+        Chart.defaults.borderColor = chartColors.border;
+        Chart.defaults.font.family = "'JetBrains Mono', monospace";
+
+        // Initialize Performance Line Chart
+        initPerformanceChart();
+
+        // Initialize Domain Pie Chart
+        initDomainPieChart();
+    }
+
+    function initPerformanceChart() {
+        const ctx = document.getElementById('performanceChart');
+        if (!ctx) return;
+
+        // Generate sample data for last 30 days
+        const labels = [];
+        const now = new Date();
+        for (let i = 29; i >= 0; i--) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - i);
+            labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        }
+
+        // Sample performance data
+        const adminData = generatePerformanceData(0.82, 0.92, 30);
+        const codeData = generatePerformanceData(0.78, 0.89, 30);
+        const docsData = generatePerformanceData(0.75, 0.85, 30);
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Administration',
+                        data: adminData,
+                        borderColor: chartColors.primary,
+                        backgroundColor: hexToRgba(chartColors.primary, 0.1),
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Code Generation',
+                        data: codeData,
+                        borderColor: chartColors.secondary,
+                        backgroundColor: hexToRgba(chartColors.secondary, 0.1),
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Business Documents',
+                        data: docsData,
+                        borderColor: chartColors.warning,
+                        backgroundColor: hexToRgba(chartColors.warning, 0.1),
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: chartColors.background,
+                        borderColor: chartColors.border,
+                        borderWidth: 1,
+                        titleFont: { family: "'JetBrains Mono', monospace" },
+                        bodyFont: { family: "'JetBrains Mono', monospace" },
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: chartColors.grid,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: chartColors.textDim,
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 7
+                        }
+                    },
+                    y: {
+                        min: 0.5,
+                        max: 1.0,
+                        grid: {
+                            color: chartColors.grid,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: chartColors.textDim,
+                            callback: function(value) {
+                                return value.toFixed(1);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function initDomainPieChart() {
+        const ctx = document.getElementById('domainPieChart');
+        if (!ctx) return;
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Administration', 'Code Generation', 'Business Docs'],
+                datasets: [{
+                    data: [42, 67, 28],
+                    backgroundColor: [
+                        chartColors.primary,
+                        chartColors.secondary,
+                        chartColors.warning
+                    ],
+                    borderColor: chartColors.background,
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: chartColors.background,
+                        borderColor: chartColors.border,
+                        borderWidth: 1,
+                        titleFont: { family: "'JetBrains Mono', monospace" },
+                        bodyFont: { family: "'JetBrains Mono', monospace" },
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Helper function to generate sample performance data
+    function generatePerformanceData(min, max, count) {
+        const data = [];
+        let current = min + (max - min) / 2;
+        for (let i = 0; i < count; i++) {
+            current += (Math.random() - 0.5) * 0.05;
+            current = Math.max(min, Math.min(max, current));
+            data.push(parseFloat(current.toFixed(3)));
+        }
+        return data;
+    }
+
+    // Helper function to convert hex to rgba
+    function hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // Toggle chart time period
+    function toggleChartPeriod(period) {
+        const buttons = document.querySelectorAll('.chart-container-actions .btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        // TODO: Re-fetch and update chart data based on period
+        console.log('Switching to period:', period);
+    }
+
+    // ================================================================
+    // Toast Notifications
+    // ================================================================
+
+    function showToast(type, title, message, duration = 5000) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        const icons = {
+            success: 'check-circle',
+            error: 'alert-circle',
+            warning: 'alert-triangle',
+            info: 'info'
+        };
+
+        toast.innerHTML = `
+            <i data-lucide="${icons[type]}" class="toast-icon"></i>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close" onclick="dismissToast(this)">
+                <i data-lucide="x"></i>
+            </button>
+        `;
+
+        container.appendChild(toast);
+        lucide.createIcons({ nodes: [toast] });
+
+        // Auto-dismiss
+        if (duration > 0) {
+            setTimeout(() => {
+                dismissToast(toast.querySelector('.toast-close'));
+            }, duration);
+        }
+
+        return toast;
+    }
+
+    function dismissToast(closeBtn) {
+        const toast = closeBtn.closest('.toast');
+        if (toast) {
+            toast.classList.add('toast-exit');
+            setTimeout(() => toast.remove(), 200);
+        }
+    }
+
+    // ================================================================
+    // Loading States
+    // ================================================================
+
+    function showLoadingState(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const skeleton = document.createElement('div');
+        skeleton.className = 'loading-skeleton';
+        skeleton.innerHTML = `
+            <div class="skeleton-row">
+                <div class="skeleton skeleton-avatar"></div>
+                <div style="flex: 1;">
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text-sm"></div>
+                </div>
+            </div>
+            <div class="skeleton-row">
+                <div class="skeleton skeleton-avatar"></div>
+                <div style="flex: 1;">
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text-sm"></div>
+                </div>
+            </div>
+            <div class="skeleton-row">
+                <div class="skeleton skeleton-avatar"></div>
+                <div style="flex: 1;">
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text-sm"></div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = '';
+        container.appendChild(skeleton);
+    }
+
+    function hideLoadingState(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const skeleton = container.querySelector('.loading-skeleton');
+        if (skeleton) skeleton.remove();
+    }
+
+    // ================================================================
+    // API Integration Functions
+    // ================================================================
+
+    const API_BASE = '/api';
+
+    async function fetchAPI(endpoint, options = {}) {
+        try {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API fetch error:', error);
+            showToast('error', 'Connection Error', 'Failed to fetch data from server');
+            throw error;
+        }
+    }
+
+    // Fetch specialists data
+    async function loadSpecialists() {
+        try {
+            const data = await fetchAPI('/specialists');
+            updateDomainCards(data);
+        } catch (error) {
+            console.error('Failed to load specialists:', error);
+        }
+    }
+
+    // Fetch domains data
+    async function loadDomains() {
+        try {
+            const data = await fetchAPI('/domains');
+            updateDomainStats(data);
+        } catch (error) {
+            console.error('Failed to load domains:', error);
+        }
+    }
+
+    // Fetch tasks data
+    async function loadTasks(filters = {}) {
+        try {
+            const queryParams = new URLSearchParams(filters).toString();
+            const data = await fetchAPI(`/tasks?${queryParams}`);
+            updateTasksTable(data.tasks);
+            return data;
+        } catch (error) {
+            console.error('Failed to load tasks:', error);
+        }
+    }
+
+    // Fetch budget status
+    async function loadBudget() {
+        try {
+            const data = await fetchAPI('/budget/status');
+            updateBudgetDisplay(data);
+        } catch (error) {
+            console.error('Failed to load budget:', error);
+        }
+    }
+
+    // Fetch benchmark status
+    async function loadBenchmarkStatus() {
+        try {
+            const data = await fetchAPI('/benchmark/status');
+            updateBenchmarkDisplay(data);
+        } catch (error) {
+            console.error('Failed to load benchmark status:', error);
+        }
+    }
+
+    // Update domain cards with specialist data
+    function updateDomainCards(specialists) {
+        // TODO: Update DOM with real specialist data
+        console.log('Updating domain cards with:', specialists);
+    }
+
+    // Update domain statistics
+    function updateDomainStats(domains) {
+        // TODO: Update DOM with real domain stats
+        console.log('Updating domain stats:', domains);
+    }
+
+    // Update tasks table
+    function updateTasksTable(tasks) {
+        const tbody = document.getElementById('tasksTableBody');
+        if (!tbody) return;
+
+        if (!tasks || tasks.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <div class="empty-state-icon">
+                            <i data-lucide="inbox"></i>
+                        </div>
+                        <div class="empty-state-title">No tasks found</div>
+                        <div class="empty-state-message">Create a new task to get started</div>
+                    </td>
+                </tr>
+            `;
+            lucide.createIcons({ nodes: [tbody] });
+            return;
+        }
+
+        tbody.innerHTML = tasks.map(task => `
+            <tr onclick="openTaskModal('${task.id}')" class="${task.status}">
+                <td><span class="task-id">#${task.id.split('-')[1] || task.id}</span></td>
+                <td>
+                    <span class="task-description">${task.description}</span>
+                </td>
+                <td>${task.specialist || '-'}</td>
+                <td>
+                    ${task.score !== null ? `
+                        <span class="task-score ${getScoreClass(task.score)}">${task.score.toFixed(2)}</span>
+                    ` : '-'}
+                </td>
+                <td>
+                    <span class="badge badge-${task.status} badge-sm">${task.status}</span>
+                </td>
+                <td>${formatTimestamp(task.timestamp)}</td>
+                <td>
+                    <div class="feedback-buttons">
+                        <button class="feedback-btn thumbs-up ${task.feedback === 'positive' ? 'active' : ''}"
+                                onclick="event.stopPropagation(); giveFeedback('${task.id}', 'positive')">
+                            <i data-lucide="thumbs-up"></i>
+                        </button>
+                        <button class="feedback-btn thumbs-down ${task.feedback === 'negative' ? 'active' : ''}"
+                                onclick="event.stopPropagation(); giveFeedback('${task.id}', 'negative')">
+                            <i data-lucide="thumbs-down"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        lucide.createIcons({ nodes: [tbody] });
+    }
+
+    // Update budget display
+    function updateBudgetDisplay(budget) {
+        // Update budget chart in the dashboard if present
+        console.log('Budget status:', budget);
+    }
+
+    // Update benchmark display
+    function updateBenchmarkDisplay(status) {
+        const indicator = document.getElementById('benchmarkIndicator');
+        const title = document.getElementById('benchmarkTitle');
+        const detail = document.getElementById('benchmarkDetail');
+
+        if (status.state === 'running') {
+            indicator.innerHTML = '<i data-lucide="loader" class="icon icon-lg spin"></i>';
+            title.textContent = 'Running Benchmark...';
+            detail.textContent = `${status.completed_tasks} / ${status.total_tasks} tasks`;
+        } else if (status.state === 'completed') {
+            indicator.innerHTML = '<i data-lucide="check-circle" class="icon icon-lg"></i>';
+            title.textContent = 'Benchmark Complete';
+            detail.textContent = `Last run: ${status.last_run?.avg_score?.toFixed(2) || 'N/A'} avg score`;
+        } else {
+            indicator.innerHTML = '<i data-lucide="play-circle" class="icon icon-lg"></i>';
+            title.textContent = 'Ready to Run';
+            detail.textContent = status.last_run ?
+                `Last run: ${formatTimestamp(status.last_run.timestamp)}` :
+                'No benchmark in progress';
+        }
+
+        lucide.createIcons({ nodes: [indicator] });
+    }
+
+    // Helper: Get score class based on value
+    function getScoreClass(score) {
+        if (score >= 0.85) return 'excellent';
+        if (score >= 0.7) return 'good';
+        if (score >= 0.5) return 'fair';
+        return 'poor';
+    }
+
+    // Helper: Format timestamp
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return '-';
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+
+        // Less than 1 hour
+        if (diff < 3600000) {
+            const mins = Math.floor(diff / 60000);
+            return `${mins}m ago`;
+        }
+        // Less than 24 hours
+        if (diff < 86400000) {
+            const hours = Math.floor(diff / 3600000);
+            return `${hours}h ago`;
+        }
+        // Otherwise show date
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    // ================================================================
+    // Auto-refresh Dashboard
+    // ================================================================
+
+    let refreshInterval = null;
+
+    function startAutoRefresh(intervalMs = 30000) {
+        stopAutoRefresh();
+        refreshInterval = setInterval(() => {
+            loadBenchmarkStatus();
+            loadTasks();
+        }, intervalMs);
+    }
+
+    function stopAutoRefresh() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        }
+    }
+
+    // Start auto-refresh when page loads
+    // startAutoRefresh();
+
+    // Stop auto-refresh when page is hidden
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopAutoRefresh();
+        } else {
+            // startAutoRefresh();
+        }
+    });
+
+    // ================================================================
+    // Initialize Dashboard
+    // ================================================================
+
+    async function initDashboard() {
+        // Load initial data in parallel
+        await Promise.all([
+            loadBenchmarkStatus().catch(e => console.warn('Benchmark status unavailable:', e)),
+            // loadTasks().catch(e => console.warn('Tasks unavailable:', e)),
+            // loadBudget().catch(e => console.warn('Budget status unavailable:', e))
+        ]);
+
+        // Show welcome toast
+        showToast('success', 'Dashboard Ready', 'JARVIS Specialist Dashboard loaded successfully', 3000);
+    }
+
+    // Run initialization after DOM is ready
+    document.addEventListener('DOMContentLoaded', initDashboard);
+</script>
+{% endblock %}

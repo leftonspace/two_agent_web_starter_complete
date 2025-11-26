@@ -86,7 +86,7 @@ export const CostLogPage: React.FC = () => {
       c.timestamp,
       c.category,
       c.description,
-      c.amount.toFixed(4),
+      (c.amount || 0).toFixed(4),
       c.specialist_name || '',
       c.domain || '',
     ]);
@@ -132,7 +132,7 @@ export const CostLogPage: React.FC = () => {
           <StatsGrid columns={4}>
             <StatsCard
               title="Total Spent"
-              value={`$${stats.total.toFixed(2)}`}
+              value={`$${(stats.total || 0).toFixed(2)}`}
               icon={DollarSign}
               variant="warning"
             />
@@ -143,7 +143,7 @@ export const CostLogPage: React.FC = () => {
             />
             <StatsCard
               title="Avg per Entry"
-              value={`$${stats.avgPerEntry.toFixed(3)}`}
+              value={`$${(stats.avgPerEntry || 0).toFixed(3)}`}
               icon={DollarSign}
             />
             <StatsCard
@@ -228,7 +228,7 @@ export const CostLogPage: React.FC = () => {
                       <td>{cost.description}</td>
                       <td>{cost.specialist_name || '-'}</td>
                       <td>{cost.domain || '-'}</td>
-                      <td className="amount">${cost.amount.toFixed(4)}</td>
+                      <td className="amount">${(cost.amount || 0).toFixed(4)}</td>
                     </tr>
                   ))
                 )}

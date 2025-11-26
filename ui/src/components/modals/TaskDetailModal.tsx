@@ -105,7 +105,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 className="meta-value score"
                 style={{ color: getScoreColor(task.score) }}
               >
-                {task.score !== undefined ? task.score.toFixed(3) : '-'}
+                {task.score != null ? (task.score || 0).toFixed(3) : '-'}
               </div>
             </div>
           </div>

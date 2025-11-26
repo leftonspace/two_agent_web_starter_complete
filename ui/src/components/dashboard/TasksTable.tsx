@@ -150,7 +150,7 @@ export const TasksTable: React.FC<TasksTableProps> = ({
                   className="score-value"
                   style={{ color: getScoreColor(task.score) }}
                 >
-                  {task.score !== undefined ? task.score.toFixed(3) : '-'}
+                  {task.score != null ? (task.score || 0).toFixed(3) : '-'}
                 </span>
               </td>
               <td>

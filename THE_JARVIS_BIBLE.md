@@ -122,7 +122,11 @@ two_agent_web_starter_complete/
 │   │   │   └── index.ts
 │   │   ├── types/                         # TypeScript types
 │   │   │   └── index.ts
+│   │   ├── styles/                        # CSS styles
+│   │   │   ├── components.css             # Component styles
+│   │   │   └── globals.css                # Global styles
 │   │   ├── App.tsx                        # Root component
+│   │   ├── index.css                      # Root CSS entry
 │   │   ├── main.tsx                       # Entry point
 │   │   └── vite-env.d.ts                  # Vite type definitions
 │   ├── index.html                         # Dev entry point
@@ -245,7 +249,6 @@ two_agent_web_starter_complete/
 │   │   ├── generator.py                   # Question generation
 │   │   ├── manager.py                     # Clarification management
 │   │   └── templates.py                   # Question templates
-│   ├── cli_chat.py                        # CLI chat interface
 │   ├── code_analysis/                     # Code analysis tools
 │   │   ├── __init__.py
 │   │   ├── ast_parser.py                  # AST parsing
@@ -432,10 +435,9 @@ two_agent_web_starter_complete/
 │   │   └── lazy_loader.py                 # Lazy loading
 │   ├── orchestrator.py                    # 3-loop orchestrator
 │   ├── orchestrator_2loop.py              # 2-loop orchestrator
-│   ├── orchestrator_3loop_legacy.py       # Legacy 3-loop
 │   ├── orchestrator_context.py            # Orchestrator context
 │   ├── orchestrator_integration.py        # Orchestrator integration
-│   ├── orchestrator_phase3.py             # Phase 3 orchestrator
+│   ├── orchestrator_selector.py           # Orchestrator selection logic
 │   ├── overseer.py                        # System overseer
 │   ├── parallel_executor.py               # Parallel execution
 │   ├── paths.py                           # Path utilities
@@ -674,7 +676,6 @@ two_agent_web_starter_complete/
 │   │   └── config_validator.py            # Config validation
 │   ├── verify_phase1.py                   # Phase 1 verification
 │   ├── view_run.py                        # Run viewer
-│   ├── view_runs.py                       # Runs list viewer
 │   ├── vision_api.py                      # Vision API
 │   ├── voice_api.py                       # Voice API
 │   ├── webapp/                            # Web dashboard (Stage 7-12)

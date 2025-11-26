@@ -6,6 +6,7 @@ OS-level sandboxing for secure code execution.
 Components:
 - sandbox: OS-level isolation using bubblewrap (Linux) or sandbox-exec (macOS)
 - profiles: YAML-based profile configuration and loading
+- network: Domain validation and network configuration for sandboxes
 
 Usage:
     from core.security import Sandbox, SandboxProfile, ExecutionResult
@@ -29,10 +30,12 @@ Usage:
     loader = ProfileLoader()
     profile = loader.load_profile("code_generation")
 
-    # Or use convenience functions
-    from core.security import run_sandboxed, get_default_profile
+    # Validate network domains
+    from core.security import DomainValidator, NetworkConfig
 
-    result = await run_sandboxed("echo hello", profile_name="minimal")
+    validator = DomainValidator(["github.com", "pypi.org"])
+    if validator.is_allowed("https://api.github.com/repos"):
+        print("URL allowed")
 """
 
 from .sandbox import (
@@ -63,6 +66,16 @@ from .profiles import (
     list_profile_names,
 )
 
+from .network import (
+    # Network validation
+    DomainValidator,
+    NetworkConfig,
+    # Convenience functions
+    create_validator,
+    is_domain_allowed,
+    get_sandbox_network_env,
+)
+
 __all__ = [
     # Models
     "SandboxProfile",
@@ -86,4 +99,10 @@ __all__ = [
     "load_all_profiles",
     "get_default_profile",
     "list_profile_names",
+    # Network validation
+    "DomainValidator",
+    "NetworkConfig",
+    "create_validator",
+    "is_domain_allowed",
+    "get_sandbox_network_env",
 ]

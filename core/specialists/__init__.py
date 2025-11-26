@@ -95,6 +95,19 @@ from .domain_config import (
     reset_domain_loader,
 )
 
+from .spawner import (
+    # Enums
+    MutationType,
+    LearningType,
+    # Models
+    Learning,
+    Mutation,
+    # Spawner class
+    Spawner,
+    get_spawner,
+    reset_spawner,
+)
+
 
 __all__ = [
     # Specialist enums
@@ -131,4 +144,14 @@ __all__ = [
     "DomainConfigLoader",
     "get_domain_loader",
     "reset_domain_loader",
+    # Spawner enums
+    "MutationType",
+    "LearningType",
+    # Spawner models
+    "Learning",
+    "Mutation",
+    # Spawner
+    "Spawner",
+    "get_spawner",
+    "reset_spawner",
 ]

@@ -80,7 +80,7 @@ export const GraveyardPage: React.FC = () => {
             />
             <StatsCard
               title="Avg Final Score"
-              value={stats.avgScore.toFixed(2)}
+              value={(stats.avgScore || 0).toFixed(2)}
               icon={TrendingDown}
               variant="warning"
             />
@@ -91,7 +91,7 @@ export const GraveyardPage: React.FC = () => {
             />
             <StatsCard
               title="Avg Lifespan"
-              value={`${stats.avgLifespan.toFixed(1)}d`}
+              value={`${(stats.avgLifespan || 0).toFixed(1)}d`}
               icon={Clock}
             />
           </StatsGrid>

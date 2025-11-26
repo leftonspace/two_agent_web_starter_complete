@@ -20,9 +20,12 @@ export const BudgetDetailModal: React.FC<BudgetDetailModalProps> = ({
 }) => {
   if (!budget) return null;
 
-  const usedPercentage = (budget.used / budget.daily_limit) * 100;
-  const isLow = budget.remaining < budget.daily_limit * 0.2;
-  const isCritical = budget.remaining < budget.daily_limit * 0.1;
+  const used = budget.used || 0;
+  const dailyLimit = budget.daily_limit || 1;
+  const remaining = budget.remaining || 0;
+  const usedPercentage = (used / dailyLimit) * 100;
+  const isLow = remaining < dailyLimit * 0.2;
+  const isCritical = remaining < dailyLimit * 0.1;
 
   const getStatusColor = () => {
     if (isCritical) return 'var(--accent-danger)';
@@ -30,7 +33,7 @@ export const BudgetDetailModal: React.FC<BudgetDetailModalProps> = ({
     return 'var(--accent-primary)';
   };
 
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number | undefined) => `$${(amount || 0).toFixed(2)}`;
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString(undefined, {
@@ -49,9 +52,9 @@ export const BudgetDetailModal: React.FC<BudgetDetailModalProps> = ({
           </div>
           <div className="budget-info">
             <div className="budget-amounts">
-              <span className="amount-used">{formatCurrency(budget.used)}</span>
+              <span className="amount-used">{formatCurrency(used)}</span>
               <span className="amount-separator">/</span>
-              <span className="amount-limit">{formatCurrency(budget.daily_limit)}</span>
+              <span className="amount-limit">{formatCurrency(dailyLimit)}</span>
             </div>
             <div className="budget-label">Daily Budget Usage</div>
           </div>
@@ -76,7 +79,7 @@ export const BudgetDetailModal: React.FC<BudgetDetailModalProps> = ({
             <span>0%</span>
             <span className="remaining-text">
               <span style={{ color: getStatusColor() }}>
-                {formatCurrency(budget.remaining)}
+                {formatCurrency(remaining)}
               </span>
               {' '}remaining
             </span>

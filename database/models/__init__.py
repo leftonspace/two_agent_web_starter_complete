@@ -45,6 +45,13 @@ from .graveyard import (
     GraveyardStatsDB,
 )
 
+from .benchmark import (
+    BenchmarkRunDB,
+    BenchmarkTaskResultDB,
+    BenchmarkStatsDB,
+    BenchmarkDefinitionDB,
+)
+
 
 __all__ = [
     # Cost tracking
@@ -74,4 +81,9 @@ __all__ = [
     "GraveyardEntryDB",
     "DomainLearningDB",
     "GraveyardStatsDB",
+    # Benchmarks
+    "BenchmarkRunDB",
+    "BenchmarkTaskResultDB",
+    "BenchmarkStatsDB",
+    "BenchmarkDefinitionDB",
 ]

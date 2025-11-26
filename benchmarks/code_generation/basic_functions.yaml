@@ -1,0 +1,124 @@
+# Basic Functions Benchmark
+# Tests fundamental code generation capabilities
+
+name: Basic Functions
+domain: code_generation
+version: "1.0"
+description: Test basic function creation, error handling, and documentation
+created_by: claude
+
+tasks:
+  - id: bf_001
+    difficulty: easy
+    prompt: |
+      Write a Python function called `add_numbers` that takes two numbers
+      and returns their sum. Include type hints and a docstring.
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+      - type: has_type_hints
+      - type: has_docstrings
+      - type: contains
+        params:
+          required:
+            - "def add_numbers"
+            - "return"
+    expected_domain: code_generation
+    tags:
+      - functions
+      - basic
+      - arithmetic
+
+  - id: bf_002
+    difficulty: easy
+    prompt: |
+      Write a Python function called `is_even` that takes an integer
+      and returns True if it's even, False otherwise.
+      Include type hints and a docstring.
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+      - type: has_type_hints
+      - type: contains
+        params:
+          required:
+            - "def is_even"
+            - "bool"
+    expected_domain: code_generation
+    tags:
+      - functions
+      - basic
+      - boolean
+
+  - id: bf_003
+    difficulty: medium
+    prompt: |
+      Write a Python function called `safe_divide` that divides two numbers.
+      It should handle division by zero gracefully by returning None.
+      Include proper error handling, type hints, and a docstring.
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+      - type: has_error_handling
+      - type: has_type_hints
+      - type: has_docstrings
+      - type: contains
+        params:
+          required:
+            - "def safe_divide"
+            - "None"
+    expected_domain: code_generation
+    tags:
+      - functions
+      - error-handling
+      - division
+
+  - id: bf_004
+    difficulty: medium
+    prompt: |
+      Write a Python function called `reverse_string` that reverses a string.
+      Handle edge cases like empty strings and None input.
+      Include type hints and a docstring.
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+      - type: has_type_hints
+      - type: has_docstrings
+      - type: contains
+        params:
+          required:
+            - "def reverse_string"
+    expected_domain: code_generation
+    tags:
+      - functions
+      - strings
+      - edge-cases
+
+  - id: bf_005
+    difficulty: hard
+    prompt: |
+      Write a Python function called `fibonacci` that returns the nth
+      Fibonacci number using memoization for efficiency.
+      Include type hints, docstring with examples, and error handling
+      for negative numbers.
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+      - type: has_error_handling
+      - type: has_type_hints
+      - type: has_docstrings
+      - type: contains
+        params:
+          required:
+            - "def fibonacci"
+    expected_domain: code_generation
+    tags:
+      - functions
+      - algorithms
+      - memoization
+      - recursion

@@ -1,0 +1,123 @@
+# Business Reports Benchmark
+# Tests report and document generation capabilities
+
+name: Business Reports
+domain: business_documents
+version: "1.0"
+description: Test professional report and document generation
+created_by: claude
+
+tasks:
+  - id: br_001
+    difficulty: easy
+    prompt: |
+      Write a brief executive summary (2-3 paragraphs) about the benefits
+      of adopting cloud computing for a small business.
+      Use professional language and include a clear structure.
+    verification:
+      - type: format_valid
+        params:
+          format: markdown
+      - type: min_length
+        params:
+          min_words: 100
+      - type: contains
+        params:
+          required:
+            - "cloud"
+          case_sensitive: false
+    expected_domain: business_documents
+    tags:
+      - executive-summary
+      - technology
+      - basic
+
+  - id: br_002
+    difficulty: easy
+    prompt: |
+      Draft a professional email to a client thanking them for their
+      recent purchase and offering support if they have questions.
+      Keep it brief but warm and professional.
+    verification:
+      - type: format_valid
+        params:
+          format: email
+      - type: min_length
+        params:
+          min_words: 50
+      - type: contains
+        params:
+          required:
+            - "thank"
+          case_sensitive: false
+    expected_domain: business_documents
+    tags:
+      - email
+      - customer-service
+      - basic
+
+  - id: br_003
+    difficulty: medium
+    prompt: |
+      Create a quarterly sales report outline with the following sections:
+      - Executive Summary
+      - Sales Performance Overview
+      - Regional Breakdown
+      - Product Line Analysis
+      - Recommendations
+      Include placeholder text and formatting guidance for each section.
+    verification:
+      - type: format_valid
+        params:
+          format: markdown
+      - type: contains
+        params:
+          required:
+            - "Executive Summary"
+            - "Sales"
+            - "Recommendations"
+          case_sensitive: false
+      - type: min_length
+        params:
+          min_words: 150
+    expected_domain: business_documents
+    tags:
+      - report
+      - sales
+      - template
+
+  - id: br_004
+    difficulty: hard
+    prompt: |
+      Write a project proposal for implementing a new customer relationship
+      management (CRM) system. Include:
+      - Problem statement
+      - Proposed solution
+      - Benefits and ROI analysis
+      - Implementation timeline
+      - Budget considerations
+      - Risk assessment
+      Use professional formatting with headers and bullet points.
+    verification:
+      - type: format_valid
+        params:
+          format: markdown
+      - type: contains
+        params:
+          required:
+            - "Problem"
+            - "Solution"
+            - "Benefits"
+            - "Timeline"
+            - "Budget"
+            - "Risk"
+          case_sensitive: false
+      - type: min_length
+        params:
+          min_words: 300
+    expected_domain: business_documents
+    tags:
+      - proposal
+      - project-management
+      - crm
+      - comprehensive

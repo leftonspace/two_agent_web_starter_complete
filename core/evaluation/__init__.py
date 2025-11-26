@@ -77,6 +77,26 @@ from .scoring_committee import (
     reset_feedback_collector,
 )
 
+from .ai_council import (
+    # Council
+    AICouncil,
+    AICouncilConfig,
+    create_ai_council,
+    # Voter
+    Vote,
+    VoteCriteria,
+    VoteParseError,
+    parse_vote_response,
+    VOTING_INSTRUCTIONS,
+    JARVIS_VOTING_ADDENDUM,
+    # Aggregator
+    VoteAggregator,
+    AggregationResult,
+    AggregationError,
+    NoVotesError,
+    InsufficientVotesError,
+)
+
 
 __all__ = [
     # Base enums
@@ -115,4 +135,19 @@ __all__ = [
     "UserFeedbackCollector",
     "get_feedback_collector",
     "reset_feedback_collector",
+    # AI Council
+    "AICouncil",
+    "AICouncilConfig",
+    "create_ai_council",
+    "Vote",
+    "VoteCriteria",
+    "VoteParseError",
+    "parse_vote_response",
+    "VOTING_INSTRUCTIONS",
+    "JARVIS_VOTING_ADDENDUM",
+    "VoteAggregator",
+    "AggregationResult",
+    "AggregationError",
+    "NoVotesError",
+    "InsufficientVotesError",
 ]

@@ -1,5 +1,5 @@
 export { EvaluationModeSelector } from './EvaluationModeSelector';
-export type { EvaluationModeSelectorProps, EvaluationMode } from './EvaluationModeSelector';
+export type { EvaluationModeSelectorProps } from './EvaluationModeSelector';
 
 export { DomainCard } from './DomainCard';
 export type { DomainCardProps } from './DomainCard';

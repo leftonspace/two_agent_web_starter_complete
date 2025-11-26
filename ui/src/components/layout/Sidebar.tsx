@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Terminal,
@@ -45,7 +46,7 @@ const defaultDomains: DomainInfo[] = [
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  activePage = 'dashboard',
+  activePage,
   domains = defaultDomains,
   onNavigate,
   onDomainClick,
@@ -54,11 +55,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewTask,
   onViewGraveyard,
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Determine active page from URL if not provided
+  const currentPage = activePage || (location.pathname === '/' ? 'dashboard' : location.pathname.slice(1));
+
   const getScoreColor = (score: number) => {
     if (score >= 0.85) return 'var(--accent-primary)';
     if (score >= 0.7) return 'var(--accent-secondary)';
     if (score >= 0.5) return 'var(--accent-warning)';
     return 'var(--accent-danger)';
+  };
+
+  const handleNavigate = (pageId: string) => {
+    // Use React Router for navigation (no full page reload)
+    navigate(pageId === 'dashboard' ? '/' : `/${pageId}`);
+    onNavigate?.(pageId);
+  };
+
+  const handleViewGraveyard = () => {
+    // Graveyard opens as modal, not navigation
+    if (onViewGraveyard) {
+      onViewGraveyard();
+    }
   };
 
   return (
@@ -68,8 +88,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="nav-section">
           <div className="nav-section-title">Navigation</div>
           <button
-            className={`nav-item ${activePage === 'dashboard' ? 'active' : ''}`}
-            onClick={() => onNavigate?.('dashboard')}
+            className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`}
+            onClick={() => handleNavigate('dashboard')}
           >
             <LayoutDashboard className="icon" />
             <span>Dashboard</span>
@@ -134,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             variant="ghost"
             size="sm"
             icon={Skull}
-            onClick={onViewGraveyard}
+            onClick={handleViewGraveyard}
             fullWidth
             className="justify-start"
           >

@@ -24,6 +24,10 @@ export interface SpecialistSummary {
   score: number;
   task_count: number;
   is_active: boolean;
+  // Additional props for component compatibility
+  status?: 'active' | 'idle' | 'evolving';
+  tasks_completed?: number;
+  trend?: 'up' | 'down' | 'stable';
 }
 
 export interface SpecialistDetail extends SpecialistSummary {
@@ -40,6 +44,9 @@ export interface SpecialistDetail extends SpecialistSummary {
   parent_id: string | null;
   mutation_summary: string | null;
   learnings_applied: number;
+  // Additional props for component compatibility
+  model?: string;
+  system_prompt?: string;
 }
 
 export interface DomainDetail {
@@ -60,6 +67,8 @@ export interface DomainDetail {
   score_trend: 'improving' | 'stable' | 'declining';
   recent_tasks: TaskSummary[];
   last_evolution_at: string | null;
+  // Additional props for component compatibility
+  convergence_progress?: number;
 }
 
 // ============================================================================
@@ -75,6 +84,18 @@ export interface BudgetStatus {
   benchmark_limit: number;
   is_warning: boolean;
   warning_threshold: number;
+  // Aliases for component compatibility
+  used: number;
+  remaining: number;
+  daily_limit: number;
+  trend?: 'up' | 'down' | 'stable';
+  reset_time?: string;
+}
+
+export interface BudgetHistory {
+  date: string;
+  used: number;
+  limit: number;
 }
 
 // ============================================================================
@@ -186,6 +207,12 @@ export interface TaskSummary {
   cost_cad: number;
   created_at: string;
   has_feedback: boolean;
+  // Additional props for component compatibility
+  task_name?: string;
+  status?: 'pending' | 'running' | 'completed' | 'failed';
+  execution_time?: number;
+  timestamp?: string;
+  duration?: number;
 }
 
 export interface TaskDetail extends TaskSummary {
@@ -194,7 +221,14 @@ export interface TaskDetail extends TaskSummary {
   evaluation_details: Record<string, unknown> | null;
   tokens_used: number;
   feedback: UserFeedback | null;
+  // Additional props for component compatibility
+  input?: string;
+  output?: string;
+  error?: string | null;
 }
+
+// Alias for component compatibility
+export type TaskExecution = TaskSummary;
 
 export interface UserFeedback {
   rating: number;

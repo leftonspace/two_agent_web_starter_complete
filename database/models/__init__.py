@@ -39,6 +39,12 @@ from .evaluation_comparison import (
     ComparisonStatsDB,
 )
 
+from .graveyard import (
+    GraveyardEntryDB,
+    DomainLearningDB,
+    GraveyardStatsDB,
+)
+
 
 __all__ = [
     # Cost tracking
@@ -64,4 +70,8 @@ __all__ = [
     # Evaluation comparisons
     "EvaluationComparisonDB",
     "ComparisonStatsDB",
+    # Graveyard
+    "GraveyardEntryDB",
+    "DomainLearningDB",
+    "GraveyardStatsDB",
 ]

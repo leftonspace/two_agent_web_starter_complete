@@ -281,21 +281,21 @@ export const Dashboard: React.FC = () => {
                   key={domain.name}
                   domain={{
                     name: domain.name,
-                    specialists: domain.specialists?.length || 0,
+                    specialists: typeof domain.specialists === 'number' ? domain.specialists : (domain.specialists?.length || 0),
                     avg_score: domain.avg_score || 0,
                     best_score: domain.best_score || 0,
                     tasks_today: domain.tasks_today || 0,
                     convergence_progress: domain.convergence_progress || 0,
                     evolution_paused: domain.evolution_paused || false,
                   }}
-                  specialists={domain.specialists?.map((s) => ({
+                  specialists={Array.isArray(domain.specialists) ? domain.specialists.map((s) => ({
                     id: s.id,
                     name: s.name,
                     score: s.score,
                     status: s.status,
                     tasks_completed: s.tasks_completed,
                     generation: s.generation,
-                  }))}
+                  })) : []}
                   onSpecialistClick={(specialist) => setSelectedSpecialist(specialist)}
                 />
               ))

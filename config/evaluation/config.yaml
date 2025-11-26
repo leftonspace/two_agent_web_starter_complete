@@ -1,0 +1,131 @@
+# =============================================================================
+# Evaluation System Configuration
+# =============================================================================
+# Configures both Scoring Committee (default) and AI Council (experimental)
+# User toggles between modes in dashboard - NO automatic switching
+# =============================================================================
+
+# Default evaluation mode
+# Options: scoring_committee (default), ai_council, both
+default_mode: "scoring_committee"
+
+# -----------------------------------------------------------------------------
+# Scoring Committee Configuration
+# -----------------------------------------------------------------------------
+# Deterministic component-weighted scoring
+# Each domain has its own weight distribution
+
+scoring_committee:
+  # Weights by domain (must sum to 1.0)
+  weights:
+    # Code generation: Tests and linting are critical
+    code_generation:
+      tests_pass: 0.30       # All tests must pass
+      lint_clean: 0.20       # Code quality (pylint, flake8, etc.)
+      user_feedback: 0.50    # User satisfaction is key
+
+    # Code review: Focus on catching issues
+    code_review:
+      issues_found: 0.25     # Identified real issues
+      false_positives: 0.15  # Penalize false alarms
+      user_feedback: 0.60    # User found review helpful
+
+    # Business documents: Format and content quality
+    business_documents:
+      format_valid: 0.20     # Correct structure for document type
+      spell_check: 0.10      # No spelling/grammar errors
+      user_feedback: 0.70    # User satisfaction
+
+    # Administration (JARVIS): User experience is everything
+    administration:
+      user_feedback: 1.00    # 100% based on user satisfaction
+
+    # Research: Accuracy and usefulness
+    research:
+      accuracy: 0.30         # Information correctness
+      completeness: 0.20     # Covered all aspects
+      user_feedback: 0.50    # User found it useful
+
+    # Default weights for new domains
+    default:
+      automated_checks: 0.30
+      user_feedback: 0.70
+
+  # Component score thresholds
+  thresholds:
+    tests_pass: 1.0        # Binary: all pass = 1.0, any fail = 0.0
+    lint_clean: 0.8        # Allow some warnings
+    spell_check: 0.95      # Very few errors allowed
+
+  # Confidence adjustments
+  confidence:
+    no_automated_checks: 0.6   # Lower confidence without automated validation
+    no_user_feedback: 0.7      # Lower confidence without user input
+    full_validation: 1.0       # Full confidence with all data
+
+# -----------------------------------------------------------------------------
+# AI Council Configuration
+# -----------------------------------------------------------------------------
+# Experimental multi-agent deliberation with voting
+# JARVIS leads discussion, other specialists vote
+
+ai_council:
+  # Voting weights
+  jarvis_weight: 1.5      # JARVIS vote weighted higher (trusted leader)
+  specialist_weight: 1.0  # Other specialists equal weight
+
+  # Council composition
+  min_voters: 2           # Minimum voters for valid council
+  max_voters: 5           # Cap to control costs
+
+  # Outlier handling
+  remove_outliers: true
+  outlier_threshold_std: 2.0  # Remove scores > 2 std from mean
+
+  # Deliberation settings
+  max_discussion_rounds: 3    # Max back-and-forth rounds
+  consensus_threshold: 0.15   # Score variance for consensus
+
+  # Cost control
+  max_tokens_per_vote: 500    # Limit verbose responses
+  timeout_seconds: 30         # Per-voter timeout
+
+  # Model for council members (can be cheaper for cost control)
+  council_model: "claude-3-haiku-20240307"
+
+# -----------------------------------------------------------------------------
+# Comparison Configuration
+# -----------------------------------------------------------------------------
+# Settings for BOTH mode (running both evaluators)
+
+comparison:
+  # Agreement threshold
+  # Scores within this difference = "agree"
+  agreement_threshold: 0.1
+
+  # Recording
+  max_stored_comparisons: 1000  # Rolling window
+  persist_disagreements: true   # Save disagreements for analysis
+
+  # Alerting
+  alert_on_disagreement_rate: 0.3  # Alert if >30% disagree
+
+# -----------------------------------------------------------------------------
+# General Settings
+# -----------------------------------------------------------------------------
+
+general:
+  # Timeouts
+  evaluation_timeout_seconds: 60
+
+  # Retries
+  max_retries: 2
+  retry_delay_seconds: 1
+
+  # Caching
+  cache_enabled: true
+  cache_ttl_seconds: 300  # 5 minutes
+
+  # Human feedback
+  request_feedback_probability: 0.1  # 10% of tasks request feedback
+  require_feedback_threshold: 0.5    # Always request if score < 0.5

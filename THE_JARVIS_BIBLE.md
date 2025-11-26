@@ -2,10 +2,10 @@
 ## Complete System Reference & Architecture Documentation
 
 > **Version:** 2.2.0
-> **Last Updated:** 2025-11-25
+> **Last Updated:** 2025-11-26
+> **Status:** Development - Core architecture complete, pending testing
 > **Total Files:** 400+
 > **Total Lines of Code:** 150,000+
-> **Hardening Phase:** 6 (Human UX) Complete
 
 ---
 
@@ -13,27 +13,53 @@
 
 ## 1.1 Overview
 
-**JARVIS** (Just A Rather Very Intelligent System) is an enterprise-grade, multi-agent AI orchestration platform designed to function as an autonomous digital employee. Named after the AI assistant from Iron Man, JARVIS combines multiple AI capabilities into a unified, self-improving system.
+**JARVIS** (Just A Rather Very Intelligent System) is a multi-agent AI orchestration platform designed to function as a comprehensive AI assistant. Inspired by the AI from Iron Man, JARVIS aims to be a digital assistant capable of handling any computer-based task through specialized AI domain experts.
 
-JARVIS is NOT just a chatbot. It is a **complete autonomous agent system** that can:
-- Execute complex multi-step tasks without human intervention
-- Coordinate multiple AI agents working in parallel
-- Remember user preferences and business context across sessions
-- Join meetings, transcribe, and take action items automatically
-- Generate documents, analyze data, and manage workflows
-- Self-optimize based on performance data
+### Current State
+- **Development Stage**: Core architecture implemented, pending testing and code cleanup
+- **Primary Use Case**: Building automation systems, documentation, workflows, websites, and applications through coding
+
+### Architecture
+JARVIS uses a **Domain Specialist System** where:
+- Each domain (coding, administration, finance, etc.) maintains **3 specialist AIs** at all times
+- Specialists are continuously evaluated through **benchmarks**
+- Underperforming specialists (low scores) are moved to the **Graveyard** and replaced with new AIs
+- The highest-scoring specialist in the **Administration domain** serves as the default JARVIS interface
+
+### Future Vision
+- **Smart Home Control**: Lights, security systems, home automation
+- **Meeting Intelligence**: Listen to meetings, provide reports, real-time corrections
+- **Business Operations**: Answer emails, manage workflows, create documentation
+- **Financial Tasks**: Tax preparation, financial analysis
+- **Full AI Assistant**: A unified system with domain experts for any task
 
 ## 1.2 Core Philosophy
 
-JARVIS operates on these principles:
-1. **Proactive, Not Reactive** - Anticipates needs, doesn't just respond
-2. **Multi-Agent Collaboration** - Complex tasks are broken into specialized sub-tasks
+JARVIS operates on these principles (all implemented in codebase):
+
+1. **Multi-Agent Collaboration** - Complex tasks are delegated to specialized domain experts
+   - *Implementation*: `core/specialists/` - pool management, spawning, domain configuration
+
+2. **Self-Improvement Through Competition** - Specialists compete via benchmarks; weak performers are culled
+   - *Implementation*: `core/benchmark/` (executor, verifier) + `database/models/graveyard.py`
+
 3. **Persistent Memory** - Learns and remembers across all interactions
-4. **Safety First** - Multiple layers of validation before any risky action
-5. **Transparent Operations** - All actions are logged and auditable
-6. **Self-Improvement** - Continuously optimizes based on performance data
-7. **Human-First UX** - Presents plans for confirmation, provides immediate feedback (Phase 6)
-8. **Secure by Default** - Multi-backend secrets management, TTL-based memory expiration (Phase 4)
+   - *Implementation*: `agent/memory/` - long-term, short-term, contextual, preference learning
+
+4. **Safety First** - Multiple layers of validation before risky actions
+   - *Implementation*: `agent/security/approval.py` - human-in-the-loop for dangerous operations
+
+5. **Transparent Operations** - All actions are logged with cryptographic integrity
+   - *Implementation*: `agent/audit_log.py` - WORM logging, HMAC-SHA256 signatures, tamper detection
+
+6. **Secure by Default** - Multi-backend secrets management with fallback chains
+   - *Implementation*: `agent/security/secrets.py` - Vault, AWS, Azure, encrypted files
+
+7. **Human-First UX** - Presents plans for confirmation, immediate feedback on actions
+   - *Implementation*: `agent/security/approval.py` - approval queues, risk classification
+
+8. **AI Council Governance** - Multiple AI evaluators score and validate specialist outputs
+   - *Implementation*: `core/evaluation/ai_council/` + `scoring_committee/`
 
 ## 1.3 Project Structure
 

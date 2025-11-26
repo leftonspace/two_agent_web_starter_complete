@@ -18,11 +18,12 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
-# Make sure both the repo root and agent/ are on sys.path
-agent_dir = Path(__file__).resolve().parent.parent      # .../agent
-project_root = agent_dir.parent                        # .../two_agent_web_starter_clean_new
+# Make sure the repo root, agent/, and webapp/ are on sys.path
+webapp_dir = Path(__file__).resolve().parent            # .../agent/webapp
+agent_dir = webapp_dir.parent                           # .../agent
+project_root = agent_dir.parent                         # .../two_agent_web_starter_clean_new
 
-for p in (project_root, agent_dir):
+for p in (project_root, agent_dir, webapp_dir):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
@@ -2155,7 +2156,7 @@ if __name__ == "__main__":
     print()
 
     uvicorn.run(
-        "app:app",
+        "agent.webapp.app:app",
         host="127.0.0.1",
         port=8000,
         reload=True,  # Auto-reload on code changes during development

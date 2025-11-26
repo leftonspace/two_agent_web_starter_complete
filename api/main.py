@@ -14,13 +14,16 @@ API Documentation available at:
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 
 # Configure logging
@@ -259,6 +262,62 @@ async def stats():
         stats["routing"] = "not available"
 
     return stats
+
+
+# ============================================================================
+# Static Files & SPA Fallback for React UI
+# ============================================================================
+
+# Get the project root directory
+PROJECT_ROOT = Path(__file__).parent.parent
+UI_DIST_DIR = PROJECT_ROOT / "ui" / "dist"
+
+# Mount React app static files if the dist directory exists
+if UI_DIST_DIR.exists():
+    # Mount static assets (JS, CSS, images, etc.)
+    app.mount(
+        "/ui/assets",
+        StaticFiles(directory=str(UI_DIST_DIR / "assets")),
+        name="ui-assets",
+    )
+
+    # SPA fallback: serve index.html for all /ui routes
+    @app.get("/ui/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Serve the React SPA for all /ui routes (SPA fallback)."""
+        index_path = UI_DIST_DIR / "index.html"
+        if index_path.exists():
+            return FileResponse(str(index_path))
+        return JSONResponse(
+            status_code=404,
+            content={"error": "React UI not built. Run 'npm run build' in ui/"},
+        )
+
+    @app.get("/ui", include_in_schema=False)
+    async def serve_spa_root():
+        """Serve the React SPA at /ui root."""
+        index_path = UI_DIST_DIR / "index.html"
+        if index_path.exists():
+            return FileResponse(str(index_path))
+        return JSONResponse(
+            status_code=404,
+            content={"error": "React UI not built. Run 'npm run build' in ui/"},
+        )
+
+    logger.info(f"React UI mounted at /ui from {UI_DIST_DIR}")
+else:
+    logger.warning(f"React UI dist directory not found at {UI_DIST_DIR}. Run 'npm run build' in ui/")
+
+    @app.get("/ui/{full_path:path}", include_in_schema=False)
+    async def ui_not_built(full_path: str):
+        """Placeholder when UI is not built."""
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "React UI not built",
+                "hint": "Run 'npm run build' in the ui/ directory",
+            },
+        )
 
 
 # ============================================================================

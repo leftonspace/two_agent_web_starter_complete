@@ -1,29 +1,41 @@
 """
 PHASE 7.5: Evolution System
 
-Manages the lifecycle of specialists including the graveyard
-for culled specialists and learning extraction.
+Manages the lifecycle of specialists including:
+- Graveyard for culled specialists
+- Learning extraction from failures
+- Convergence detection
+- Evolution control with pause/resume
 
 Usage:
     from core.evolution import (
+        # Controller
+        EvolutionController,
+        get_evolution_controller,
+        EvolutionResult,
+        EvolutionStatus,
+
+        # Convergence
+        ConvergenceDetector,
+        ConvergenceResult,
+
+        # Resume
+        ResumeChecker,
+        ResumeTrigger,
+
+        # Graveyard
         Graveyard,
         get_graveyard,
         FailureAnalyzer,
         LearningsExtractor,
-        FailureCategory,
-        FailurePattern,
-        Learning,
-        GraveyardEntry,
     )
 
-    # Get graveyard
-    graveyard = get_graveyard()
+    # Run evolution
+    controller = get_evolution_controller()
+    result = await controller.run_evolution("code_generation")
 
-    # Send failed specialist
-    entry = await graveyard.send_to_graveyard(specialist, "low_performance")
-
-    # Get learnings for spawner
-    learnings = graveyard.get_learnings("code_generation")
+    # Check convergence
+    convergence = controller.check_convergence("code_generation")
 """
 
 from .graveyard import (
@@ -49,11 +61,47 @@ from .learnings_extractor import (
     LEARNING_TEMPLATES,
 )
 
+from .convergence import (
+    # Models
+    ConvergenceResult,
+    ConvergenceProgress,
+    ConvergenceConfig,
+    # Detector
+    ConvergenceDetector,
+    get_convergence_detector,
+    reset_convergence_detector,
+)
+
+from .resume_triggers import (
+    # Enums
+    ResumeTrigger,
+    # Models
+    ResumeCheckResult,
+    ResumeConfig,
+    # Checker
+    ResumeChecker,
+    get_resume_checker,
+    reset_resume_checker,
+)
+
+from .controller import (
+    # Enums
+    EvolutionState,
+    # Models
+    EvolutionStatus,
+    EvolutionResult,
+    EvolutionConfig,
+    # Controller
+    EvolutionController,
+    get_evolution_controller,
+    reset_evolution_controller,
+)
+
 
 __all__ = [
-    # Enums
+    # Graveyard enums
     "FailureCategory",
-    # Models
+    # Graveyard models
     "FailurePattern",
     "Learning",
     "GraveyardEntry",
@@ -67,4 +115,26 @@ __all__ = [
     # Extractor
     "LearningsExtractor",
     "LEARNING_TEMPLATES",
+    # Convergence
+    "ConvergenceResult",
+    "ConvergenceProgress",
+    "ConvergenceConfig",
+    "ConvergenceDetector",
+    "get_convergence_detector",
+    "reset_convergence_detector",
+    # Resume
+    "ResumeTrigger",
+    "ResumeCheckResult",
+    "ResumeConfig",
+    "ResumeChecker",
+    "get_resume_checker",
+    "reset_resume_checker",
+    # Controller
+    "EvolutionState",
+    "EvolutionStatus",
+    "EvolutionResult",
+    "EvolutionConfig",
+    "EvolutionController",
+    "get_evolution_controller",
+    "reset_evolution_controller",
 ]

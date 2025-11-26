@@ -53,7 +53,7 @@ export const DomainCard: React.FC<DomainCardProps> = ({
           <div className="domain-card-meta">
             <span>{domain.specialists} specialists</span>
             <span className="separator">|</span>
-            <span>Avg: {domain.avg_score.toFixed(2)}</span>
+            <span>Avg: {(domain.avg_score || 0).toFixed(2)}</span>
           </div>
         </div>
         <div className="domain-card-stats">
@@ -66,7 +66,7 @@ export const DomainCard: React.FC<DomainCardProps> = ({
               className="domain-stat-value"
               style={{ color: getScoreColor(domain.best_score) }}
             >
-              {domain.best_score.toFixed(2)}
+              {(domain.best_score || 0).toFixed(2)}
             </div>
             <div className="domain-stat-label">Best</div>
           </div>

@@ -251,9 +251,9 @@ export const Dashboard: React.FC = () => {
             />
             <StatsCard
               title="Spent Today"
-              value={budget ? `$${budget.used.toFixed(2)}` : '-'}
+              value={budget ? `$${(budget.production_spent_today || 0).toFixed(2)}` : '-'}
               icon={DollarSign}
-              variant={budget && budget.remaining < budget.daily_limit * 0.2 ? 'warning' : 'default'}
+              variant={budget && budget.production_remaining < budget.production_limit * 0.2 ? 'warning' : 'default'}
               loading={loading}
             />
           </StatsGrid>

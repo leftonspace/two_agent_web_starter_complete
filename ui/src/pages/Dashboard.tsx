@@ -98,15 +98,8 @@ export const Dashboard: React.FC = () => {
     // Implement evolution trigger
   }, [notifications]);
 
-  // Mock score history data for chart
-  const scoreHistory = overview?.domains?.slice(0, 1).map(() => {
-    const today = new Date();
-    return Array.from({ length: 14 }, (_, j) => ({
-      timestamp: new Date(today.getTime() - (13 - j) * 24 * 60 * 60 * 1000).toISOString(),
-      score: 0.7 + Math.random() * 0.25,
-      label: 'Avg Score',
-    }));
-  })[0] || [];
+  // Score history will be populated from real data
+  const scoreHistory: Array<{ timestamp: string; score: number; label: string }> = [];
 
   // Convert tasks for table
   const tasksForTable: TaskExecution[] = (recentTasks || []).map((task) => ({

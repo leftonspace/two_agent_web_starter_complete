@@ -14,17 +14,8 @@ interface CostEntry {
   domain?: string;
 }
 
-// Mock cost data
-const mockCostData: CostEntry[] = [
-  { id: '1', timestamp: '2024-01-15T10:30:00Z', category: 'API Calls', description: 'GPT-4 inference', amount: 0.42, specialist_name: 'code-gen-v3', domain: 'coding' },
-  { id: '2', timestamp: '2024-01-15T11:15:00Z', category: 'API Calls', description: 'Claude evaluation', amount: 0.18, specialist_name: 'eval-specialist', domain: 'evaluation' },
-  { id: '3', timestamp: '2024-01-15T12:00:00Z', category: 'Embedding', description: 'Document embedding', amount: 0.05, specialist_name: 'doc-indexer', domain: 'indexing' },
-  { id: '4', timestamp: '2024-01-15T14:30:00Z', category: 'API Calls', description: 'GPT-4 inference', amount: 0.38, specialist_name: 'code-review-v2', domain: 'coding' },
-  { id: '5', timestamp: '2024-01-15T15:45:00Z', category: 'Evolution', description: 'Specialist mutation', amount: 0.25, domain: 'system' },
-  { id: '6', timestamp: '2024-01-14T09:00:00Z', category: 'API Calls', description: 'Claude inference', amount: 0.22, specialist_name: 'planning-v1', domain: 'planning' },
-  { id: '7', timestamp: '2024-01-14T10:30:00Z', category: 'Benchmark', description: 'HumanEval run', amount: 0.85, domain: 'benchmark' },
-  { id: '8', timestamp: '2024-01-14T13:00:00Z', category: 'API Calls', description: 'GPT-4 inference', amount: 0.45, specialist_name: 'debug-specialist', domain: 'coding' },
-];
+// Cost data will be populated from API as costs are incurred
+const costData: CostEntry[] = [];
 
 const categories = ['All', 'API Calls', 'Embedding', 'Evolution', 'Benchmark'];
 
@@ -35,7 +26,7 @@ export const CostLogPage: React.FC = () => {
 
   // Filter costs based on selections
   const filteredCosts = useMemo(() => {
-    let filtered = [...mockCostData];
+    let filtered = [...costData];
 
     // Date filter
     const now = new Date();

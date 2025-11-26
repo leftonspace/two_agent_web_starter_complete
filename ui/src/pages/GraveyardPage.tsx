@@ -15,20 +15,14 @@ interface RetiredSpecialist {
   lifespan_days: number;
 }
 
-// Mock graveyard data
-const mockGraveyardData: RetiredSpecialist[] = [
-  { id: 'sp-001', name: 'code-gen-v1', domain: 'coding', generation: 1, retired_at: '2024-01-10T08:00:00Z', reason: 'Low performance', final_score: 0.45, tasks_completed: 23, lifespan_days: 5 },
-  { id: 'sp-002', name: 'debug-helper-v2', domain: 'coding', generation: 2, retired_at: '2024-01-12T14:30:00Z', reason: 'Superseded by better variant', final_score: 0.68, tasks_completed: 45, lifespan_days: 8 },
-  { id: 'sp-003', name: 'doc-writer-v1', domain: 'documentation', generation: 1, retired_at: '2024-01-08T10:00:00Z', reason: 'Low performance', final_score: 0.52, tasks_completed: 12, lifespan_days: 3 },
-  { id: 'sp-004', name: 'test-gen-v3', domain: 'testing', generation: 3, retired_at: '2024-01-14T16:00:00Z', reason: 'Pool convergence', final_score: 0.71, tasks_completed: 67, lifespan_days: 12 },
-  { id: 'sp-005', name: 'refactor-v1', domain: 'coding', generation: 1, retired_at: '2024-01-05T09:00:00Z', reason: 'Experimental variant', final_score: 0.38, tasks_completed: 8, lifespan_days: 2 },
-];
+// Graveyard data will be populated from API when specialists are retired
+const graveyardData: RetiredSpecialist[] = [];
 
 export const GraveyardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'score' | 'tasks'>('date');
 
-  const filteredSpecialists = mockGraveyardData
+  const filteredSpecialists = graveyardData
     .filter(s =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.domain.toLowerCase().includes(searchQuery.toLowerCase())
@@ -40,10 +34,10 @@ export const GraveyardPage: React.FC = () => {
     });
 
   const stats = {
-    total: mockGraveyardData.length,
-    avgScore: mockGraveyardData.length > 0 ? mockGraveyardData.reduce((sum, s) => sum + s.final_score, 0) / mockGraveyardData.length : 0,
-    totalTasks: mockGraveyardData.reduce((sum, s) => sum + s.tasks_completed, 0),
-    avgLifespan: mockGraveyardData.length > 0 ? mockGraveyardData.reduce((sum, s) => sum + s.lifespan_days, 0) / mockGraveyardData.length : 0,
+    total: graveyardData.length,
+    avgScore: graveyardData.length > 0 ? graveyardData.reduce((sum, s) => sum + s.final_score, 0) / graveyardData.length : 0,
+    totalTasks: graveyardData.reduce((sum, s) => sum + s.tasks_completed, 0),
+    avgLifespan: graveyardData.length > 0 ? graveyardData.reduce((sum, s) => sum + s.lifespan_days, 0) / graveyardData.length : 0,
   };
 
   const formatDate = (ts: string) => new Date(ts).toLocaleDateString();

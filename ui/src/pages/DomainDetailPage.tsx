@@ -33,16 +33,8 @@ export const DomainDetailPage: React.FC = () => {
     fetchDomain();
   }, [name]);
 
-  // Mock score history
-  const scoreHistory = Array.from({ length: 14 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (13 - i));
-    return {
-      timestamp: date.toISOString(),
-      score: 0.65 + Math.random() * 0.3,
-      label: 'Avg Score',
-    };
-  });
+  // Score history will be populated from real data
+  const scoreHistory: Array<{ timestamp: string; score: number; label: string }> = [];
 
   // Convert specialists for display
   const specialists: SpecialistSummary[] = domain?.specialists?.map(s => ({
@@ -55,12 +47,8 @@ export const DomainDetailPage: React.FC = () => {
     trend: Math.random() > 0.5 ? 'up' : 'down',
   })) || [];
 
-  // Mock tasks for domain
-  const tasks: TaskExecution[] = [
-    { id: '1', task_name: 'Code review task', specialist_name: specialists[0]?.name, status: 'completed', score: 0.89, duration: 12.5, timestamp: new Date().toISOString() },
-    { id: '2', task_name: 'Debug session', specialist_name: specialists[1]?.name, status: 'completed', score: 0.76, duration: 8.2, timestamp: new Date(Date.now() - 3600000).toISOString() },
-    { id: '3', task_name: 'Feature implementation', specialist_name: specialists[0]?.name, status: 'running', duration: 15.0, timestamp: new Date(Date.now() - 7200000).toISOString() },
-  ];
+  // Tasks will be populated from real data
+  const tasks: TaskExecution[] = [];
 
   if (loading) {
     return (

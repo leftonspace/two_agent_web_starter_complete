@@ -287,37 +287,8 @@ async def get_stats():
 
 
 async def _get_all_domain_statuses() -> List[DomainStatus]:
-    """Get status of all domains."""
+    """Get status of all domains from real data."""
     domains = []
-
-    # Define known domains with mock data for development
-    domain_configs = {
-        "code_generation": {
-            "specialists": 5, "best_score": 0.92, "avg_score": 0.85,
-            "tasks_today": 47, "convergence_progress": 78.5, "evolution_paused": False
-        },
-        "code_review": {
-            "specialists": 4, "best_score": 0.88, "avg_score": 0.82,
-            "tasks_today": 23, "convergence_progress": 65.0, "evolution_paused": False
-        },
-        "business_documents": {
-            "specialists": 3, "best_score": 0.85, "avg_score": 0.79,
-            "tasks_today": 15, "convergence_progress": 45.0, "evolution_paused": False
-        },
-        "research": {
-            "specialists": 4, "best_score": 0.90, "avg_score": 0.84,
-            "tasks_today": 31, "convergence_progress": 72.0, "evolution_paused": False
-        },
-        "planning": {
-            "specialists": 3, "best_score": 0.87, "avg_score": 0.81,
-            "tasks_today": 12, "convergence_progress": 55.0, "evolution_paused": True
-        },
-        "administration": {
-            "specialists": 2, "best_score": 0.94, "avg_score": 0.91,
-            "tasks_today": 8, "convergence_progress": 92.0, "evolution_paused": True,
-            "current_jarvis": "JARVIS-v7.2"
-        },
-    }
 
     try:
         from core.specialists import get_pool_manager
@@ -331,41 +302,49 @@ async def _get_all_domain_statuses() -> List[DomainStatus]:
     except ImportError:
         evolution_controller = None
 
-    for domain_name, mock_config in domain_configs.items():
-        # Get pool info - try real data first, fall back to mock
-        specialists = mock_config["specialists"]
-        best_score = mock_config["best_score"]
-        avg_score = mock_config["avg_score"]
-        tasks_today = mock_config["tasks_today"]
-        current_jarvis = mock_config.get("current_jarvis")
-        evolution_paused = mock_config["evolution_paused"]
-        convergence_progress = mock_config["convergence_progress"]
+    # If no pool manager, return empty list (no fake data)
+    if not pool_manager:
+        return domains
 
-        if pool_manager:
-            try:
-                pool = pool_manager.get_pool(domain_name)
-                if pool:
-                    specialists = len(pool.specialists)
-                    if pool.specialists:
-                        scores = [s.score for s in pool.specialists if hasattr(s, 'score')]
-                        if scores:
-                            best_score = max(scores)
-                            avg_score = sum(scores) / len(scores)
+    # Get all domains from pool manager
+    try:
+        domain_names = pool_manager.get_domains()
+    except Exception:
+        return domains
 
-                    # For administration, get current JARVIS
-                    if domain_name == "administration" and pool.specialists:
-                        best = max(pool.specialists, key=lambda s: getattr(s, 'score', 0))
-                        current_jarvis = best.name if hasattr(best, 'name') else current_jarvis
-            except Exception:
-                pass
+    for domain_name in domain_names:
+        specialists = 0
+        best_score = 0.0
+        avg_score = 0.0
+        tasks_today = 0
+        current_jarvis = None
+        evolution_paused = False
+        convergence_progress = 0.0
+
+        try:
+            pool = pool_manager.get_pool(domain_name)
+            if pool:
+                specialists = len(pool.specialists)
+                if pool.specialists:
+                    scores = [s.score for s in pool.specialists if hasattr(s, 'score')]
+                    if scores:
+                        best_score = max(scores)
+                        avg_score = sum(scores) / len(scores)
+
+                # For administration, get current JARVIS
+                if domain_name == "administration" and pool.specialists:
+                    best = max(pool.specialists, key=lambda s: getattr(s, 'score', 0))
+                    current_jarvis = best.name if hasattr(best, 'name') else None
+        except Exception:
+            pass
 
         # Check evolution status from controller if available
         if evolution_controller:
             try:
                 status = evolution_controller.get_domain_status(domain_name)
                 if status:
-                    evolution_paused = status.get("paused", evolution_paused)
-                    convergence_progress = status.get("convergence_progress", convergence_progress)
+                    evolution_paused = status.get("paused", False)
+                    convergence_progress = status.get("convergence_progress", 0.0)
             except Exception:
                 pass
 
@@ -384,15 +363,15 @@ async def _get_all_domain_statuses() -> List[DomainStatus]:
 
 
 async def _get_budget_status() -> BudgetStatus:
-    """Get current budget status."""
-    # Mock data for development/demo
-    mock_budget = BudgetStatus(
-        production_spent_today=23.47,
-        production_remaining=26.53,
-        production_limit=50.0,
-        benchmark_spent_today=3.12,
-        benchmark_remaining=6.88,
-        benchmark_limit=10.0,
+    """Get current budget status from real data."""
+    # Default values (zeros) when no real data available
+    default_budget = BudgetStatus(
+        production_spent_today=0.0,
+        production_remaining=0.0,
+        production_limit=0.0,
+        benchmark_spent_today=0.0,
+        benchmark_remaining=0.0,
+        benchmark_limit=0.0,
         is_warning=False,
         warning_threshold=0.8,
     )
@@ -404,10 +383,10 @@ async def _get_budget_status() -> BudgetStatus:
         production_status = budget.get_category_status("production")
         benchmark_status = budget.get_category_status("benchmark")
 
-        prod_spent = production_status.get("spent_today", mock_budget.production_spent_today)
-        prod_limit = production_status.get("daily_limit", mock_budget.production_limit)
-        bench_spent = benchmark_status.get("spent_today", mock_budget.benchmark_spent_today)
-        bench_limit = benchmark_status.get("daily_limit", mock_budget.benchmark_limit)
+        prod_spent = production_status.get("spent_today", 0.0)
+        prod_limit = production_status.get("daily_limit", 0.0)
+        bench_spent = benchmark_status.get("spent_today", 0.0)
+        bench_limit = benchmark_status.get("daily_limit", 0.0)
 
         warning_threshold = 0.8
         is_warning = (prod_spent / prod_limit) >= warning_threshold if prod_limit > 0 else False
@@ -423,7 +402,7 @@ async def _get_budget_status() -> BudgetStatus:
             warning_threshold=warning_threshold,
         )
     except ImportError:
-        return mock_budget
+        return default_budget
 
 
 async def _get_evaluation_status() -> EvaluationStatus:
@@ -563,37 +542,8 @@ async def _get_specialists_list(
                 break
 
     except ImportError:
-        # Return mock specialists for development/demo
-        from uuid import uuid4
-        mock_specialists = [
-            ("CodeGen-Alpha-v5", "code_generation", 5, 0.92, 156, True),
-            ("CodeGen-Beta-v4", "code_generation", 4, 0.88, 134, True),
-            ("CodeGen-Gamma-v5", "code_generation", 5, 0.85, 98, True),
-            ("Review-Prime-v3", "code_review", 3, 0.88, 89, True),
-            ("Review-Expert-v4", "code_review", 4, 0.85, 67, True),
-            ("DocWriter-Pro-v2", "business_documents", 2, 0.85, 45, True),
-            ("Research-Deep-v4", "research", 4, 0.90, 78, True),
-            ("Planner-Strategic-v3", "planning", 3, 0.87, 34, True),
-            ("JARVIS-v7.2", "administration", 7, 0.94, 256, True),
-        ]
-
-        for name, dom, gen, score, tasks, active in mock_specialists:
-            if domain and dom != domain:
-                continue
-            if active_only and not active:
-                continue
-
-            specialists.append(SpecialistSummary(
-                id=uuid4(),
-                name=name,
-                generation=gen,
-                score=score,
-                task_count=tasks,
-                is_active=active,
-            ))
-
-            if len(specialists) >= limit:
-                break
+        # No pool manager available, return empty list (no fake data)
+        pass
 
     return specialists[:limit]
 

@@ -271,97 +271,9 @@ async def get_tasks_by_domain(
 # ============================================================================
 
 
-# In-memory task storage for demo (would use database in production)
+# In-memory task storage (populated by real task executions)
 _task_history: List[Dict[str, Any]] = []
 _feedback_history: Dict[UUID, Dict[str, Any]] = {}
-
-# Initialize with mock data for development/demo
-def _init_mock_tasks():
-    """Initialize mock tasks for development."""
-    from uuid import uuid4
-    from datetime import timedelta
-
-    if _task_history:
-        return  # Already initialized
-
-    mock_tasks = [
-        {
-            "id": uuid4(),
-            "domain": "code_generation",
-            "specialist_id": uuid4(),
-            "specialist_name": "CodeGen-Alpha-v5",
-            "request": "Write a Python function to calculate fibonacci numbers using memoization",
-            "response": "def fibonacci(n, memo={}):\n    if n in memo:\n        return memo[n]\n    if n <= 1:\n        return n\n    memo[n] = fibonacci(n-1, memo) + fibonacci(n-2, memo)\n    return memo[n]",
-            "score": 0.95,
-            "model_used": "claude-3-sonnet",
-            "execution_time_ms": 1234,
-            "tokens_used": 456,
-            "cost_cad": 0.0023,
-            "created_at": datetime.utcnow() - timedelta(minutes=5),
-        },
-        {
-            "id": uuid4(),
-            "domain": "code_review",
-            "specialist_id": uuid4(),
-            "specialist_name": "Review-Prime-v3",
-            "request": "Review this authentication middleware for security issues",
-            "response": "The middleware has a potential timing attack vulnerability in the password comparison. Use constant-time comparison instead.",
-            "score": 0.88,
-            "model_used": "claude-3-sonnet",
-            "execution_time_ms": 2341,
-            "tokens_used": 892,
-            "cost_cad": 0.0045,
-            "created_at": datetime.utcnow() - timedelta(minutes=15),
-        },
-        {
-            "id": uuid4(),
-            "domain": "business_documents",
-            "specialist_id": uuid4(),
-            "specialist_name": "DocWriter-Pro-v2",
-            "request": "Write a professional email requesting a project deadline extension",
-            "response": "Subject: Request for Project Deadline Extension - Q4 Report\n\nDear [Manager],\n\nI am writing to request a 5-day extension for the Q4 report deadline...",
-            "score": 0.82,
-            "model_used": "claude-3-haiku",
-            "execution_time_ms": 876,
-            "tokens_used": 234,
-            "cost_cad": 0.0008,
-            "created_at": datetime.utcnow() - timedelta(minutes=30),
-        },
-        {
-            "id": uuid4(),
-            "domain": "research",
-            "specialist_id": uuid4(),
-            "specialist_name": "Research-Deep-v4",
-            "request": "Summarize the latest developments in transformer architecture optimization",
-            "response": "Recent advances in transformer optimization include: 1) Flash Attention 2.0 reducing memory usage by 50%, 2) Mixture of Experts (MoE) enabling larger models...",
-            "score": 0.91,
-            "model_used": "claude-3-opus",
-            "execution_time_ms": 4567,
-            "tokens_used": 1234,
-            "cost_cad": 0.0156,
-            "created_at": datetime.utcnow() - timedelta(hours=1),
-        },
-        {
-            "id": uuid4(),
-            "domain": "code_generation",
-            "specialist_id": uuid4(),
-            "specialist_name": "CodeGen-Beta-v4",
-            "request": "Create a REST API endpoint for user authentication with JWT",
-            "response": "@app.post('/auth/login')\nasync def login(credentials: LoginRequest):\n    user = await verify_credentials(credentials)\n    token = create_jwt_token(user.id)\n    return {'access_token': token}",
-            "score": 0.87,
-            "model_used": "claude-3-sonnet",
-            "execution_time_ms": 1876,
-            "tokens_used": 678,
-            "cost_cad": 0.0034,
-            "created_at": datetime.utcnow() - timedelta(hours=2),
-        },
-    ]
-
-    _task_history.extend(mock_tasks)
-
-
-# Initialize mock data on module load
-_init_mock_tasks()
 
 
 async def _get_recent_tasks(

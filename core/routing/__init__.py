@@ -6,21 +6,25 @@ Uses hybrid classification: fast keywords with semantic fallback.
 
 Usage:
     from core.routing import (
+        # Classification
         DomainClassifier,
         get_domain_classifier,
         ClassificationResult,
+
+        # Full routing
+        TaskRouter,
+        get_task_router,
+        RoutingResult,
+        TaskResult,
     )
 
     # Classify a request
     classifier = get_domain_classifier()
     result = await classifier.classify("write a python script")
-    print(f"Route to: {result.domain} (confidence={result.confidence})")
 
-    # Check classification method
-    if result.method == "keyword":
-        print(f"Matched keywords: {result.matched_keywords}")
-    elif result.method == "semantic":
-        print(f"Reasoning: {result.reasoning}")
+    # Full routing and execution
+    router = get_task_router()
+    routing, result = await router.route_and_execute("write a python script")
 """
 
 from .keyword_classifier import (
@@ -57,6 +61,21 @@ from .classifier import (
     reset_domain_classifier,
 )
 
+from .router import (
+    # Errors
+    ExecutionError,
+    # Models
+    ModelSelection,
+    RoutingResult,
+    TaskResult,
+    # Config
+    RouterConfig,
+    # Router
+    TaskRouter,
+    get_task_router,
+    reset_task_router,
+)
+
 
 __all__ = [
     # Result model
@@ -79,4 +98,13 @@ __all__ = [
     "DomainClassifier",
     "get_domain_classifier",
     "reset_domain_classifier",
+    # Router
+    "ExecutionError",
+    "ModelSelection",
+    "RoutingResult",
+    "TaskResult",
+    "RouterConfig",
+    "TaskRouter",
+    "get_task_router",
+    "reset_task_router",
 ]

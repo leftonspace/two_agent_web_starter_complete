@@ -135,8 +135,8 @@ class JARVIS:
         """Initialize database connection."""
         logger.info("Initializing database...")
         try:
-            from database.connection import init_database
-            await init_database()
+            from database import create_all_tables
+            create_all_tables()
             logger.info("  Database initialized")
         except ImportError:
             logger.warning("  Database module not available, using in-memory storage")

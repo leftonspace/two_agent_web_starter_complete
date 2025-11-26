@@ -483,7 +483,7 @@ async def _submit_feedback(
     # Try to update specialist score
     if specialist_id:
         try:
-            from core.domain import get_pool_manager
+            from core.specialists import get_pool_manager
             pool_manager = get_pool_manager()
             specialist = pool_manager.get_specialist(specialist_id)
             if specialist and hasattr(specialist, 'record_feedback'):

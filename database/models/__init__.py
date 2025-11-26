@@ -34,6 +34,11 @@ from .council_vote import (
     CouncilStatsDB,
 )
 
+from .evaluation_comparison import (
+    EvaluationComparisonDB,
+    ComparisonStatsDB,
+)
+
 
 __all__ = [
     # Cost tracking
@@ -56,4 +61,7 @@ __all__ = [
     "CouncilVoteDB",
     "CouncilSessionDB",
     "CouncilStatsDB",
+    # Evaluation comparisons
+    "EvaluationComparisonDB",
+    "ComparisonStatsDB",
 ]

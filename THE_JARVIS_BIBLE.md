@@ -57,57 +57,74 @@ two_agent_web_starter_complete/
 │   │       ├── index-*.js                 # Bundled JavaScript
 │   │       └── index-*.css                # Bundled CSS
 │   ├── src/
+│   │   ├── api/
+│   │   │   └── client.ts                  # API client
 │   │   ├── components/
+│   │   │   ├── BenchmarkControls.tsx      # Benchmark controls
+│   │   │   ├── BudgetStatus.tsx           # Budget status display
+│   │   │   ├── DomainCard.tsx             # Domain card component
+│   │   │   ├── EvaluationToggle.tsx       # Evaluation toggle
+│   │   │   ├── LoadingSpinner.tsx         # Loading indicator
+│   │   │   ├── RecentTasks.tsx            # Recent tasks list
 │   │   │   ├── charts/                    # Chart components
+│   │   │   │   ├── BarChart.tsx
 │   │   │   │   ├── CostPieChart.tsx
 │   │   │   │   ├── ScoreLineChart.tsx
 │   │   │   │   ├── StatsCard.tsx
-│   │   │   │   └── StatsGrid.tsx
+│   │   │   │   └── index.ts
 │   │   │   ├── common/                    # Reusable UI components
 │   │   │   │   ├── Badge.tsx
 │   │   │   │   ├── Button.tsx
+│   │   │   │   ├── Card.tsx
+│   │   │   │   ├── Dropdown.tsx
 │   │   │   │   ├── Input.tsx
 │   │   │   │   ├── Modal.tsx
 │   │   │   │   ├── ProgressBar.tsx
-│   │   │   │   └── StatusBadge.tsx
+│   │   │   │   ├── Table.tsx
+│   │   │   │   ├── Tabs.tsx
+│   │   │   │   └── index.ts
 │   │   │   ├── dashboard/                 # Dashboard-specific components
 │   │   │   │   ├── BenchmarkPanel.tsx
 │   │   │   │   ├── BudgetBadge.tsx
 │   │   │   │   ├── DomainCard.tsx
 │   │   │   │   ├── EvaluationModeSelector.tsx
+│   │   │   │   ├── FeedbackButtons.tsx
+│   │   │   │   ├── QuickActions.tsx
 │   │   │   │   ├── SpecialistRow.tsx
-│   │   │   │   └── TasksTable.tsx
+│   │   │   │   ├── TasksTable.tsx
+│   │   │   │   └── index.ts
 │   │   │   ├── layout/                    # Layout components
-│   │   │   │   ├── ContentHeader.tsx
-│   │   │   │   ├── ContentSection.tsx
 │   │   │   │   ├── Header.tsx
 │   │   │   │   ├── MainContent.tsx
-│   │   │   │   └── Sidebar.tsx
-│   │   │   └── modals/                    # Modal dialogs
-│   │   │       ├── BudgetDetailModal.tsx
-│   │   │       ├── GraveyardModal.tsx
-│   │   │       ├── NewTaskModal.tsx
-│   │   │       ├── SettingsPanel.tsx
-│   │   │       ├── SpecialistDetailModal.tsx
-│   │   │       └── TaskDetailModal.tsx
+│   │   │   │   ├── Sidebar.tsx
+│   │   │   │   └── index.ts
+│   │   │   ├── modals/                    # Modal dialogs
+│   │   │   │   ├── BudgetDetailModal.tsx
+│   │   │   │   ├── GraveyardModal.tsx
+│   │   │   │   ├── NewTaskModal.tsx
+│   │   │   │   ├── SettingsPanel.tsx
+│   │   │   │   ├── SpecialistDetailModal.tsx
+│   │   │   │   ├── TaskDetailModal.tsx
+│   │   │   │   └── index.ts
+│   │   │   └── index.ts
 │   │   ├── hooks/                         # React hooks
 │   │   │   ├── useApi.ts
 │   │   │   ├── useAutoRefresh.ts
-│   │   │   ├── useBenchmarkActions.ts
 │   │   │   ├── useDashboard.ts
-│   │   │   └── useNotifications.tsx
+│   │   │   ├── useNotifications.tsx
+│   │   │   └── index.ts
 │   │   ├── pages/                         # Page components
 │   │   │   ├── Dashboard.tsx              # Main dashboard
 │   │   │   ├── CostLogPage.tsx            # Cost tracking
 │   │   │   ├── DomainDetailPage.tsx       # Domain details
 │   │   │   ├── GraveyardPage.tsx          # Retired specialists
-│   │   │   └── SettingsPage.tsx           # Settings
-│   │   ├── styles/                        # Global styles
-│   │   │   └── design-system.css
+│   │   │   ├── SettingsPage.tsx           # Settings
+│   │   │   └── index.ts
 │   │   ├── types/                         # TypeScript types
 │   │   │   └── index.ts
 │   │   ├── App.tsx                        # Root component
-│   │   └── main.tsx                       # Entry point
+│   │   ├── main.tsx                       # Entry point
+│   │   └── vite-env.d.ts                  # Vite type definitions
 │   ├── index.html                         # Dev entry point
 │   ├── package.json                       # NPM dependencies
 │   ├── tsconfig.json                      # TypeScript config
@@ -119,39 +136,57 @@ two_agent_web_starter_complete/
 │   ├── main.py                            # FastAPI app setup & SPA routing
 │   └── routes/
 │       ├── __init__.py
-│       ├── benchmark.py                   # /api/benchmark/* endpoints
-│       ├── dashboard.py                   # /api/dashboard/* endpoints
-│       ├── evaluation.py                  # /api/evaluation/* endpoints
-│       └── tasks.py                       # /api/tasks/* endpoints
+│       ├── benchmark.py                   # /api/benchmark/* endpoints (15KB)
+│       ├── dashboard.py                   # /api/dashboard/* endpoints (22KB)
+│       ├── evaluation.py                  # /api/evaluation/* endpoints (12KB)
+│       └── tasks.py                       # /api/tasks/* endpoints (18KB)
 │
 ├── core/                                  # Core Business Logic
 │   ├── __init__.py
+│   ├── benchmark/                         # Benchmark execution
+│   │   ├── __init__.py
+│   │   ├── executor.py                    # Benchmark executor (25KB)
+│   │   ├── loader.py                      # Benchmark loader (14KB)
+│   │   └── verifier.py                    # Benchmark verifier (27KB)
 │   ├── evaluation/                        # Evaluation engine
 │   │   ├── __init__.py
-│   │   ├── base.py
-│   │   ├── benchmarks.py
-│   │   └── metrics.py
+│   │   ├── ai_council/                    # AI council evaluation
+│   │   ├── base.py                        # Base evaluation
+│   │   ├── comparison.py                  # Evaluation comparison
+│   │   ├── controller.py                  # Evaluation controller
+│   │   └── scoring_committee/             # Scoring committee
+│   ├── evolution/                         # Specialist evolution
+│   │   └── (evolution modules)
+│   ├── models/                            # Core data models
 │   ├── routing/                           # Request routing
 │   │   ├── __init__.py
-│   │   ├── domain_router.py
-│   │   └── specialist_selector.py
-│   └── security/                          # Security layer
-│       ├── __init__.py
-│       ├── auth.py
-│       └── permissions.py
+│   │   ├── classifier.py                  # Base classifier
+│   │   ├── keyword_classifier.py          # Keyword-based routing
+│   │   ├── router.py                      # Main router (27KB)
+│   │   └── semantic_classifier.py         # Semantic routing
+│   ├── security/                          # Security layer
+│   │   └── (security modules)
+│   └── specialists/                       # Specialist management
+│       └── (specialist modules)
 │
 ├── database/                              # Database Layer
 │   ├── __init__.py
-│   ├── models/                            # SQLAlchemy models
-│   │   ├── __init__.py
-│   │   ├── specialist.py
-│   │   ├── task.py
-│   │   └── budget.py
-│   └── migrations/                        # Alembic migrations
-│       └── versions/
+│   ├── base.py                            # Base database setup
+│   └── models/                            # SQLAlchemy models
+│       ├── __init__.py
+│       ├── benchmark.py                   # Benchmark model (17KB)
+│       ├── cost_log.py                    # Cost log model
+│       ├── council_vote.py                # Council vote model
+│       ├── domain_pool.py                 # Domain pool model
+│       ├── evaluation_comparison.py       # Evaluation comparison model
+│       ├── graveyard.py                   # Graveyard model (13KB)
+│       ├── specialist.py                  # Specialist model (12KB)
+│       └── user_feedback.py               # User feedback model
 │
 ├── config/                                # Global Configuration
 │   ├── domains/                           # Domain configurations
+│   │   └── *.yaml
+│   ├── evaluation/                        # Evaluation configurations
 │   │   └── *.yaml
 │   ├── models/                            # Model configurations
 │   │   └── *.yaml
@@ -160,6 +195,14 @@ two_agent_web_starter_complete/
 │   ├── security/                          # Security settings
 │   │   └── *.yaml
 │   └── llm_config.yaml                    # LLM configuration
+│
+├── benchmarks/                            # Benchmark Test Data
+│   ├── business_documents/                # Business document benchmarks
+│   └── code_generation/                   # Code generation benchmarks
+│
+├── jarvis/                                # JARVIS Entry Point
+│   ├── __init__.py
+│   └── main.py                            # Main JARVIS entry (13KB)
 │
 ├── agent/                                 # Core orchestrator code
 │   ├── _errors.py                         # Error definitions

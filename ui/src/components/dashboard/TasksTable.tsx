@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Clock, CheckCircle, XCircle, AlertCircle, MoreHorizontal, Eye, RotateCcw, Trash2 } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, MoreHorizontal, Eye, RotateCcw, Trash2, ThumbsUp, ThumbsDown, Check } from 'lucide-react';
 import type { TaskExecution } from '../../types';
-import { Badge, Dropdown } from '../common';
+import { api } from '../../api/client';
 
 export interface TasksTableProps {
   tasks: TaskExecution[];
   onViewTask?: (task: TaskExecution) => void;
   onRetryTask?: (task: TaskExecution) => void;
   onDeleteTask?: (task: TaskExecution) => void;
+  onFeedbackSubmitted?: (taskId: string, type: 'positive' | 'negative') => void;
   loading?: boolean;
   emptyMessage?: string;
 }
@@ -17,10 +18,40 @@ export const TasksTable: React.FC<TasksTableProps> = ({
   onViewTask,
   onRetryTask,
   onDeleteTask,
+  onFeedbackSubmitted,
   loading = false,
   emptyMessage = 'No tasks to display',
 }) => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [feedbackStatus, setFeedbackStatus] = useState<Record<string, 'positive' | 'negative' | 'loading'>>({});
+
+  const handleFeedback = async (e: React.MouseEvent, task: TaskExecution, type: 'positive' | 'negative') => {
+    e.stopPropagation();
+
+    // Don't allow feedback if already given
+    if (feedbackStatus[task.id]) return;
+
+    setFeedbackStatus(prev => ({ ...prev, [task.id]: 'loading' }));
+
+    try {
+      await api.tasks.submitFeedback(task.id, {
+        rating: type === 'positive' ? 5 : 2,
+        feedback_type: type === 'positive' ? 'helpful' : 'other',
+        would_use_again: type === 'positive',
+      });
+
+      setFeedbackStatus(prev => ({ ...prev, [task.id]: type }));
+      onFeedbackSubmitted?.(task.id, type);
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      // Remove loading state on error
+      setFeedbackStatus(prev => {
+        const next = { ...prev };
+        delete next[task.id];
+        return next;
+      });
+    }
+  };
 
   const getStatusIcon = (status: TaskExecution['status']) => {
     switch (status) {
@@ -93,6 +124,7 @@ export const TasksTable: React.FC<TasksTableProps> = ({
             <th>Score</th>
             <th>Duration</th>
             <th>Time</th>
+            <th>Feedback</th>
             <th></th>
           </tr>
         </thead>
@@ -128,6 +160,36 @@ export const TasksTable: React.FC<TasksTableProps> = ({
               </td>
               <td>
                 <span className="time-value">{formatTime(task.timestamp)}</span>
+              </td>
+              <td>
+                <div className="feedback-cell">
+                  {feedbackStatus[task.id] === 'loading' ? (
+                    <span className="feedback-loading">...</span>
+                  ) : feedbackStatus[task.id] ? (
+                    <span className={`feedback-given feedback-${feedbackStatus[task.id]}`}>
+                      <Check className="icon-xs" />
+                    </span>
+                  ) : task.status === 'completed' ? (
+                    <>
+                      <button
+                        className="feedback-btn feedback-positive"
+                        onClick={(e) => handleFeedback(e, task, 'positive')}
+                        title="Good response"
+                      >
+                        <ThumbsUp className="icon-xs" />
+                      </button>
+                      <button
+                        className="feedback-btn feedback-negative"
+                        onClick={(e) => handleFeedback(e, task, 'negative')}
+                        title="Poor response"
+                      >
+                        <ThumbsDown className="icon-xs" />
+                      </button>
+                    </>
+                  ) : (
+                    <span className="feedback-na">-</span>
+                  )}
+                </div>
               </td>
               <td>
                 <div className="actions-cell">
@@ -362,6 +424,75 @@ const tableStyles = `
     padding: var(--space-8);
     text-align: center;
     color: var(--text-tertiary);
+  }
+
+  .feedback-cell {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    justify-content: center;
+  }
+
+  .feedback-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .feedback-btn:hover {
+    border-color: var(--border-secondary);
+    color: var(--text-primary);
+  }
+
+  .feedback-btn.feedback-positive:hover {
+    background: var(--accent-primary-dim);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+  }
+
+  .feedback-btn.feedback-negative:hover {
+    background: var(--accent-danger-dim);
+    border-color: var(--accent-danger);
+    color: var(--accent-danger);
+  }
+
+  .feedback-given {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+  }
+
+  .feedback-given.feedback-positive {
+    color: var(--accent-primary);
+  }
+
+  .feedback-given.feedback-negative {
+    color: var(--accent-danger);
+  }
+
+  .feedback-loading {
+    color: var(--text-tertiary);
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .feedback-na {
+    color: var(--text-tertiary);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
   }
 `;
 

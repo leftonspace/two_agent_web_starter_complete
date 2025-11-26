@@ -382,23 +382,168 @@ class UserFeedbackCollector:
             ),
         }
 
+    async def load_recent_from_database(self, limit: int = 100) -> int:
+        """
+        Load recent feedback from database into memory cache.
+
+        Call this on startup to restore feedback history.
+
+        Args:
+            limit: Maximum number of feedback entries to load
+
+        Returns:
+            Number of feedback entries loaded
+        """
+        if not self._use_database:
+            return 0
+
+        try:
+            from database import get_session
+            from database.models.user_feedback import UserFeedbackDB
+
+            loaded = 0
+            with get_session() as session:
+                db_feedbacks = (
+                    session.query(UserFeedbackDB)
+                    .order_by(UserFeedbackDB.submitted_at.desc())
+                    .limit(limit)
+                    .all()
+                )
+
+                for db_feedback in db_feedbacks:
+                    feedback = UserFeedback(
+                        id=db_feedback.id,
+                        task_id=db_feedback.task_id,
+                        specialist_id=db_feedback.specialist_id,
+                        rating=db_feedback.rating,
+                        worked_correctly=db_feedback.worked_correctly,
+                        needed_edits=db_feedback.needed_edits,
+                        edit_severity=db_feedback.edit_severity,
+                        comments=db_feedback.comments,
+                        tags=db_feedback.get_tags(),
+                        domain=db_feedback.domain,
+                        task_type=db_feedback.task_type,
+                        submitted_at=db_feedback.submitted_at,
+                    )
+                    self._feedback[feedback.task_id] = feedback
+                    loaded += 1
+
+            logger.info(f"Loaded {loaded} feedback entries from database")
+            return loaded
+
+        except ImportError:
+            logger.warning("Database module not available")
+        except Exception as e:
+            logger.error(f"Failed to load feedback from database: {e}")
+
+        return 0
+
     # -------------------------------------------------------------------------
-    # Database Methods (to be implemented with actual database)
+    # Database Methods
     # -------------------------------------------------------------------------
 
     async def _save_to_database(self, feedback: UserFeedback) -> None:
         """Save feedback to database."""
-        # TODO: Implement with SQLAlchemy
-        pass
+        try:
+            from database import get_session
+            from database.models.user_feedback import UserFeedbackDB
+
+            with get_session() as session:
+                # Check if feedback already exists
+                existing = session.query(UserFeedbackDB).filter(
+                    UserFeedbackDB.task_id == feedback.task_id
+                ).first()
+
+                if existing:
+                    # Update existing
+                    existing.rating = feedback.rating
+                    existing.worked_correctly = feedback.worked_correctly
+                    existing.needed_edits = feedback.needed_edits
+                    existing.edit_severity = feedback.edit_severity
+                    existing.score = feedback.to_score()
+                    existing.comments = feedback.comments
+                    existing.set_tags(feedback.tags)
+                    existing.domain = feedback.domain
+                    existing.task_type = feedback.task_type
+                    existing.submitted_at = feedback.submitted_at
+                else:
+                    # Create new
+                    db_feedback = UserFeedbackDB(
+                        id=feedback.id,
+                        task_id=feedback.task_id,
+                        specialist_id=feedback.specialist_id,
+                        rating=feedback.rating,
+                        worked_correctly=feedback.worked_correctly,
+                        needed_edits=feedback.needed_edits,
+                        edit_severity=feedback.edit_severity,
+                        score=feedback.to_score(),
+                        comments=feedback.comments,
+                        domain=feedback.domain,
+                        task_type=feedback.task_type,
+                        submitted_at=feedback.submitted_at,
+                    )
+                    db_feedback.set_tags(feedback.tags)
+                    session.add(db_feedback)
+
+                session.commit()
+                logger.debug(f"Saved feedback to database for task {feedback.task_id}")
+
+        except ImportError:
+            logger.warning("Database module not available, feedback not persisted")
+        except Exception as e:
+            logger.error(f"Failed to save feedback to database: {e}")
 
     async def _load_from_database(self, task_id: UUID) -> Optional[UserFeedback]:
         """Load feedback from database."""
-        # TODO: Implement with SQLAlchemy
+        try:
+            from database import get_session
+            from database.models.user_feedback import UserFeedbackDB
+
+            with get_session() as session:
+                db_feedback = session.query(UserFeedbackDB).filter(
+                    UserFeedbackDB.task_id == task_id
+                ).first()
+
+                if db_feedback:
+                    return UserFeedback(
+                        id=db_feedback.id,
+                        task_id=db_feedback.task_id,
+                        specialist_id=db_feedback.specialist_id,
+                        rating=db_feedback.rating,
+                        worked_correctly=db_feedback.worked_correctly,
+                        needed_edits=db_feedback.needed_edits,
+                        edit_severity=db_feedback.edit_severity,
+                        comments=db_feedback.comments,
+                        tags=db_feedback.get_tags(),
+                        domain=db_feedback.domain,
+                        task_type=db_feedback.task_type,
+                        submitted_at=db_feedback.submitted_at,
+                    )
+
+        except ImportError:
+            logger.warning("Database module not available")
+        except Exception as e:
+            logger.error(f"Failed to load feedback from database: {e}")
+
         return None
 
     async def _exists_in_database(self, task_id: UUID) -> bool:
         """Check if feedback exists in database."""
-        # TODO: Implement with SQLAlchemy
+        try:
+            from database import get_session
+            from database.models.user_feedback import UserFeedbackDB
+
+            with get_session() as session:
+                exists = session.query(UserFeedbackDB).filter(
+                    UserFeedbackDB.task_id == task_id
+                ).first() is not None
+                return exists
+
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.error(f"Failed to check feedback in database: {e}")
+
         return False
 
 
@@ -410,11 +555,19 @@ class UserFeedbackCollector:
 _feedback_collector: Optional[UserFeedbackCollector] = None
 
 
-def get_feedback_collector() -> UserFeedbackCollector:
-    """Get the global feedback collector."""
+def get_feedback_collector(use_database: bool = True) -> UserFeedbackCollector:
+    """
+    Get the global feedback collector.
+
+    Args:
+        use_database: Whether to persist feedback to database (default True)
+
+    Returns:
+        The feedback collector instance
+    """
     global _feedback_collector
     if _feedback_collector is None:
-        _feedback_collector = UserFeedbackCollector()
+        _feedback_collector = UserFeedbackCollector(use_database=use_database)
     return _feedback_collector
 
 

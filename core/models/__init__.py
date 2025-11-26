@@ -124,14 +124,32 @@ from .router import (
     BudgetAction,
     # Data classes
     ModelSelection,
-    BudgetState,
+    BudgetState as RouterBudgetState,
     # Main classes
-    BudgetController,
+    BudgetController as RouterBudgetController,
     ModelRouter,
     # Convenience functions
     get_router,
     reset_router,
     route_request,
+)
+
+from .budget import (
+    # Enums
+    BudgetCategory,
+    BudgetPeriod,
+    OverflowBehavior,
+    AlertLevel,
+    # Data models
+    BudgetStatus,
+    SpendingRecord,
+    BudgetLimits,
+    # Main class
+    BudgetController,
+    # Convenience functions
+    get_budget_controller,
+    reset_budget_controller,
+    can_afford,
 )
 
 
@@ -188,10 +206,22 @@ __all__ = [
     "RoutingStrategy",
     "BudgetAction",
     "ModelSelection",
-    "BudgetState",
-    "BudgetController",
+    "RouterBudgetState",
+    "RouterBudgetController",
     "ModelRouter",
     "get_router",
     "reset_router",
     "route_request",
+    # Budget management
+    "BudgetCategory",
+    "BudgetPeriod",
+    "OverflowBehavior",
+    "AlertLevel",
+    "BudgetStatus",
+    "SpendingRecord",
+    "BudgetLimits",
+    "BudgetController",
+    "get_budget_controller",
+    "reset_budget_controller",
+    "can_afford",
 ]

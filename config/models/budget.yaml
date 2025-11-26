@@ -1,0 +1,123 @@
+# =============================================================================
+# JARVIS Budget Configuration
+# =============================================================================
+#
+# Controls API spending limits for production and benchmark workloads.
+# All amounts in CAD (Canadian Dollars).
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Budget Limits by Category
+# -----------------------------------------------------------------------------
+
+budgets:
+  # Production workloads (customer-facing, high priority)
+  production:
+    daily_cad: 20.00
+    weekly_cad: 100.00
+    monthly_cad: 300.00
+    description: "Customer-facing production workloads"
+
+  # Benchmark/testing workloads (lower priority)
+  benchmark:
+    daily_cad: 5.00
+    weekly_cad: 25.00
+    monthly_cad: 75.00
+    description: "Benchmarking and testing workloads"
+
+  # Development workloads (internal testing)
+  development:
+    daily_cad: 10.00
+    weekly_cad: 50.00
+    monthly_cad: 150.00
+    description: "Internal development and testing"
+
+# -----------------------------------------------------------------------------
+# Overflow Behavior
+# -----------------------------------------------------------------------------
+# What to do when budget limits are exceeded.
+#
+# Options:
+#   - "queue": Queue the request for later (when budget resets)
+#   - "downgrade": Try a cheaper model
+#   - "reject": Reject the request with error
+#   - "warn": Allow but log warning
+
+overflow_behavior: "downgrade"
+
+# Model to downgrade to when budget exceeded
+fallback_model: "anthropic:haiku"
+
+# Minimum model tier (never downgrade below this)
+minimum_tier: "low"
+
+# -----------------------------------------------------------------------------
+# Alert Thresholds
+# -----------------------------------------------------------------------------
+
+alerts:
+  # Percentage thresholds
+  warn_percent: 80
+  critical_percent: 95
+
+  # Notification settings (future feature)
+  notify_on_warning: false
+  notify_on_critical: true
+
+  # Notification channels (future feature)
+  channels:
+    email: []
+    slack: []
+    webhook: []
+
+# -----------------------------------------------------------------------------
+# Reset Schedule
+# -----------------------------------------------------------------------------
+
+reset:
+  # Timezone for reset calculations
+  timezone: "America/Toronto"
+
+  # Daily reset time (24h format)
+  daily_reset_hour: 0
+
+  # Weekly reset day (0=Monday, 6=Sunday)
+  weekly_reset_day: 0
+
+  # Monthly reset day (1-28)
+  monthly_reset_day: 1
+
+# -----------------------------------------------------------------------------
+# Cost Tracking
+# -----------------------------------------------------------------------------
+
+tracking:
+  # Enable detailed cost logging
+  enabled: true
+
+  # Precision for cost calculations (decimal places)
+  precision: 4
+
+  # Retention period for cost logs (days)
+  retention_days: 90
+
+  # Aggregate old records after this many days
+  aggregate_after_days: 30
+
+# -----------------------------------------------------------------------------
+# Model Cost Overrides (CAD per 1K tokens)
+# -----------------------------------------------------------------------------
+# Use these if you have negotiated pricing or want to adjust costs.
+# Leave empty to use provider defaults.
+
+cost_overrides: {}
+#   anthropic:haiku:
+#     input: 0.00035
+#     output: 0.00175
+#   anthropic:sonnet:
+#     input: 0.00420
+#     output: 0.02100
+#   anthropic:opus:
+#     input: 0.02100
+#     output: 0.10500

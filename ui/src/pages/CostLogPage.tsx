@@ -248,12 +248,12 @@ export const CostLogPage: React.FC = () => {
                   <div className="category-bar-container">
                     <div
                       className="category-bar"
-                      style={{ width: `${(amount / stats.total) * 100}%` }}
+                      style={{ width: `${stats.total > 0 ? (amount / stats.total) * 100 : 0}%` }}
                     />
                   </div>
-                  <span className="category-amount">${amount.toFixed(2)}</span>
+                  <span className="category-amount">${(amount || 0).toFixed(2)}</span>
                   <span className="category-percent">
-                    {((amount / stats.total) * 100).toFixed(1)}%
+                    {stats.total > 0 ? ((amount / stats.total) * 100).toFixed(1) : '0.0'}%
                   </span>
                 </div>
               ))}

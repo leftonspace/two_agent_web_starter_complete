@@ -128,10 +128,10 @@ export const RecentTasks: React.FC<RecentTasksProps> = ({
                     {task.specialist_name || '-'}
                   </td>
                   <td className={`py-3 text-right font-medium ${getScoreColor(task.score)}`}>
-                    {task.score !== null ? `${(task.score * 100).toFixed(0)}%` : '-'}
+                    {task.score != null ? `${((task.score || 0) * 100).toFixed(0)}%` : '-'}
                   </td>
                   <td className="py-3 text-right text-gray-500">
-                    ${task.cost_cad.toFixed(4)}
+                    ${(task.cost_cad || 0).toFixed(4)}
                   </td>
                   <td className="py-3 text-gray-500">
                     {formatTime(task.created_at)}

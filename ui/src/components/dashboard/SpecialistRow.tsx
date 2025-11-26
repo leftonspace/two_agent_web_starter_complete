@@ -64,7 +64,7 @@ export const SpecialistRow: React.FC<SpecialistRowProps> = ({
           className="score-value"
           style={{ color: getScoreColor(specialist.score) }}
         >
-          {specialist.score.toFixed(3)}
+          {(specialist.score || 0).toFixed(3)}
         </span>
         <span className="score-trend">{getTrendIcon()}</span>
       </div>

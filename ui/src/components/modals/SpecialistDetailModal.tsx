@@ -62,15 +62,15 @@ export const SpecialistDetailModal: React.FC<SpecialistDetailModalProps> = ({
             <span className="score-label">Current Score</span>
             <span
               className="score-value"
-              style={{ color: getScoreColor(specialist.score) }}
+              style={{ color: getScoreColor(specialist.score || 0) }}
             >
-              {specialist.score.toFixed(3)}
+              {(specialist.score || 0).toFixed(3)}
             </span>
             <span className="score-trend">{getTrendIcon()}</span>
           </div>
           <ProgressBar
-            value={specialist.score * 100}
-            variant={specialist.score >= 0.85 ? 'primary' : specialist.score >= 0.7 ? 'secondary' : 'warning'}
+            value={(specialist.score || 0) * 100}
+            variant={(specialist.score || 0) >= 0.85 ? 'primary' : (specialist.score || 0) >= 0.7 ? 'secondary' : 'warning'}
           />
         </div>
 

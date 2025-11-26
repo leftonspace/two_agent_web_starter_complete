@@ -23,9 +23,12 @@ export const BudgetBadge: React.FC<BudgetBadgeProps> = ({
     );
   }
 
-  const usedPercentage = (budget.used / budget.daily_limit) * 100;
-  const isLow = budget.remaining < budget.daily_limit * 0.2;
-  const isCritical = budget.remaining < budget.daily_limit * 0.1;
+  const used = budget.used || 0;
+  const dailyLimit = budget.daily_limit || 1;
+  const remaining = budget.remaining || 0;
+  const usedPercentage = (used / dailyLimit) * 100;
+  const isLow = remaining < dailyLimit * 0.2;
+  const isCritical = remaining < dailyLimit * 0.1;
 
   const getStatusColor = () => {
     if (isCritical) return 'var(--accent-danger)';
@@ -33,8 +36,8 @@ export const BudgetBadge: React.FC<BudgetBadgeProps> = ({
     return 'var(--accent-primary)';
   };
 
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number | undefined) => {
+    return `$${(amount || 0).toFixed(2)}`;
   };
 
   if (compact) {
@@ -47,7 +50,7 @@ export const BudgetBadge: React.FC<BudgetBadgeProps> = ({
       >
         <Wallet className="icon-sm" style={{ color: getStatusColor() }} />
         <span className="budget-amount" style={{ color: getStatusColor() }}>
-          {formatCurrency(budget.remaining)}
+          {formatCurrency(remaining)}
         </span>
         {isCritical && <AlertTriangle className="icon-xs warning-icon" />}
         <style>{budgetStyles}</style>
@@ -69,9 +72,9 @@ export const BudgetBadge: React.FC<BudgetBadgeProps> = ({
         <div className="budget-info">
           <div className="budget-label">Daily Budget</div>
           <div className="budget-amounts">
-            <span className="budget-used">{formatCurrency(budget.used)}</span>
+            <span className="budget-used">{formatCurrency(used)}</span>
             <span className="budget-separator">/</span>
-            <span className="budget-limit">{formatCurrency(budget.daily_limit)}</span>
+            <span className="budget-limit">{formatCurrency(dailyLimit)}</span>
           </div>
         </div>
         {(isLow || isCritical) && (
@@ -91,7 +94,7 @@ export const BudgetBadge: React.FC<BudgetBadgeProps> = ({
       <div className="budget-footer">
         <span className="budget-remaining">
           <span style={{ color: getStatusColor() }}>
-            {formatCurrency(budget.remaining)}
+            {formatCurrency(remaining)}
           </span>
           {' '}remaining
         </span>

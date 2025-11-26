@@ -99,8 +99,8 @@ export const BenchmarkPanel: React.FC<BenchmarkPanelProps> = ({
               <div key={index} className="result-row">
                 {getStatusIcon(result.passed)}
                 <span className="result-name">{result.task_name}</span>
-                <span className="result-score">{result.score.toFixed(3)}</span>
-                <span className="result-time">{result.execution_time.toFixed(1)}s</span>
+                <span className="result-score">{(result.score || 0).toFixed(3)}</span>
+                <span className="result-time">{(result.execution_time || 0).toFixed(1)}s</span>
               </div>
             ))}
           </div>

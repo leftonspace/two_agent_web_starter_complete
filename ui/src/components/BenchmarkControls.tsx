@@ -186,7 +186,7 @@ export const BenchmarkControls: React.FC<BenchmarkControlsProps> = ({ className 
             />
           </div>
           <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>{status.progress_percent.toFixed(1)}%</span>
+            <span>{(status.progress_percent || 0).toFixed(1)}%</span>
             {status.current_task && (
               <span>Current: {status.current_task}</span>
             )}
@@ -213,9 +213,9 @@ export const BenchmarkControls: React.FC<BenchmarkControlsProps> = ({ className 
                 <div className="text-right text-gray-500">
                   <div>
                     {run.tasks_completed}/{run.tasks_total} tasks |{' '}
-                    <span className="font-medium">{(run.avg_score * 100).toFixed(0)}%</span>
+                    <span className="font-medium">{((run.avg_score || 0) * 100).toFixed(0)}%</span>
                   </div>
-                  <div className="text-xs">${run.cost_spent.toFixed(4)}</div>
+                  <div className="text-xs">${(run.cost_spent || 0).toFixed(4)}</div>
                 </div>
               </div>
             ))}

@@ -12,6 +12,10 @@ Usage:
         SpecialistStatus,
         create_specialist,
         evolve_specialist,
+        DomainPool,
+        SelectionMode,
+        PoolManager,
+        get_pool_manager,
     )
 
     # Create a new specialist
@@ -29,6 +33,14 @@ Usage:
         parent=specialist,
         additional_techniques=["Always check for edge cases"],
     )
+
+    # Use domain pools
+    manager = get_pool_manager()
+    pool = manager.get_pool("code_review")
+    pool.add(specialist)
+
+    # Select specialist for task
+    selected = pool.select(SelectionMode.WEIGHTED)
 """
 
 from .specialist import (
@@ -45,17 +57,48 @@ from .specialist import (
     evolve_specialist,
 )
 
+from .pool import (
+    # Enums
+    SelectionMode,
+    # Main class
+    DomainPool,
+    # Exceptions
+    PoolError,
+    NoSpecialistsError,
+    SpecialistNotFoundError,
+    PoolFullError,
+)
+
+from .pool_manager import (
+    PoolManager,
+    get_pool_manager,
+    reset_pool_manager,
+)
+
 
 __all__ = [
-    # Enums
+    # Specialist enums
     "SpecialistStatus",
     "TrendDirection",
-    # Config models
+    # Specialist config models
     "SpecialistConfig",
     "PerformanceStats",
-    # Main model
+    # Specialist model
     "Specialist",
-    # Factory functions
+    # Specialist factory functions
     "create_specialist",
     "evolve_specialist",
+    # Pool enums
+    "SelectionMode",
+    # Pool model
+    "DomainPool",
+    # Pool exceptions
+    "PoolError",
+    "NoSpecialistsError",
+    "SpecialistNotFoundError",
+    "PoolFullError",
+    # Pool manager
+    "PoolManager",
+    "get_pool_manager",
+    "reset_pool_manager",
 ]

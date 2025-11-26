@@ -1,18 +1,12 @@
 # run_mode.py
 """
-Main entry point for the multi-agent orchestrator.
+Main entry point for the JARVIS multi-agent orchestrator.
 
-Loads configuration, performs cost estimation, and runs either:
-- Auto-pilot mode (multiple sub-runs with self-evaluation)
-- Single-run mode (2loop or 3loop)
+Loads configuration, performs cost estimation, and runs the orchestrator.
+JARVIS automatically handles task delegation internally - simple tasks are
+answered directly, complex tasks are delegated to domain specialists.
 
 STAGE 5: Enhanced with status codes and improved error handling.
-PHASE 3.2 HARDENING: 2-loop preference with auto-selection.
-
-Mode Selection:
-- mode="2loop": Always use 2-loop (Manager ↔ Employee)
-- mode="3loop": Always use 3-loop (with Supervisor)
-- mode="auto": Auto-select based on task complexity (default to 2-loop)
 """
 
 from __future__ import annotations
@@ -32,20 +26,6 @@ except ImportError:
     DEFAULT_MANAGER_MODEL = "gpt-4o-mini"
     DEFAULT_SUPERVISOR_MODEL = "gpt-4o-mini"
     DEFAULT_EMPLOYEE_MODEL = "gpt-4o"
-
-# PHASE 3.2: Import orchestrator selector for auto mode
-try:
-    from orchestrator_selector import select_orchestrator_mode, get_mode_description
-    ORCHESTRATOR_SELECTOR_AVAILABLE = True
-except ImportError:
-    ORCHESTRATOR_SELECTOR_AVAILABLE = False
-
-    def select_orchestrator_mode(task: str, **kwargs) -> str:
-        """Fallback: default to 2loop if selector not available."""
-        return "2loop"
-
-    def get_mode_description(mode: str) -> str:
-        return mode
 
 # STAGE 2: Import run logging and cost tracking
 import cost_tracker
@@ -318,25 +298,12 @@ def main() -> None:
     safety_status = None
 
     try:
-        if mode == "2loop":
-            from orchestrator_2loop import main as main_2loop
-            # 2loop doesn't support run_summary yet
-            main_2loop()
-            final_status = COMPLETED
-        elif mode == "3loop_legacy":
-            # LEGACY: Original 3-loop orchestrator (pre-Phase 3)
-            from orchestrator_3loop_legacy import main as main_legacy
-            # Pass run_summary to enable STAGE 2 logging
-            main_legacy(run_summary=run_summary)
-            final_status = COMPLETED
-        else:
-            # Default: PHASE 3 Adaptive multi-agent orchestrator
-            # Supports dynamic roadmap, auto-advance, regression detection,
-            # horizontal messaging, and stage-level memory
-            from orchestrator import main as main_phase3
-            # Pass run_summary to enable STAGE 2 logging
-            main_phase3(run_summary=run_summary)
-            final_status = COMPLETED
+        # JARVIS orchestrator - automatically handles task complexity:
+        # - Simple tasks: answered directly by JARVIS
+        # - Complex tasks: delegated to domain specialists
+        from orchestrator import main as orchestrator_main
+        orchestrator_main(run_summary=run_summary)
+        final_status = COMPLETED
 
     except KeyboardInterrupt:
         print("\n[RUN] Run interrupted by user")

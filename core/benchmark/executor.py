@@ -614,7 +614,7 @@ The Analysis Team'''
         """Record benchmark score to specialist."""
         try:
             # Try to get pool manager and record score
-            from core.domain import get_pool_manager
+            from core.specialists import get_pool_manager
             pool_manager = get_pool_manager()
             specialist = pool_manager.get_specialist(specialist_id)
             if specialist:

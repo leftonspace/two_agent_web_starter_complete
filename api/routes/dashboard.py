@@ -320,7 +320,7 @@ async def _get_all_domain_statuses() -> List[DomainStatus]:
     }
 
     try:
-        from core.domain import get_pool_manager
+        from core.specialists import get_pool_manager
         pool_manager = get_pool_manager()
     except ImportError:
         pool_manager = None
@@ -429,14 +429,15 @@ async def _get_budget_status() -> BudgetStatus:
 async def _get_evaluation_status() -> EvaluationStatus:
     """Get current evaluation configuration."""
     try:
-        from core.evaluation import get_evaluation_config
-        config = get_evaluation_config()
+        from core.evaluation import get_evaluation_controller
+        controller = get_evaluation_controller()
+        mode = controller.mode.value if hasattr(controller.mode, 'value') else str(controller.mode)
 
         return EvaluationStatus(
-            mode=config.mode,
-            scoring_committee_enabled=config.mode in ("scoring_committee", "both"),
-            ai_council_enabled=config.mode in ("ai_council", "both"),
-            comparison_tracking=config.mode == "both",
+            mode=mode,
+            scoring_committee_enabled=mode in ("scoring_committee", "both"),
+            ai_council_enabled=mode in ("ai_council", "both"),
+            comparison_tracking=mode == "both",
         )
     except ImportError:
         return EvaluationStatus(
@@ -450,9 +451,11 @@ async def _get_evaluation_status() -> EvaluationStatus:
 async def _get_domain_detail(domain: str) -> Optional[DomainDetail]:
     """Get detailed information about a domain."""
     try:
-        from core.domain import get_pool_manager, get_domain_config
+        from core.specialists import get_pool_manager
+        from core.specialists.domain_config import get_domain_loader
         pool_manager = get_pool_manager()
-        domain_config = get_domain_config(domain)
+        loader = get_domain_loader()
+        domain_config = loader.load(domain) if loader else None
     except ImportError:
         pool_manager = None
         domain_config = None
@@ -531,7 +534,7 @@ async def _get_specialists_list(
     specialists = []
 
     try:
-        from core.domain import get_pool_manager
+        from core.specialists import get_pool_manager
         pool_manager = get_pool_manager()
 
         domains_to_check = [domain] if domain else pool_manager.get_domains()
@@ -598,7 +601,7 @@ async def _get_specialists_list(
 async def _get_specialist_detail(specialist_id: UUID) -> Optional[SpecialistDetail]:
     """Get detailed information about a specialist."""
     try:
-        from core.domain import get_pool_manager
+        from core.specialists import get_pool_manager
         pool_manager = get_pool_manager()
 
         spec = pool_manager.get_specialist(specialist_id)
@@ -640,7 +643,7 @@ async def _get_system_stats() -> Dict[str, Any]:
     }
 
     try:
-        from core.domain import get_pool_manager
+        from core.specialists import get_pool_manager
         pool_manager = get_pool_manager()
         stats["total_specialists"] = pool_manager.get_total_specialists()
     except ImportError:

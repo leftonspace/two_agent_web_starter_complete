@@ -262,14 +262,15 @@ _evaluation_config: Dict[str, Any] = {
 def _get_evaluation_config() -> Dict[str, Any]:
     """Get current evaluation configuration."""
     try:
-        from core.evaluation import get_evaluation_config
-        config = get_evaluation_config()
+        from core.evaluation import get_evaluation_controller
+        controller = get_evaluation_controller()
+        mode = controller.mode.value if hasattr(controller.mode, 'value') else str(controller.mode)
         return {
-            "mode": config.mode,
-            "scoring_committee_enabled": config.mode in ("scoring_committee", "both"),
-            "ai_council_enabled": config.mode in ("ai_council", "both"),
-            "comparison_tracking": config.mode == "both",
-            "changed_at": getattr(config, 'changed_at', None),
+            "mode": mode,
+            "scoring_committee_enabled": mode in ("scoring_committee", "both"),
+            "ai_council_enabled": mode in ("ai_council", "both"),
+            "comparison_tracking": mode == "both",
+            "changed_at": getattr(controller, 'changed_at', None),
         }
     except ImportError:
         return _evaluation_config

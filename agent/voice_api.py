@@ -419,7 +419,8 @@ async def voice_chat_stream(
 
             if not user_text or user_text.strip() == "":
                 # No transcription
-                yield f"data: {json_module.dumps({'type': 'response', 'text': \"I didn't catch that, sir. Could you repeat?\", 'audio': None, 'session_ended': False})}\n\n"
+                no_transcription_msg = "I didn't catch that, sir. Could you repeat?"
+                yield f"data: {json_module.dumps({'type': 'response', 'text': no_transcription_msg, 'audio': None, 'session_ended': False})}\n\n"
                 return
 
             # PHASE 6.2: "Thinking" acknowledgment before LLM call

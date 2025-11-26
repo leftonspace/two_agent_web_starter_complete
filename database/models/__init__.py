@@ -22,6 +22,12 @@ from .domain_pool import (
     PoolSelectionLog,
 )
 
+from .user_feedback import (
+    UserFeedbackDB,
+    FeedbackRequestDB,
+    FeedbackStatsDB,
+)
+
 
 __all__ = [
     # Cost tracking
@@ -36,4 +42,8 @@ __all__ = [
     # Domain pools
     "DomainPoolDB",
     "PoolSelectionLog",
+    # User feedback
+    "UserFeedbackDB",
+    "FeedbackRequestDB",
+    "FeedbackStatsDB",
 ]

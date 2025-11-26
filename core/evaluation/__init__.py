@@ -14,13 +14,16 @@ Usage:
         EvaluationResult,
         TaskResult,
         get_evaluation_controller,
+        ScoringCommittee,
+        UserFeedback,
     )
 
     # Get controller
     controller = get_evaluation_controller()
 
-    # Check mode
-    print(f"Mode: {controller.get_mode()}")
+    # Register scoring committee
+    committee = ScoringCommittee()
+    controller.register_scoring_committee(committee)
 
     # Evaluate
     result = await controller.evaluate(task_result)
@@ -56,6 +59,24 @@ from .controller import (
     reset_evaluation_controller,
 )
 
+from .scoring_committee import (
+    # Committee
+    ScoringCommittee,
+    ScoringCommitteeConfig,
+    create_scoring_committee,
+    # Components
+    TestRunner,
+    Linter,
+    FormatChecker,
+    SpellChecker,
+    # User feedback
+    UserFeedback,
+    FeedbackRequest,
+    UserFeedbackCollector,
+    get_feedback_collector,
+    reset_feedback_collector,
+)
+
 
 __all__ = [
     # Base enums
@@ -79,4 +100,19 @@ __all__ = [
     "EvaluationController",
     "get_evaluation_controller",
     "reset_evaluation_controller",
+    # Scoring Committee
+    "ScoringCommittee",
+    "ScoringCommitteeConfig",
+    "create_scoring_committee",
+    # Scoring Committee components
+    "TestRunner",
+    "Linter",
+    "FormatChecker",
+    "SpellChecker",
+    # User feedback
+    "UserFeedback",
+    "FeedbackRequest",
+    "UserFeedbackCollector",
+    "get_feedback_collector",
+    "reset_feedback_collector",
 ]

@@ -96,6 +96,15 @@ templates = Jinja2Templates(directory=str(templates_dir))
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+# Mount React UI build from ui/dist/ if it exists
+ui_dist_dir = project_root / "ui" / "dist"
+if ui_dist_dir.exists():
+    # Mount assets folder for Vite build
+    ui_assets_dir = ui_dist_dir / "assets"
+    if ui_assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(ui_assets_dir)), name="ui_assets")
+    print(f"[Startup] React UI available at /ui/* (served from {ui_dist_dir})")
+
 # PHASE 1.1: Include authentication routers
 app.include_router(auth_router)
 app.include_router(api_keys_router)
@@ -163,6 +172,38 @@ try:
     print("[Startup] Jarvis Agent API loaded (real-time tool execution)")
 except ImportError as e:
     print(f"[Startup] Agent API not available: {e}")
+
+# ============================================================================
+# JARVIS 2.0: Mount new Dashboard/Evaluation/Benchmark/Tasks API routes
+# These provide the full JARVIS Specialist Dashboard API
+# ============================================================================
+try:
+    from api.routes.dashboard import router as dashboard_api_router
+    app.include_router(dashboard_api_router)
+    print("[Startup] JARVIS Dashboard API loaded (/api/dashboard/*)")
+except ImportError as e:
+    print(f"[Startup] Dashboard API not available: {e}")
+
+try:
+    from api.routes.evaluation import router as evaluation_api_router
+    app.include_router(evaluation_api_router)
+    print("[Startup] JARVIS Evaluation API loaded (/api/evaluation/*)")
+except ImportError as e:
+    print(f"[Startup] Evaluation API not available: {e}")
+
+try:
+    from api.routes.benchmark import router as benchmark_api_router
+    app.include_router(benchmark_api_router)
+    print("[Startup] JARVIS Benchmark API loaded (/api/benchmark/*)")
+except ImportError as e:
+    print(f"[Startup] Benchmark API not available: {e}")
+
+try:
+    from api.routes.tasks import router as tasks_api_router
+    app.include_router(tasks_api_router)
+    print("[Startup] JARVIS Tasks API loaded (/api/tasks/*)")
+except ImportError as e:
+    print(f"[Startup] Tasks API not available: {e}")
 
 # PHASE 7.1: Global conversational agent instance
 conversational_agent: Optional[ConversationalAgent] = None
@@ -2627,15 +2668,97 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/version")
+async def get_version():
+    """
+    Get API and JARVIS version information.
+
+    Returns:
+        JSON with version info
+    """
+    return {
+        "api_version": "2.0.0",
+        "jarvis_version": "2.0.0",
+        "architecture": "JARVIS 2.0 Domain-Based Specialist Pools",
+        "features": [
+            "Domain-based specialist pools",
+            "Scoring Committee evaluation",
+            "AI Council evaluation",
+            "Benchmark-driven evolution",
+            "User feedback integration",
+            "Budget management"
+        ]
+    }
+
+
+# ============================================================================
+# React UI Routes - Serve the JARVIS Dashboard React app
+# ============================================================================
+
+@app.get("/ui")
+@app.get("/ui/{path:path}")
+async def serve_react_ui(request: Request, path: str = ""):
+    """
+    Serve the React JARVIS Dashboard UI.
+
+    This serves the built React app from ui/dist/ and handles client-side routing
+    by returning index.html for all non-asset routes.
+
+    Access the new React dashboard at: /ui
+    """
+    from fastapi.responses import FileResponse
+
+    ui_dist_dir = project_root / "ui" / "dist"
+
+    if not ui_dist_dir.exists():
+        return HTMLResponse(
+            content="""
+            <html>
+            <head><title>JARVIS Dashboard</title></head>
+            <body style="background: #0a0a0f; color: #e5e5e8; font-family: sans-serif; padding: 40px;">
+                <h1>React UI Not Built</h1>
+                <p>The React dashboard has not been built yet.</p>
+                <p>To build it, run:</p>
+                <pre style="background: #1a1a2f; padding: 20px; border-radius: 8px;">
+cd ui
+npm install
+npm run build
+                </pre>
+                <p>Or use the legacy dashboard at <a href="/jarvis-dashboard" style="color: #00ff88;">/jarvis-dashboard</a></p>
+            </body>
+            </html>
+            """,
+            status_code=200
+        )
+
+    # Serve index.html for all routes (React handles routing)
+    index_file = ui_dist_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+
+    return HTMLResponse(content="<h1>index.html not found</h1>", status_code=404)
+
+
 # Main entry point for running the app
 if __name__ == "__main__":
     import uvicorn
 
     print("=" * 60)
-    print("  🤖 Jarvis AI Assistant")
+    print("  🤖 JARVIS 2.0 - AI Specialist System")
     print("=" * 60)
-    print("  Chat Interface:  http://127.0.0.1:8000/jarvis")
-    print("  Orchestrator:    http://127.0.0.1:8000/dashboard")
+    print()
+    print("  Dashboard (React):   http://127.0.0.1:8000/ui")
+    print("  Dashboard (Legacy):  http://127.0.0.1:8000/jarvis-dashboard")
+    print("  Chat Interface:      http://127.0.0.1:8000/jarvis")
+    print("  Orchestrator:        http://127.0.0.1:8000/dashboard")
+    print()
+    print("  API Endpoints:")
+    print("    /api/dashboard/*   - Dashboard data")
+    print("    /api/evaluation/*  - Evaluation control")
+    print("    /api/benchmark/*   - Benchmark execution")
+    print("    /api/tasks/*       - Task management")
+    print("    /health            - Health check")
+    print("    /version           - Version info")
     print()
     print("  Press Ctrl+C to stop")
     print("=" * 60)

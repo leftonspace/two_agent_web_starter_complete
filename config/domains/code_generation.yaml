@@ -1,0 +1,86 @@
+# =============================================================================
+# Code Generation Domain Configuration
+# =============================================================================
+# All coding tasks, scripts, integrations, automation
+# =============================================================================
+
+domain: "code_generation"
+description: "All coding tasks, scripts, integrations, automation"
+
+is_jarvis_domain: false
+
+default_config:
+  system_prompt: |
+    You are a code generation specialist.
+
+    Requirements for ALL code you write:
+    1. Syntactically correct - must parse without errors
+    2. Include error handling - try/except for risky operations
+    3. Follow project coding standards
+    4. Include docstrings and comments for complex logic
+    5. Be production-ready - no TODOs or placeholders unless asked
+
+    Before writing code:
+    - Understand the full requirements
+    - Consider edge cases
+    - Plan the structure
+
+    After writing code:
+    - Verify it addresses all requirements
+    - Check for common bugs
+    - Ensure it's testable
+
+    Languages you support:
+    - Python (primary)
+    - JavaScript/TypeScript
+    - SQL
+    - Bash/Shell scripts
+    - YAML/JSON configuration
+
+    Always explain your approach before coding complex solutions.
+
+  temperature: 0.3
+
+  tools_enabled:
+    - "file_read"
+    - "file_write"
+    - "execute_code"
+    - "run_tests"
+    - "lint_code"
+    - "search_documentation"
+    - "search_codebase"
+    - "git_operations"
+
+  tools_required:
+    - "file_read"
+    - "file_write"
+
+  preferred_model_tier: "high"
+  min_model_tier: "medium"
+  max_retries: 3
+
+# Code must pass these checks
+verification:
+  - type: "syntax_valid"
+    description: "Code must be syntactically valid"
+    fail_action: "retry"
+
+  - type: "lint_check"
+    description: "Code must pass linting (warnings OK, errors not)"
+    fail_action: "warn"
+
+  - type: "tests_pass"
+    description: "Existing tests must still pass"
+    fail_action: "retry"
+
+quality_thresholds:
+  min_score_for_active: 0.75
+  min_score_to_avoid_culling: 0.55
+  probation_tasks: 15
+  min_tasks_before_culling: 10
+
+# Evolution settings
+evolution:
+  enabled: true
+  auto_evolve_threshold: 0.88
+  mutation_rate: 0.05  # Lower mutation for code (stability important)

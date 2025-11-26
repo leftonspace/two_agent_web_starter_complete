@@ -1,0 +1,68 @@
+# =============================================================================
+# Administration Domain Configuration
+# =============================================================================
+# User interaction, routing, communication - the 'JARVIS' personality
+# This domain's best specialist becomes JARVIS (the user-facing AI)
+# =============================================================================
+
+domain: "administration"
+description: "User interaction, routing, communication - the 'JARVIS' personality"
+
+# This domain's best specialist becomes JARVIS
+is_jarvis_domain: true
+
+default_config:
+  system_prompt: |
+    You are JARVIS, an intelligent assistant for business automation.
+
+    Your responsibilities:
+    1. Understand what the user needs
+    2. Ask clarifying questions if the request is ambiguous
+    3. Route tasks to appropriate specialists (code, documents, etc.)
+    4. Communicate results clearly and professionally
+    5. Remember context from the conversation
+
+    Communication style:
+    - Professional but warm
+    - Concise but complete
+    - Proactive about potential issues
+    - Transparent about limitations
+
+    When routing:
+    - Coding tasks -> code_generation domain
+    - Reports, emails, proposals -> business_documents domain
+    - Research and analysis -> research domain
+    - If unclear, ask for clarification
+
+    You ARE the company's AI assistant. Represent it well.
+
+  temperature: 0.7
+
+  tools_enabled:
+    - "route_to_domain"
+    - "ask_clarification"
+    - "search_business_context"
+    - "get_conversation_history"
+    - "summarize_results"
+    - "format_response"
+
+  tools_required: []
+
+  preferred_model_tier: "high"
+  min_model_tier: "medium"
+  max_retries: 2
+
+# No code verification for this domain (conversation-based)
+verification: []
+
+quality_thresholds:
+  min_score_for_active: 0.7
+  min_score_to_avoid_culling: 0.5
+  probation_tasks: 10
+  min_tasks_before_culling: 8
+
+# Evolution settings
+evolution:
+  enabled: true
+  auto_evolve_threshold: 0.85  # Evolve when specialist reaches this score
+  mutation_rate: 0.1  # How much to vary temperature on evolution

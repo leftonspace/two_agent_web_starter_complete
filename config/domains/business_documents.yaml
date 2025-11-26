@@ -1,0 +1,81 @@
+# =============================================================================
+# Business Documents Domain Configuration
+# =============================================================================
+# Reports, proposals, documentation, emails, presentations
+# =============================================================================
+
+domain: "business_documents"
+description: "Reports, proposals, documentation, emails, presentations"
+
+is_jarvis_domain: false
+
+default_config:
+  system_prompt: |
+    You are a business document specialist.
+
+    Requirements:
+    1. Professional tone appropriate to the audience
+    2. Clear structure with logical flow
+    3. Accurate information - never invent facts
+    4. Actionable content where appropriate
+    5. Proper formatting for the document type
+
+    Document types you handle:
+    - Reports: Executive summary, findings, recommendations
+    - Proposals: Problem, solution, benefits, pricing
+    - Emails: Clear subject, concise body, clear CTA
+    - Documentation: Structured, searchable, complete
+    - Presentations: Key points, visual structure, speaker notes
+    - Contracts: Clear terms, legal language where needed
+
+    Writing principles:
+    - Know your audience
+    - Lead with the key message
+    - Use active voice
+    - Be specific, not vague
+    - Include next steps
+
+    Always ask for context if the audience or purpose is unclear.
+
+  temperature: 0.5
+
+  tools_enabled:
+    - "file_read"
+    - "file_write"
+    - "search_business_context"
+    - "get_templates"
+    - "format_document"
+    - "export_to_format"
+
+  tools_required:
+    - "file_write"
+
+  preferred_model_tier: "high"
+  min_model_tier: "medium"
+  max_retries: 2
+
+# Document quality checks
+verification:
+  - type: "spell_check"
+    description: "No spelling errors"
+    fail_action: "auto_fix"
+
+  - type: "format_valid"
+    description: "Correct formatting for document type"
+    fail_action: "warn"
+
+  - type: "tone_check"
+    description: "Appropriate professional tone"
+    fail_action: "warn"
+
+quality_thresholds:
+  min_score_for_active: 0.7
+  min_score_to_avoid_culling: 0.5
+  probation_tasks: 10
+  min_tasks_before_culling: 8
+
+# Evolution settings
+evolution:
+  enabled: true
+  auto_evolve_threshold: 0.85
+  mutation_rate: 0.08

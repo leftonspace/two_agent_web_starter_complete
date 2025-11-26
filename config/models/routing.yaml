@@ -1,0 +1,170 @@
+# =============================================================================
+# JARVIS Model Routing Configuration
+# =============================================================================
+#
+# Defines how requests are routed to models based on complexity level,
+# strategy, and available providers.
+#
+# Format: "provider:model_alias"
+# Examples: "anthropic:haiku", "local:llama8b", "openai:gpt4o"
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Routing Tables
+# -----------------------------------------------------------------------------
+# Each table maps complexity levels to model selections.
+# Strategy determines which table is used.
+
+routing_tables:
+  # API-only routing (no local models)
+  api_only:
+    trivial: "anthropic:haiku"
+    low: "anthropic:haiku"
+    medium: "anthropic:sonnet"
+    high: "anthropic:sonnet"
+    critical: "anthropic:opus"
+
+  # Mixed routing with local models where appropriate
+  with_local:
+    trivial: "local:llama8b"
+    low: "local:llama8b"
+    medium: "local:llama70b"
+    high: "anthropic:sonnet"
+    critical: "anthropic:opus"
+
+  # Quality-optimized (use higher tier models)
+  quality_optimized:
+    trivial: "anthropic:sonnet"
+    low: "anthropic:sonnet"
+    medium: "anthropic:sonnet"
+    high: "anthropic:opus"
+    critical: "anthropic:opus"
+
+  # Cost-optimized (use cheapest acceptable models)
+  cost_optimized:
+    trivial: "anthropic:haiku"
+    low: "anthropic:haiku"
+    medium: "anthropic:haiku"
+    high: "anthropic:sonnet"
+    critical: "anthropic:sonnet"
+
+  # Balanced (middle ground)
+  balanced:
+    trivial: "anthropic:haiku"
+    low: "anthropic:haiku"
+    medium: "anthropic:sonnet"
+    high: "anthropic:sonnet"
+    critical: "anthropic:opus"
+
+  # Local-only (for privacy or offline scenarios)
+  local_only:
+    trivial: "local:llama8b"
+    low: "local:llama8b"
+    medium: "local:llama70b"
+    high: "local:llama70b"
+    critical: "local:llama70b"
+
+# -----------------------------------------------------------------------------
+# Fallback Chains
+# -----------------------------------------------------------------------------
+# When a model is unavailable or over budget, try these in order.
+# Format: "provider:model" -> ["fallback1", "fallback2", ...]
+
+fallback_chains:
+  # Anthropic fallbacks
+  "anthropic:opus": ["anthropic:sonnet"]
+  "anthropic:sonnet": ["anthropic:haiku"]
+  "anthropic:haiku": []
+
+  # Local model fallbacks
+  "local:llama70b": ["anthropic:sonnet", "local:llama8b"]
+  "local:llama8b": ["anthropic:haiku"]
+  "local:codellama": ["local:llama70b", "anthropic:sonnet"]
+
+  # OpenAI fallbacks (when enabled)
+  "openai:gpt4o": ["anthropic:opus", "openai:gpt4o_mini"]
+  "openai:gpt4o_mini": ["anthropic:haiku"]
+
+# -----------------------------------------------------------------------------
+# Critical Task Overrides
+# -----------------------------------------------------------------------------
+# Critical tasks always use these models regardless of strategy.
+# This ensures maximum reliability for high-stakes operations.
+
+critical_overrides:
+  # Always use these for critical tasks
+  preferred_models:
+    - "anthropic:opus"
+    - "openai:gpt4o"
+
+  # Never use these for critical tasks
+  blocked_models:
+    - "anthropic:haiku"
+    - "local:llama8b"
+    - "openai:gpt4o_mini"
+
+# -----------------------------------------------------------------------------
+# Budget Constraints
+# -----------------------------------------------------------------------------
+# Controls for cost management during routing.
+
+budget:
+  # Enable budget checking during routing
+  enabled: true
+
+  # Maximum cost per request (USD)
+  max_cost_per_request: 1.0
+
+  # Daily budget limit (USD)
+  daily_limit: 50.0
+
+  # Action when budget exceeded
+  # Options: "downgrade", "block", "warn"
+  on_exceed: "downgrade"
+
+  # Minimum model tier even when budget tight
+  # (never downgrade below this for quality reasons)
+  minimum_tier: "low"
+
+# -----------------------------------------------------------------------------
+# Current Strategy
+# -----------------------------------------------------------------------------
+# Active routing strategy. Can be changed at runtime.
+
+current_strategy: "api_only"
+
+# -----------------------------------------------------------------------------
+# Strategy Settings
+# -----------------------------------------------------------------------------
+# Additional settings for each strategy.
+
+strategy_settings:
+  api_only:
+    description: "Use only cloud API providers"
+    require_api_key: true
+    allow_local: false
+
+  with_local:
+    description: "Use local models when available"
+    prefer_local_for: ["trivial", "low"]
+    allow_local: true
+
+  quality_optimized:
+    description: "Prioritize response quality over cost"
+    upgrade_on_retry: true
+    allow_local: false
+
+  cost_optimized:
+    description: "Minimize costs while maintaining functionality"
+    downgrade_allowed: true
+    allow_local: true
+
+  balanced:
+    description: "Balance between cost and quality"
+    allow_local: true
+
+  local_only:
+    description: "Use only local models (offline mode)"
+    require_local: true
+    allow_local: true

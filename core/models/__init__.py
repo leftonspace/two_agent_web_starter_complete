@@ -118,6 +118,22 @@ from .complexity import (
     reset_assessor,
 )
 
+from .router import (
+    # Enums
+    RoutingStrategy,
+    BudgetAction,
+    # Data classes
+    ModelSelection,
+    BudgetState,
+    # Main classes
+    BudgetController,
+    ModelRouter,
+    # Convenience functions
+    get_router,
+    reset_router,
+    route_request,
+)
+
 
 __all__ = [
     # Enums
@@ -168,4 +184,14 @@ __all__ = [
     "get_assessor",
     "assess_complexity",
     "reset_assessor",
+    # Model routing
+    "RoutingStrategy",
+    "BudgetAction",
+    "ModelSelection",
+    "BudgetState",
+    "BudgetController",
+    "ModelRouter",
+    "get_router",
+    "reset_router",
+    "route_request",
 ]

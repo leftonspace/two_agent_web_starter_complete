@@ -17,6 +17,11 @@ from .specialist import (
     GraveyardLearning,
 )
 
+from .domain_pool import (
+    DomainPoolDB,
+    PoolSelectionLog,
+)
+
 
 __all__ = [
     # Cost tracking
@@ -28,4 +33,7 @@ __all__ = [
     "SpecialistDB",
     "SpecialistTaskLog",
     "GraveyardLearning",
+    # Domain pools
+    "DomainPoolDB",
+    "PoolSelectionLog",
 ]

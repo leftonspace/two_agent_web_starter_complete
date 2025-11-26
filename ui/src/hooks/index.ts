@@ -31,5 +31,6 @@ export {
   useNotifications,
   NotificationProvider,
   useNotificationContext,
+  useSafeNotificationContext,
 } from './useNotifications';
 export type { Notification, NotificationType, UseNotificationsOptions } from './useNotifications';

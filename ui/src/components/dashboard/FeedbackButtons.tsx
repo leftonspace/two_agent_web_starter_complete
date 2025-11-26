@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ThumbsUp, ThumbsDown, MessageSquare, Send } from 'lucide-react';
-import { Button, Input } from '../common';
+// Button and Input available from '../common' if needed
 
 export interface FeedbackButtonsProps {
   taskId: string;
@@ -57,8 +57,6 @@ export const FeedbackButtons: React.FC<FeedbackButtonsProps> = ({
     setSubmitted(true);
     setShowCommentInput(false);
   };
-
-  const buttonSize = size === 'sm' ? 'sm' : 'md';
 
   if (submitted) {
     return (

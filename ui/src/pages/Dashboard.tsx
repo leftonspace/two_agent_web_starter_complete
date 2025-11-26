@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Brain, Activity, Clock, DollarSign, Zap, RefreshCw } from 'lucide-react';
+import { Brain, Activity, Clock, DollarSign, RefreshCw } from 'lucide-react';
 
 // Layout components
 import { Header, Sidebar, MainContent, ContentHeader, ContentSection } from '../components/layout';
@@ -11,7 +11,6 @@ import {
   BenchmarkPanel,
   TasksTable,
   BudgetBadge,
-  QuickActions,
 } from '../components/dashboard';
 
 // Chart components
@@ -32,7 +31,7 @@ import {
   useDashboard,
   useBenchmarkActions,
   useAutoRefresh,
-  useNotificationContext,
+  useSafeNotificationContext,
 } from '../hooks';
 
 // Types
@@ -57,13 +56,8 @@ export const Dashboard: React.FC = () => {
   // Benchmark actions
   const benchmarkActions = useBenchmarkActions();
 
-  // Notifications
-  let notifications: ReturnType<typeof useNotificationContext> | null = null;
-  try {
-    notifications = useNotificationContext();
-  } catch {
-    // NotificationContext not available
-  }
+  // Notifications (may be null if not within NotificationProvider)
+  const notifications = useSafeNotificationContext();
 
   // Auto-refresh
   const { lastRefresh, isRefreshing } = useAutoRefresh({
@@ -105,7 +99,7 @@ export const Dashboard: React.FC = () => {
   }, [notifications]);
 
   // Mock score history data for chart
-  const scoreHistory = overview?.domains?.slice(0, 1).map((_d, i) => {
+  const scoreHistory = overview?.domains?.slice(0, 1).map(() => {
     const today = new Date();
     return Array.from({ length: 14 }, (_, j) => ({
       timestamp: new Date(today.getTime() - (13 - j) * 24 * 60 * 60 * 1000).toISOString(),
@@ -383,7 +377,7 @@ export const Dashboard: React.FC = () => {
       <SettingsPanel
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
-        onSave={(settings) => {
+        onSave={() => {
           notifications?.success('Settings Saved', 'Your preferences have been updated');
         }}
       />

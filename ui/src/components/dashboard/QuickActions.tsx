@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Zap, Plus, Settings, RefreshCw, FileText, type LucideIcon } from 'lucide-react';
+import { Play, Zap, Plus, RefreshCw, type LucideIcon } from 'lucide-react';
 import { Button } from '../common';
 
 export interface QuickAction {

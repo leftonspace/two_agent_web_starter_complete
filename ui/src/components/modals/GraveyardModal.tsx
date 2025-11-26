@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Skull, Brain, Calendar, TrendingDown, RotateCcw, Trash2, Search } from 'lucide-react';
+import { Skull, Brain, Calendar, RotateCcw, Trash2, Search } from 'lucide-react';
 import type { SpecialistSummary } from '../../types';
 import { Modal, Button, Input, Badge } from '../common';
 

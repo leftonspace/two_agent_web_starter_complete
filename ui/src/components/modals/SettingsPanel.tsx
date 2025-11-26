@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Settings, Moon, Sun, Bell, Zap, Save, RotateCcw } from 'lucide-react';
-import { Modal, Button, Input, Dropdown } from '../common';
+import { Moon, Bell, Zap, Save, RotateCcw } from 'lucide-react';
+import { Modal, Button, Dropdown } from '../common';
 
 export interface SettingsData {
   theme: 'dark' | 'light' | 'system';

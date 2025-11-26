@@ -22,7 +22,7 @@ export const DomainCard: React.FC<DomainCardProps> = ({
   domain,
   specialists = [],
   onSpecialistClick,
-  onClick,
+  onClick: _onClick,
   loading = false,
 }) => {
   const [expanded, setExpanded] = useState(false);

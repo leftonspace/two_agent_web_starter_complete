@@ -92,7 +92,7 @@ export function useApi<T>(
   const setData = useCallback((data: T | ((prev: T | null) => T)) => {
     setState((prev) => ({
       ...prev,
-      data: typeof data === 'function' ? (data as Function)(prev.data) : data,
+      data: typeof data === 'function' ? (data as (prev: T | null) => T)(prev.data) : data,
     }));
   }, []);
 

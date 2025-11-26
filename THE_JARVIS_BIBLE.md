@@ -49,6 +49,118 @@ two_agent_web_starter_complete/
 ├── .vscode/                               # VSCode configuration
 │   ├── launch.json                        # Debug configurations
 │   └── tasks.json                         # Build tasks
+│
+├── ui/                                    # ⭐ React Dashboard (PRIMARY)
+│   ├── dist/                              # Compiled production build
+│   │   ├── index.html                     # Entry point
+│   │   └── assets/
+│   │       ├── index-*.js                 # Bundled JavaScript
+│   │       └── index-*.css                # Bundled CSS
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── charts/                    # Chart components
+│   │   │   │   ├── CostPieChart.tsx
+│   │   │   │   ├── ScoreLineChart.tsx
+│   │   │   │   ├── StatsCard.tsx
+│   │   │   │   └── StatsGrid.tsx
+│   │   │   ├── common/                    # Reusable UI components
+│   │   │   │   ├── Badge.tsx
+│   │   │   │   ├── Button.tsx
+│   │   │   │   ├── Input.tsx
+│   │   │   │   ├── Modal.tsx
+│   │   │   │   ├── ProgressBar.tsx
+│   │   │   │   └── StatusBadge.tsx
+│   │   │   ├── dashboard/                 # Dashboard-specific components
+│   │   │   │   ├── BenchmarkPanel.tsx
+│   │   │   │   ├── BudgetBadge.tsx
+│   │   │   │   ├── DomainCard.tsx
+│   │   │   │   ├── EvaluationModeSelector.tsx
+│   │   │   │   ├── SpecialistRow.tsx
+│   │   │   │   └── TasksTable.tsx
+│   │   │   ├── layout/                    # Layout components
+│   │   │   │   ├── ContentHeader.tsx
+│   │   │   │   ├── ContentSection.tsx
+│   │   │   │   ├── Header.tsx
+│   │   │   │   ├── MainContent.tsx
+│   │   │   │   └── Sidebar.tsx
+│   │   │   └── modals/                    # Modal dialogs
+│   │   │       ├── BudgetDetailModal.tsx
+│   │   │       ├── GraveyardModal.tsx
+│   │   │       ├── NewTaskModal.tsx
+│   │   │       ├── SettingsPanel.tsx
+│   │   │       ├── SpecialistDetailModal.tsx
+│   │   │       └── TaskDetailModal.tsx
+│   │   ├── hooks/                         # React hooks
+│   │   │   ├── useApi.ts
+│   │   │   ├── useAutoRefresh.ts
+│   │   │   ├── useBenchmarkActions.ts
+│   │   │   ├── useDashboard.ts
+│   │   │   └── useNotifications.tsx
+│   │   ├── pages/                         # Page components
+│   │   │   ├── Dashboard.tsx              # Main dashboard
+│   │   │   ├── CostLogPage.tsx            # Cost tracking
+│   │   │   ├── DomainDetailPage.tsx       # Domain details
+│   │   │   ├── GraveyardPage.tsx          # Retired specialists
+│   │   │   └── SettingsPage.tsx           # Settings
+│   │   ├── styles/                        # Global styles
+│   │   │   └── design-system.css
+│   │   ├── types/                         # TypeScript types
+│   │   │   └── index.ts
+│   │   ├── App.tsx                        # Root component
+│   │   └── main.tsx                       # Entry point
+│   ├── index.html                         # Dev entry point
+│   ├── package.json                       # NPM dependencies
+│   ├── tsconfig.json                      # TypeScript config
+│   ├── vite.config.ts                     # Vite bundler config
+│   └── eslint.config.js                   # ESLint v9 config
+│
+├── api/                                   # API Routes Layer
+│   ├── __init__.py
+│   ├── main.py                            # FastAPI app setup & SPA routing
+│   └── routes/
+│       ├── __init__.py
+│       ├── benchmark.py                   # /api/benchmark/* endpoints
+│       ├── dashboard.py                   # /api/dashboard/* endpoints
+│       ├── evaluation.py                  # /api/evaluation/* endpoints
+│       └── tasks.py                       # /api/tasks/* endpoints
+│
+├── core/                                  # Core Business Logic
+│   ├── __init__.py
+│   ├── evaluation/                        # Evaluation engine
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── benchmarks.py
+│   │   └── metrics.py
+│   ├── routing/                           # Request routing
+│   │   ├── __init__.py
+│   │   ├── domain_router.py
+│   │   └── specialist_selector.py
+│   └── security/                          # Security layer
+│       ├── __init__.py
+│       ├── auth.py
+│       └── permissions.py
+│
+├── database/                              # Database Layer
+│   ├── __init__.py
+│   ├── models/                            # SQLAlchemy models
+│   │   ├── __init__.py
+│   │   ├── specialist.py
+│   │   ├── task.py
+│   │   └── budget.py
+│   └── migrations/                        # Alembic migrations
+│       └── versions/
+│
+├── config/                                # Global Configuration
+│   ├── domains/                           # Domain configurations
+│   │   └── *.yaml
+│   ├── models/                            # Model configurations
+│   │   └── *.yaml
+│   ├── routing/                           # Routing rules
+│   │   └── *.yaml
+│   ├── security/                          # Security settings
+│   │   └── *.yaml
+│   └── llm_config.yaml                    # LLM configuration
+│
 ├── agent/                                 # Core orchestrator code
 │   ├── _errors.py                         # Error definitions
 │   ├── actions/                           # Action execution modules
@@ -526,26 +638,29 @@ two_agent_web_starter_complete/
 │   │   ├── __init__.py
 │   │   ├── admin_api.py                   # Admin API
 │   │   ├── api_keys.py                    # API key management
-│   │   ├── app.py                         # FastAPI application
+│   │   ├── app.py                         # FastAPI application (83KB)
 │   │   ├── auth.py                        # Authentication
 │   │   ├── auth_routes.py                 # Auth routes
 │   │   ├── chat_api.py                    # Chat API
 │   │   ├── code_api.py                    # Code API
 │   │   ├── finance_api.py                 # Finance API
-│   │   └── templates/                     # HTML templates
-│   │       ├── analytics.html             # Analytics dashboard
+│   │   ├── static/
+│   │   │   └── css/
+│   │   │       └── design-system.css      # Legacy CSS (117KB)
+│   │   └── templates/                     # ⚠️ LEGACY HTML templates (use ui/ instead)
+│   │       ├── analytics.html             # Analytics page
 │   │       ├── approvals.html             # Approvals page
 │   │       ├── base.html                  # Base template
 │   │       ├── chat.html                  # Chat interface
-│   │       ├── index.html                 # Home page
+│   │       ├── index.html                 # Home redirect
 │   │       ├── integrations.html          # Integrations page
-│   │       ├── jarvis.html                # JARVIS interface
+│   │       ├── jarvis.html                # JARVIS chat (/jarvis)
 │   │       ├── job_detail.html            # Job detail page
 │   │       ├── jobs.html                  # Jobs list
 │   │       ├── project_detail.html        # Project detail
 │   │       ├── projects.html              # Projects list
 │   │       ├── run_detail.html            # Run detail page
-│   │       └── tuning.html                # Tuning dashboard
+│   │       └── tuning.html                # Tuning page
 │   ├── webhooks/                          # Webhook handling
 │   │   ├── __init__.py
 │   │   ├── retry.py                       # Webhook retry
@@ -688,12 +803,14 @@ two_agent_web_starter_complete/
 ├── CHANGELOG.md                           # Change log
 ├── check_hr_db.py                         # HR database checker
 ├── CLEAN_BRANCH_GUIDE.md                  # Branch cleaning guide
+├── CLEANUP_MASTER_PLAN.md                 # ⭐ Codebase cleanup plan (10 phases)
 ├── COMPETITIVE_ANALYSIS_REPORT.md         # Competitive analysis
 ├── COMPETITIVE_ANALYSIS_REPORT_ES.md      # Competitive analysis (Spanish)
 ├── cost_tracker.py                        # Cost tracker (root)
 ├── create_approval.py                     # Create approval script
 ├── create_demo_approval.py                # Demo approval script
 ├── create_test_hr_db.py                   # Test HR database
+├── DASHBOARD_FIX_PLAN.md                  # Dashboard fixes plan
 ├── DEVELOPER_GUIDE.md                     # Developer guide
 ├── full_workflow.py                       # Full workflow script
 ├── JARVIS_2_0_ROADMAP.md                  # JARVIS 2.0 roadmap
@@ -704,11 +821,11 @@ two_agent_web_starter_complete/
 ├── JARVIS_TRIAL_REPORT.md                 # Trial report
 ├── make.py                                # Command dispatcher
 ├── MEETING_SDK_ACTIVATION_GUIDE.md        # Meeting SDK guide
-├── orchestrator.py                        # Root orchestrator
+├── orchestrator.py                        # ⚠️ Root orchestrator (STUB - 8 lines)
 ├── ORCHESTRATOR_CONSOLIDATION_PLAN.md     # Consolidation plan
 ├── PHASE_3_IMPLEMENTATION_GUIDE.md        # Phase 3 guide
 ├── POSTGRESQL_MIGRATION_GUIDE.md          # PostgreSQL migration
-├── README.md                              # This file
+├── README.md                              # Project README
 ├── README.txt                             # Text readme
 ├── requirements.txt                       # Python dependencies (flexible versions)
 ├── requirements.lock                      # Locked dependencies (Phase 5.2)
@@ -718,6 +835,7 @@ two_agent_web_starter_complete/
 ├── start_webapp.py                        # Webapp starter
 ├── TEMPORAL_INTEGRATION_GUIDE.md          # Temporal integration
 ├── test_integration.py                    # Integration test
+├── THE_JARVIS_BIBLE.md                    # ⭐ This comprehensive documentation
 ├── TOOL_MIGRATION_REFERENCE.md            # Tool migration ref
 └── ZOOM_MEET_SDK_INTEGRATION.md           # Zoom/Meet SDK guide
 ```

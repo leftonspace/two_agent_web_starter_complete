@@ -1,0 +1,110 @@
+# Test Benchmark for Integration Tests
+# Minimal benchmark file for testing the full JARVIS flow
+
+name: test_benchmark
+domain: code_generation
+version: "1.0.0"
+description: "Integration test benchmark for verifying full JARVIS flow"
+created_by: "integration_tests"
+
+tasks:
+  - id: test_simple_function
+    difficulty: easy
+    prompt: "Write a Python function that adds two numbers together."
+    expected_domain: code_generation
+    tags: ["basic", "arithmetic"]
+    timeout_seconds: 30
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+        weight: 0.3
+      - type: contains
+        params:
+          text: "def"
+        weight: 0.3
+      - type: contains
+        params:
+          text: "return"
+        weight: 0.2
+      - type: min_length
+        params:
+          min_chars: 20
+        weight: 0.2
+
+  - id: test_string_reverse
+    difficulty: easy
+    prompt: "Write a Python function that reverses a string."
+    expected_domain: code_generation
+    tags: ["basic", "strings"]
+    timeout_seconds: 30
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+        weight: 0.3
+      - type: contains
+        params:
+          text: "def"
+        weight: 0.3
+      - type: has_docstrings
+        params: {}
+        weight: 0.2
+      - type: min_length
+        params:
+          min_chars: 30
+        weight: 0.2
+
+  - id: test_list_filter
+    difficulty: medium
+    prompt: "Write a Python function that filters a list to only include even numbers. Include type hints and error handling."
+    expected_domain: code_generation
+    tags: ["medium", "lists", "filtering"]
+    timeout_seconds: 45
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+        weight: 0.25
+      - type: has_type_hints
+        params: {}
+        weight: 0.25
+      - type: has_error_handling
+        params: {}
+        weight: 0.25
+      - type: has_docstrings
+        params: {}
+        weight: 0.25
+
+  - id: test_class_design
+    difficulty: hard
+    prompt: "Design a Python class for a bank account with deposit, withdraw, and get_balance methods. Include proper encapsulation, type hints, docstrings, and error handling for invalid operations like withdrawing more than the balance."
+    expected_domain: code_generation
+    tags: ["hard", "oop", "classes"]
+    timeout_seconds: 60
+    verification:
+      - type: syntax_valid
+        params:
+          language: python
+        weight: 0.2
+      - type: contains
+        params:
+          text: "class"
+        weight: 0.15
+      - type: contains
+        params:
+          text: "def deposit"
+        weight: 0.15
+      - type: contains
+        params:
+          text: "def withdraw"
+        weight: 0.15
+      - type: has_type_hints
+        params: {}
+        weight: 0.15
+      - type: has_error_handling
+        params: {}
+        weight: 0.1
+      - type: has_docstrings
+        params: {}
+        weight: 0.1

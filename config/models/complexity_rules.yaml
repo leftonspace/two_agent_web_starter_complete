@@ -1,0 +1,377 @@
+# =============================================================================
+# JARVIS Complexity Assessment Rules
+# =============================================================================
+#
+# Rules for assessing task complexity and routing to appropriate models.
+# Rules are evaluated in priority order (higher weight = higher priority).
+#
+# Complexity Levels:
+#   trivial  - Simple lookup, formatting, greetings
+#   low      - Basic code, templates, simple questions
+#   medium   - Multi-step reasoning, standard tasks
+#   high     - Complex architecture, large contexts
+#   critical - Highest stakes, financial/legal, must not fail
+#
+# =============================================================================
+
+# Rules evaluated in order (first match wins for same weight)
+rules:
+  # -------------------------------------------------------------------------
+  # Critical Level Rules (weight 100)
+  # -------------------------------------------------------------------------
+  - name: "financial_critical"
+    description: "High-value financial operations require maximum reliability"
+    weight: 100
+    conditions:
+      - type: "financial_amount"
+        operator: ">"
+        value: 10000
+    level: "critical"
+    reason: "Financial amount exceeds $10,000 threshold"
+
+  - name: "legal_compliance"
+    description: "Legal and compliance matters require critical attention"
+    weight: 100
+    conditions:
+      - type: "domain"
+        operator: "in"
+        value: ["legal", "compliance", "regulatory", "audit"]
+    level: "critical"
+    reason: "Domain requires maximum accuracy (legal/compliance)"
+
+  - name: "production_deployment"
+    description: "Production deployments are high-stakes"
+    weight: 95
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["production deploy", "go live", "release to production", "prod rollout"]
+    level: "critical"
+    reason: "Production deployment detected"
+
+  - name: "customer_data"
+    description: "Customer data operations require extra care"
+    weight: 90
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["customer data", "user pii", "gdpr", "privacy"]
+    level: "critical"
+    reason: "Customer/privacy data handling detected"
+
+  # -------------------------------------------------------------------------
+  # High Level Rules (weight 70-89)
+  # -------------------------------------------------------------------------
+  - name: "large_context"
+    description: "Large contexts need more capable models"
+    weight: 80
+    conditions:
+      - type: "token_count"
+        operator: ">"
+        value: 50000
+    level: "high"
+    reason: "Large context requires high-capacity model"
+
+  - name: "complex_code_multi_step"
+    description: "Multi-step code generation is complex"
+    weight: 75
+    conditions:
+      - type: "requires_multi_step"
+        operator: "=="
+        value: true
+      - type: "has_code"
+        operator: "=="
+        value: true
+    level: "high"
+    reason: "Multi-step code generation detected"
+
+  - name: "large_code_output"
+    description: "Large code outputs need careful generation"
+    weight: 73
+    conditions:
+      - type: "has_code"
+        operator: "=="
+        value: true
+      - type: "estimated_output_length"
+        operator: ">"
+        value: 500
+    level: "high"
+    reason: "Estimated code output exceeds 500 lines"
+
+  - name: "architecture_design"
+    description: "Architecture tasks require reasoning"
+    weight: 70
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["architecture", "system design", "design patterns", "microservices", "distributed"]
+    level: "high"
+    reason: "Architecture/system design task detected"
+
+  - name: "complex_integration"
+    description: "Integration work is typically complex"
+    weight: 68
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["integration", "api design", "webhook", "third-party"]
+      - type: "requires_multi_step"
+        operator: "=="
+        value: true
+    level: "high"
+    reason: "Complex integration task detected"
+
+  # -------------------------------------------------------------------------
+  # Medium Level Rules (weight 40-69)
+  # -------------------------------------------------------------------------
+  - name: "code_generation"
+    description: "Standard code generation"
+    weight: 50
+    conditions:
+      - type: "has_code"
+        operator: "=="
+        value: true
+    level: "medium"
+    reason: "Code generation task"
+
+  - name: "requires_creativity"
+    description: "Creative tasks need balanced models"
+    weight: 45
+    conditions:
+      - type: "requires_creativity"
+        operator: "=="
+        value: true
+    level: "medium"
+    reason: "Creative output required"
+
+  - name: "multi_step_reasoning"
+    description: "Multi-step reasoning tasks"
+    weight: 43
+    conditions:
+      - type: "requires_multi_step"
+        operator: "=="
+        value: true
+    level: "medium"
+    reason: "Multi-step reasoning required"
+
+  - name: "external_references"
+    description: "Tasks referencing external sources"
+    weight: 40
+    conditions:
+      - type: "references_external"
+        operator: "=="
+        value: true
+    level: "medium"
+    reason: "External references require careful handling"
+
+  # -------------------------------------------------------------------------
+  # Low Level Rules (weight 20-39)
+  # -------------------------------------------------------------------------
+  - name: "simple_question"
+    description: "Simple factual questions"
+    weight: 30
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["what is", "how do i", "explain", "define"]
+      - type: "token_count"
+        operator: "<"
+        value: 500
+    level: "low"
+    reason: "Simple question detected"
+
+  - name: "basic_template"
+    description: "Basic template generation"
+    weight: 25
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["template", "boilerplate", "scaffold", "starter"]
+    level: "low"
+    reason: "Template generation task"
+
+  - name: "simple_explicit"
+    description: "Explicitly simple tasks"
+    weight: 20
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["simple", "quick", "basic", "easy", "trivial"]
+    level: "low"
+    reason: "Task explicitly marked as simple"
+
+  # -------------------------------------------------------------------------
+  # Trivial Level Rules (weight 1-19)
+  # -------------------------------------------------------------------------
+  - name: "greeting"
+    description: "Simple greetings"
+    weight: 10
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["hello", "hi", "hey", "good morning", "good afternoon"]
+      - type: "token_count"
+        operator: "<"
+        value: 50
+    level: "trivial"
+    reason: "Simple greeting detected"
+
+  - name: "formatting_only"
+    description: "Pure formatting tasks"
+    weight: 5
+    conditions:
+      - type: "keywords"
+        operator: "contains_any"
+        value: ["format this", "reformat", "prettify", "indent"]
+      - type: "requires_multi_step"
+        operator: "=="
+        value: false
+    level: "trivial"
+    reason: "Simple formatting task"
+
+# -------------------------------------------------------------------------
+# Domain Defaults (when no rules match)
+# -------------------------------------------------------------------------
+domain_defaults:
+  administration: "low"
+  code_generation: "medium"
+  code_review: "medium"
+  business_documents: "medium"
+  data_analysis: "medium"
+  research: "high"
+  legal: "critical"
+  compliance: "critical"
+  financial: "high"
+  security: "high"
+  default: "medium"
+
+# -------------------------------------------------------------------------
+# Keywords for Feature Extraction
+# -------------------------------------------------------------------------
+keywords:
+  # Keywords that suggest critical complexity
+  critical:
+    - "production deployment"
+    - "production release"
+    - "customer-facing"
+    - "financial transaction"
+    - "legal contract"
+    - "compliance audit"
+    - "security vulnerability"
+    - "data breach"
+    - "regulatory"
+    - "gdpr"
+    - "hipaa"
+    - "pci"
+    - "sox compliance"
+
+  # Keywords that suggest high complexity
+  high:
+    - "architecture"
+    - "system design"
+    - "design pattern"
+    - "microservices"
+    - "distributed system"
+    - "integration"
+    - "migration"
+    - "refactoring"
+    - "optimization"
+    - "performance"
+    - "scalability"
+    - "concurrent"
+    - "async"
+    - "security"
+
+  # Keywords that suggest medium complexity
+  medium:
+    - "implement"
+    - "create"
+    - "build"
+    - "develop"
+    - "feature"
+    - "function"
+    - "class"
+    - "module"
+    - "api"
+    - "endpoint"
+    - "test"
+    - "debug"
+
+  # Keywords that suggest low complexity
+  low:
+    - "simple"
+    - "quick"
+    - "basic"
+    - "easy"
+    - "small"
+    - "minor"
+    - "fix"
+    - "typo"
+    - "update"
+    - "change"
+
+  # Keywords indicating code tasks
+  code_indicators:
+    - "function"
+    - "class"
+    - "method"
+    - "variable"
+    - "import"
+    - "def "
+    - "async def"
+    - "return"
+    - "if "
+    - "for "
+    - "while "
+    - "try:"
+    - "except"
+    - "```"
+
+  # Keywords indicating multi-step reasoning
+  multi_step_indicators:
+    - "step by step"
+    - "first"
+    - "then"
+    - "next"
+    - "finally"
+    - "multiple"
+    - "several"
+    - "sequence"
+    - "workflow"
+    - "pipeline"
+    - "process"
+
+  # Keywords indicating creativity needed
+  creativity_indicators:
+    - "creative"
+    - "design"
+    - "suggest"
+    - "propose"
+    - "brainstorm"
+    - "ideas"
+    - "alternative"
+    - "innovative"
+    - "novel"
+
+# -------------------------------------------------------------------------
+# Tier Mapping
+# -------------------------------------------------------------------------
+tier_mapping:
+  trivial: "low"      # Maps to ModelTier.LOW (Haiku)
+  low: "low"          # Maps to ModelTier.LOW (Haiku)
+  medium: "medium"    # Maps to ModelTier.MEDIUM (Sonnet)
+  high: "high"        # Maps to ModelTier.HIGH (Opus)
+  critical: "high"    # Maps to ModelTier.HIGH (Opus)
+
+# -------------------------------------------------------------------------
+# Confidence Thresholds
+# -------------------------------------------------------------------------
+confidence:
+  # Minimum confidence for each assessment
+  min_confidence: 0.5
+
+  # Boost confidence when multiple indicators match
+  multi_match_boost: 0.1
+
+  # Reduce confidence for ambiguous cases
+  ambiguity_penalty: 0.2

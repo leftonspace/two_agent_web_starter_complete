@@ -105,6 +105,19 @@ from .registry import (
     list_models,
 )
 
+from .complexity import (
+    # Enums and data classes
+    ComplexityLevel,
+    ComplexityFeatures,
+    ComplexityResult,
+    # Main class
+    ComplexityAssessor,
+    # Convenience functions
+    get_assessor,
+    assess_complexity,
+    reset_assessor,
+)
+
 
 __all__ = [
     # Enums
@@ -147,4 +160,12 @@ __all__ = [
     "complete",
     "get_model_info",
     "list_models",
+    # Complexity assessment
+    "ComplexityLevel",
+    "ComplexityFeatures",
+    "ComplexityResult",
+    "ComplexityAssessor",
+    "get_assessor",
+    "assess_complexity",
+    "reset_assessor",
 ]

@@ -1,0 +1,503 @@
+/**
+ * JARVIS Design System
+ * ====================
+ * A dark, terminal/cyber-inspired design system for the JARVIS Dashboard.
+ *
+ * Version: 2.0
+ * Updated: 2025-11-26
+ */
+
+/* ============================================================================
+   1. CSS CUSTOM PROPERTIES (Design Tokens)
+   ============================================================================ */
+
+:root {
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Backgrounds
+     Deep blacks and dark grays for a terminal feel
+     ------------------------------------------------------------------------- */
+  --bg-primary: #0a0a0f;        /* Main background - almost black */
+  --bg-secondary: #12121a;      /* Card backgrounds */
+  --bg-tertiary: #1a1a24;       /* Elevated elements */
+  --bg-hover: #22222e;          /* Hover states */
+  --bg-active: #2a2a38;         /* Active/selected states */
+
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Borders
+     Subtle definition lines
+     ------------------------------------------------------------------------- */
+  --border-primary: #2a2a3a;    /* Main borders */
+  --border-glow: #3a3a4a;       /* Highlighted borders */
+
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Text
+     High contrast for readability
+     ------------------------------------------------------------------------- */
+  --text-primary: #e0e0e0;      /* Main text */
+  --text-secondary: #888899;    /* Muted text */
+  --text-tertiary: #555566;     /* Very muted */
+  --text-inverse: #0a0a0f;      /* Text on bright backgrounds */
+
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Accent Colors
+     Terminal/Cyber feel with vibrant highlights
+     ------------------------------------------------------------------------- */
+  --accent-primary: #00ff88;    /* Primary actions - Matrix green */
+  --accent-secondary: #00ccff;  /* Secondary actions - Cyan */
+  --accent-warning: #ffaa00;    /* Warnings - Amber */
+  --accent-danger: #ff3366;     /* Errors/Danger - Red-pink */
+  --accent-info: #8866ff;       /* Info - Purple */
+
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Accent Dimmed
+     For subtle backgrounds and hover states
+     ------------------------------------------------------------------------- */
+  --accent-primary-dim: rgba(0, 255, 136, 0.1);
+  --accent-secondary-dim: rgba(0, 204, 255, 0.1);
+  --accent-warning-dim: rgba(255, 170, 0, 0.1);
+  --accent-danger-dim: rgba(255, 51, 102, 0.1);
+  --accent-info-dim: rgba(136, 102, 255, 0.1);
+
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Status Colors
+     For agent/task states
+     ------------------------------------------------------------------------- */
+  --status-active: #00ff88;
+  --status-paused: #ffaa00;
+  --status-error: #ff3366;
+  --status-probation: #8866ff;
+  --status-idle: #555566;
+  --status-running: #00ccff;
+
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Score Colors
+     For performance metrics and ratings
+     ------------------------------------------------------------------------- */
+  --score-excellent: #00ff88;   /* > 0.85 */
+  --score-good: #00ccff;        /* > 0.70 */
+  --score-fair: #ffaa00;        /* > 0.50 */
+  --score-poor: #ff3366;        /* <= 0.50 */
+
+  /* -------------------------------------------------------------------------
+     1.1 Color Palette - Glow Effects
+     For emphasis and highlights
+     ------------------------------------------------------------------------- */
+  --glow-primary: 0 0 20px rgba(0, 255, 136, 0.3);
+  --glow-secondary: 0 0 20px rgba(0, 204, 255, 0.3);
+  --glow-warning: 0 0 20px rgba(255, 170, 0, 0.3);
+  --glow-danger: 0 0 20px rgba(255, 51, 102, 0.3);
+  --glow-info: 0 0 20px rgba(136, 102, 255, 0.3);
+
+  /* -------------------------------------------------------------------------
+     1.2 Typography - Font Stack
+     Monospace for terminal feel
+     ------------------------------------------------------------------------- */
+  --font-primary: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace;
+  --font-display: 'Orbitron', 'Rajdhani', 'Share Tech Mono', monospace;
+
+  /* -------------------------------------------------------------------------
+     1.2 Typography - Font Sizes
+     Compact scale for dense information display
+     ------------------------------------------------------------------------- */
+  --text-xs: 0.7rem;      /* 11px - Timestamps, metadata */
+  --text-sm: 0.8rem;      /* 13px - Secondary text */
+  --text-base: 0.9rem;    /* 14px - Body text */
+  --text-lg: 1rem;        /* 16px - Emphasis */
+  --text-xl: 1.25rem;     /* 20px - Section headers */
+  --text-2xl: 1.5rem;     /* 24px - Page titles */
+  --text-3xl: 2rem;       /* 32px - Main title */
+
+  /* -------------------------------------------------------------------------
+     1.2 Typography - Font Weights
+     ------------------------------------------------------------------------- */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* -------------------------------------------------------------------------
+     1.2 Typography - Letter Spacing
+     Slightly expanded for readability on monospace
+     ------------------------------------------------------------------------- */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0.02em;
+  --tracking-wide: 0.05em;
+  --tracking-wider: 0.1em;
+
+  /* -------------------------------------------------------------------------
+     1.3 Spacing Scale
+     Consistent spacing throughout the UI
+     ------------------------------------------------------------------------- */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.5rem;    /* 24px */
+  --space-6: 2rem;      /* 32px */
+  --space-8: 3rem;      /* 48px */
+
+  /* -------------------------------------------------------------------------
+     1.3 Border Radius
+     Sharp, minimal for technical aesthetic
+     ------------------------------------------------------------------------- */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  /* -------------------------------------------------------------------------
+     1.3 Transitions
+     Smooth but snappy interactions
+     ------------------------------------------------------------------------- */
+  --transition-fast: 100ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* -------------------------------------------------------------------------
+     1.3 Z-Index Scale
+     Layering system for overlays and modals
+     ------------------------------------------------------------------------- */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-tooltip: 400;
+  --z-toast: 500;
+}
+
+/* ============================================================================
+   2. BASE STYLES
+   Reset and foundational styles
+   ============================================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  line-height: 1.6;
+  letter-spacing: var(--tracking-normal);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  min-height: 100vh;
+}
+
+/* Selection styling */
+::selection {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-glow);
+}
+
+/* ============================================================================
+   3. TYPOGRAPHY STYLES
+   ============================================================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  line-height: 1.3;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-primary);
+}
+
+h1 {
+  font-size: var(--text-3xl);
+  text-transform: uppercase;
+}
+
+h2 {
+  font-size: var(--text-2xl);
+}
+
+h3 {
+  font-size: var(--text-xl);
+}
+
+h4 {
+  font-size: var(--text-lg);
+}
+
+h5, h6 {
+  font-size: var(--text-base);
+}
+
+p {
+  margin-bottom: var(--space-4);
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+code, pre, kbd, samp {
+  font-family: var(--font-primary);
+  font-size: var(--text-sm);
+}
+
+code {
+  background: var(--bg-tertiary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+}
+
+pre {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  overflow-x: auto;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Text utilities */
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.text-2xl { font-size: var(--text-2xl); }
+.text-3xl { font-size: var(--text-3xl); }
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.text-accent { color: var(--accent-primary); }
+.text-info { color: var(--accent-info); }
+.text-warning { color: var(--accent-warning); }
+.text-danger { color: var(--accent-danger); }
+
+.font-normal { font-weight: var(--weight-normal); }
+.font-medium { font-weight: var(--weight-medium); }
+.font-bold { font-weight: var(--weight-bold); }
+
+.uppercase { text-transform: uppercase; }
+.lowercase { text-transform: lowercase; }
+.capitalize { text-transform: capitalize; }
+
+.tracking-tight { letter-spacing: var(--tracking-tight); }
+.tracking-normal { letter-spacing: var(--tracking-normal); }
+.tracking-wide { letter-spacing: var(--tracking-wide); }
+.tracking-wider { letter-spacing: var(--tracking-wider); }
+
+/* ============================================================================
+   4. UTILITY CLASSES
+   ============================================================================ */
+
+/* Spacing utilities */
+.m-0 { margin: 0; }
+.m-1 { margin: var(--space-1); }
+.m-2 { margin: var(--space-2); }
+.m-3 { margin: var(--space-3); }
+.m-4 { margin: var(--space-4); }
+.m-5 { margin: var(--space-5); }
+.m-6 { margin: var(--space-6); }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
+.mt-6 { margin-top: var(--space-6); }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-5 { margin-bottom: var(--space-5); }
+.mb-6 { margin-bottom: var(--space-6); }
+
+.p-0 { padding: 0; }
+.p-1 { padding: var(--space-1); }
+.p-2 { padding: var(--space-2); }
+.p-3 { padding: var(--space-3); }
+.p-4 { padding: var(--space-4); }
+.p-5 { padding: var(--space-5); }
+.p-6 { padding: var(--space-6); }
+
+/* Display utilities */
+.hidden { display: none; }
+.block { display: block; }
+.inline { display: inline; }
+.inline-block { display: inline-block; }
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.grid { display: grid; }
+
+/* Flexbox utilities */
+.flex-row { flex-direction: row; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-start { align-items: flex-start; }
+.items-center { align-items: center; }
+.items-end { align-items: flex-end; }
+.justify-start { justify-content: flex-start; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-5 { gap: var(--space-5); }
+
+/* Width utilities */
+.w-full { width: 100%; }
+.w-auto { width: auto; }
+.max-w-sm { max-width: 24rem; }
+.max-w-md { max-width: 28rem; }
+.max-w-lg { max-width: 32rem; }
+.max-w-xl { max-width: 36rem; }
+.max-w-2xl { max-width: 42rem; }
+.max-w-4xl { max-width: 56rem; }
+.max-w-6xl { max-width: 72rem; }
+.max-w-full { max-width: 100%; }
+
+/* Border radius utilities */
+.rounded-none { border-radius: 0; }
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-full { border-radius: 9999px; }
+
+/* Opacity utilities */
+.opacity-0 { opacity: 0; }
+.opacity-25 { opacity: 0.25; }
+.opacity-50 { opacity: 0.5; }
+.opacity-75 { opacity: 0.75; }
+.opacity-100 { opacity: 1; }
+
+/* Cursor utilities */
+.cursor-pointer { cursor: pointer; }
+.cursor-default { cursor: default; }
+.cursor-not-allowed { cursor: not-allowed; }
+
+/* Overflow utilities */
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+.overflow-scroll { overflow: scroll; }
+.overflow-x-auto { overflow-x: auto; }
+.overflow-y-auto { overflow-y: auto; }
+
+/* Position utilities */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.sticky { position: sticky; }
+
+/* Text alignment */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+/* Visibility */
+.visible { visibility: visible; }
+.invisible { visibility: hidden; }
+
+/* ============================================================================
+   5. ANIMATION KEYFRAMES
+   ============================================================================ */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: var(--glow-primary); }
+  50% { box-shadow: 0 0 30px rgba(0, 255, 136, 0.5); }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Animation utilities */
+.animate-pulse { animation: pulse 2s ease-in-out infinite; }
+.animate-spin { animation: spin 1s linear infinite; }
+.animate-fade-in { animation: fadeIn var(--transition-normal) ease forwards; }
+.animate-slide-up { animation: slideInUp var(--transition-normal) ease forwards; }
+.animate-glow { animation: glow 2s ease-in-out infinite; }
+.animate-blink { animation: blink 1s step-end infinite; }

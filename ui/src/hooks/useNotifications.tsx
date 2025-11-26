@@ -118,7 +118,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 // Notification context for app-wide notifications
 import { createContext, useContext, ReactNode } from 'react';
 
-interface NotificationContextValue extends ReturnType<typeof useNotifications> {}
+type NotificationContextValue = ReturnType<typeof useNotifications>;
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
@@ -138,6 +138,10 @@ export function useNotificationContext() {
     throw new Error('useNotificationContext must be used within NotificationProvider');
   }
   return context;
+}
+
+export function useSafeNotificationContext() {
+  return useContext(NotificationContext);
 }
 
 export default useNotifications;

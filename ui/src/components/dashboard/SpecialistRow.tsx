@@ -1,7 +1,7 @@
 import React from 'react';
 import { Brain, Trash2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { SpecialistSummary } from '../../types';
-import { Badge, StatusBadge } from '../common';
+import { StatusBadge } from '../common';
 
 export interface SpecialistRowProps {
   specialist: SpecialistSummary;

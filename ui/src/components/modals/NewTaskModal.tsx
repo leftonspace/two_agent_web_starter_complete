@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Send, FileCode } from 'lucide-react';
+import { Send, FileCode } from 'lucide-react';
 import { Modal, Button, Input, Dropdown } from '../common';
 
 export interface NewTaskModalProps {

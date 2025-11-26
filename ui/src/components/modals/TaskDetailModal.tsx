@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, CheckCircle, XCircle, AlertCircle, User, Calendar, Timer, FileCode } from 'lucide-react';
 import type { TaskExecution, TaskDetail } from '../../types';
-import { Modal, Badge, StatusBadge } from '../common';
+import { Modal, StatusBadge } from '../common';
 import { FeedbackButtons } from '../dashboard';
 
 export interface TaskDetailModalProps {

@@ -174,13 +174,76 @@ app.include_router(tasks_router)
 
 
 # ============================================================================
+# Static Files & SPA Helper
+# ============================================================================
+
+# Get the project root directory
+PROJECT_ROOT = Path(__file__).parent.parent
+UI_DIST_DIR = PROJECT_ROOT / "ui" / "dist"
+
+
+def _serve_spa_index():
+    """Helper to serve the React SPA index.html."""
+    index_path = UI_DIST_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return JSONResponse(
+        status_code=404,
+        content={"error": "React UI not built. Run 'npm run build' in ui/"},
+    )
+
+
+# Mount React app static files if the dist directory exists
+if UI_DIST_DIR.exists():
+    # Mount static assets (JS, CSS, images, etc.) at /assets
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(UI_DIST_DIR / "assets")),
+        name="ui-assets",
+    )
+    logger.info(f"React UI mounted from {UI_DIST_DIR}")
+else:
+    logger.warning(f"React UI dist directory not found at {UI_DIST_DIR}. Run 'npm run build' in ui/")
+
+
+# ============================================================================
 # Root Endpoints
 # ============================================================================
 
 
-@app.get("/", tags=["root"])
+@app.get("/", include_in_schema=False)
 async def root():
-    """Root endpoint with API information."""
+    """Serve the React dashboard at root."""
+    return _serve_spa_index()
+
+
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard_page():
+    """Serve the React dashboard."""
+    return _serve_spa_index()
+
+
+@app.get("/cost-log", include_in_schema=False)
+async def cost_log_page():
+    """Serve the React cost log page."""
+    return _serve_spa_index()
+
+
+@app.get("/settings", include_in_schema=False)
+async def settings_page():
+    """Serve the React settings page."""
+    return _serve_spa_index()
+
+
+@app.get("/benchmark", include_in_schema=False)
+async def benchmark_page():
+    """Serve the React benchmark page."""
+    return _serve_spa_index()
+
+
+@app.get("/api/info", tags=["root"])
+async def api_info():
+    """API information endpoint."""
     return {
         "name": "JARVIS Dashboard API",
         "version": "1.0.0",
@@ -262,62 +325,6 @@ async def stats():
         stats["routing"] = "not available"
 
     return stats
-
-
-# ============================================================================
-# Static Files & SPA Fallback for React UI
-# ============================================================================
-
-# Get the project root directory
-PROJECT_ROOT = Path(__file__).parent.parent
-UI_DIST_DIR = PROJECT_ROOT / "ui" / "dist"
-
-# Mount React app static files if the dist directory exists
-if UI_DIST_DIR.exists():
-    # Mount static assets (JS, CSS, images, etc.)
-    app.mount(
-        "/ui/assets",
-        StaticFiles(directory=str(UI_DIST_DIR / "assets")),
-        name="ui-assets",
-    )
-
-    # SPA fallback: serve index.html for all /ui routes
-    @app.get("/ui/{full_path:path}", include_in_schema=False)
-    async def serve_spa(full_path: str):
-        """Serve the React SPA for all /ui routes (SPA fallback)."""
-        index_path = UI_DIST_DIR / "index.html"
-        if index_path.exists():
-            return FileResponse(str(index_path))
-        return JSONResponse(
-            status_code=404,
-            content={"error": "React UI not built. Run 'npm run build' in ui/"},
-        )
-
-    @app.get("/ui", include_in_schema=False)
-    async def serve_spa_root():
-        """Serve the React SPA at /ui root."""
-        index_path = UI_DIST_DIR / "index.html"
-        if index_path.exists():
-            return FileResponse(str(index_path))
-        return JSONResponse(
-            status_code=404,
-            content={"error": "React UI not built. Run 'npm run build' in ui/"},
-        )
-
-    logger.info(f"React UI mounted at /ui from {UI_DIST_DIR}")
-else:
-    logger.warning(f"React UI dist directory not found at {UI_DIST_DIR}. Run 'npm run build' in ui/")
-
-    @app.get("/ui/{full_path:path}", include_in_schema=False)
-    async def ui_not_built(full_path: str):
-        """Placeholder when UI is not built."""
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "React UI not built",
-                "hint": "Run 'npm run build' in the ui/ directory",
-            },
-        )
 
 
 # ============================================================================

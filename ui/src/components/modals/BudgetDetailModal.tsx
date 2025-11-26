@@ -1,7 +1,7 @@
 import React from 'react';
 import { Wallet, TrendingUp, TrendingDown, Calendar, DollarSign, Clock, AlertTriangle } from 'lucide-react';
 import type { BudgetStatus, BudgetHistory } from '../../types';
-import { Modal, ProgressBar, Badge } from '../common';
+import { Modal, ProgressBar } from '../common';
 
 export interface BudgetDetailModalProps {
   isOpen: boolean;

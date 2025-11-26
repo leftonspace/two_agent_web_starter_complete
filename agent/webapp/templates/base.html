@@ -10,6 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
 
+    <!-- Lucide Icons - Outlined style icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <!-- Design System CSS -->
     <link rel="stylesheet" href="/static/css/design-system.css">
 
@@ -649,12 +652,12 @@
                 </a>
                 <nav>
                     <ul>
-                        <li><a href="/" {% if request.path == '/' %}class="active"{% endif %}>Dashboard</a></li>
-                        <li><a href="/jarvis" {% if request.path == '/jarvis' %}class="active"{% endif %}>Chat</a></li>
-                        <li><a href="/jobs" {% if '/jobs' in request.path %}class="active"{% endif %}>Jobs</a></li>
-                        <li><a href="/projects" {% if '/projects' in request.path %}class="active"{% endif %}>Projects</a></li>
-                        <li><a href="/analytics" {% if request.path == '/analytics' %}class="active"{% endif %}>Analytics</a></li>
-                        <li><a href="/tuning" {% if request.path == '/tuning' %}class="active"{% endif %}>Tuning</a></li>
+                        <li><a href="/" {% if request.path == '/' %}class="active"{% endif %}><i data-lucide="layout-dashboard" class="icon icon-sm"></i> Dashboard</a></li>
+                        <li><a href="/jarvis" {% if request.path == '/jarvis' %}class="active"{% endif %}><i data-lucide="message-square" class="icon icon-sm"></i> Chat</a></li>
+                        <li><a href="/jobs" {% if '/jobs' in request.path %}class="active"{% endif %}><i data-lucide="file-text" class="icon icon-sm"></i> Jobs</a></li>
+                        <li><a href="/projects" {% if '/projects' in request.path %}class="active"{% endif %}><i data-lucide="folder" class="icon icon-sm"></i> Projects</a></li>
+                        <li><a href="/analytics" {% if request.path == '/analytics' %}class="active"{% endif %}><i data-lucide="bar-chart-2" class="icon icon-sm"></i> Analytics</a></li>
+                        <li><a href="/tuning" {% if request.path == '/tuning' %}class="active"{% endif %}><i data-lucide="settings" class="icon icon-sm"></i> Tuning</a></li>
                     </ul>
                 </nav>
             </div>
@@ -668,5 +671,14 @@
     </main>
 
     {% block extra_scripts %}{% endblock %}
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    </script>
 </body>
 </html>

@@ -97,6 +97,17 @@ from .ai_council import (
     InsufficientVotesError,
 )
 
+from .comparison import (
+    # Record
+    ComparisonRecord,
+    # Enhanced stats
+    EnhancedComparisonStats,
+    # Tracker
+    EnhancedComparisonTracker,
+    get_comparison_tracker,
+    reset_comparison_tracker,
+)
+
 
 __all__ = [
     # Base enums
@@ -150,4 +161,10 @@ __all__ = [
     "AggregationError",
     "NoVotesError",
     "InsufficientVotesError",
+    # Comparison tracker
+    "ComparisonRecord",
+    "EnhancedComparisonStats",
+    "EnhancedComparisonTracker",
+    "get_comparison_tracker",
+    "reset_comparison_tracker",
 ]
